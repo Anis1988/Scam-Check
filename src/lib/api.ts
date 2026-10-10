@@ -1,4 +1,4 @@
-import type { AiMode, AppSettings, Bill, CheckResult, Kind, ListEntry, SavedItem } from './types';
+import type { AiMode, AppSettings, Bill, CheckResult, Kind, ListEntry, ModelChoice, SavedItem } from './types';
 
 const CODE_KEY = 'sc.accessCode';
 export const getCode = (): string => { try { return localStorage.getItem(CODE_KEY) ?? ''; } catch { return ''; } };
@@ -50,8 +50,8 @@ export const api = {
   check: async (b: CheckInput) =>
     call<CheckResult>('/api/check', { method: 'POST', body: JSON.stringify({ kind: b.kind, text: b.text || undefined, from: b.from || undefined, fileHash: b.file ? await hashOf(b.file.data) : undefined, pdf: b.file?.mime === 'application/pdf' || undefined, aiMode: b.aiMode }) }),
   /** The AI's opinion (10-40 s): the same message, with the file. fresh = ↻ Re-check (ask again, even if remembered). */
-  ai: (b: CheckInput, fresh = false) =>
-    call<CheckResult>('/api/ai', { method: 'POST', body: JSON.stringify({ kind: b.kind, text: b.text || undefined, from: b.from || undefined, file: b.file ? { mime: b.file.mime, data: b.file.data } : undefined, pdf: b.file?.mime === 'application/pdf' || undefined, aiMode: b.aiMode, fresh: fresh || undefined }) }),
+  ai: (b: CheckInput, fresh = false, model?: ModelChoice) =>
+    call<CheckResult>('/api/ai', { method: 'POST', body: JSON.stringify({ kind: b.kind, text: b.text || undefined, from: b.from || undefined, file: b.file ? { mime: b.file.mime, data: b.file.data } : undefined, pdf: b.file?.mime === 'application/pdf' || undefined, aiMode: b.aiMode, fresh: fresh || undefined, model }) }),
   result: (id: string) => call<CheckResult>(`/api/check?id=${encodeURIComponent(id)}`),
   saved: () => call<SavedItem[]>('/api/saved'),
   save: (id: string, note: string, keep?: { text?: string; file?: Upload }) =>

@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { api, type CheckInput } from './api';
 import { saveToHistory } from './history';
 import { keepInput } from './inputs';
-import type { CheckResult } from './types';
+import type { CheckResult, ModelChoice } from './types';
 import { refreshStatus } from './useStatus';
 
 /**
@@ -65,13 +65,13 @@ export async function runBatch(inputs: CheckInput[]): Promise<void> {
  * Asks the AI about one item: "Ask the AI" / "Summarize" (fresh = false), or ↻ Re-check with the AI picked in
  * Settings now (fresh = true, even if an answer is remembered). Uses 1 AI check.
  */
-export async function askAgain(key: string, fresh: boolean): Promise<string | null> {
+export async function askAgain(key: string, fresh: boolean, model?: ModelChoice): Promise<string | null> {
   const it = itemOf(key);
   if (!it?.input || !it.result) return null;
   const before = it.result;
   patchItem(key, { result: { ...before, ai: 'pending', aiOffer: false, briefOffer: false } });
   try {
-    const done = await api.ai({ ...it.input, aiMode: 'always' }, fresh);
+    const done = await api.ai({ ...it.input, aiMode: 'always' }, fresh, model);
     patchItem(key, { result: done });
     saveToHistory(done);
     return done.ai === 'done' && !done.remembered ? null : done.aiNote ?? null;
