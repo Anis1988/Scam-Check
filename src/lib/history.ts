@@ -2,22 +2,28 @@ import type { CheckResult } from './types';
 import { clearInputs, pruneInputs } from './inputs';
 
 /** Choices that only apply to this phone or computer (Settings → This device). */
-export interface DevicePrefs { textSize: 'normal' | 'large'; historySize: number }
+export interface DevicePrefs { textSize: 'normal' | 'large'; historySize: number; theme: 'light' | 'dark' }
 const PREFS_KEY = 'sc.device';
 export function getPrefs(): DevicePrefs {
   try {
     const p = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}') as Partial<DevicePrefs>;
-    return { textSize: p.textSize === 'large' ? 'large' : 'normal', historySize: [20, 50, 100].includes(p.historySize ?? 0) ? p.historySize! : 50 };
+    return { textSize: p.textSize === 'large' ? 'large' : 'normal', historySize: [20, 50, 100].includes(p.historySize ?? 0) ? p.historySize! : 50, theme: p.theme === 'dark' ? 'dark' : 'light' };
   } catch {
-    return { textSize: 'normal', historySize: 50 };
+    return { textSize: 'normal', historySize: 50, theme: 'light' };
   }
 }
 export function setPrefs(p: DevicePrefs): void {
   try { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch { /* private mode */ }
   applyPrefs(p);
 }
-/** Bigger text: the whole app scales with the page's base size. */
-export const applyPrefs = (p = getPrefs()) => document.documentElement.classList.toggle('text-large', p.textSize === 'large');
+/** Bigger text (the whole app scales with the page's base size) and ☀️ light / 🌙 dark (the colours are CSS variables, index.css). */
+export function applyPrefs(p = getPrefs()): void {
+  const html = document.documentElement;
+  html.classList.toggle('text-large', p.textSize === 'large');
+  html.classList.toggle('dark', p.theme === 'dark');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', p.theme === 'dark' ? '#0D1418' : '#EBF0F3');
+  window.dispatchEvent(new Event('sc-prefs'));
+}
 
 /** Your past checks, kept on this device only (the last 50 by default). */
 const KEY = 'sc.history';

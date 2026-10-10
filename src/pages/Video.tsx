@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent } from 'react';
 import { api, uploadVideo, videoFrames } from '../lib/api';
 import { ModelMenu } from '../components/ModelMenu';
-import { FACT_LABEL, providerOf, type FactVerdict, type ModelChoice, type Provider, type VideoResult } from '../lib/types';
+import { FACT_LABEL, modelName, providerOf, type FactVerdict, type ModelChoice, type Provider, type VideoResult } from '../lib/types';
 import { refreshStatus, useStatus } from '../lib/useStatus';
 import { CheckedBy } from '../components/ResultCard';
 import { Rail, Shell, toast } from '../components/ui';
@@ -67,7 +67,7 @@ export function VideoCard({ r, example = false }: { r: VideoResult; example?: bo
         <span className="text-stone-400" aria-hidden="true">{open ? '−' : '+'}</span>
       </button>
       {open && r.status === 'failed' && <p className="break-words text-sm text-amber-800">{r.error}</p>}
-      {open && r.status === 'failed' && retries.has(r.id) && <ModelMenu label="↻ Try with another model" primary onPick={(m) => retries.get(r.id)?.(m)} />}
+      {open && r.status === 'failed' && retries.has(r.id) && <ModelMenu label="⚠️ It failed: try another model" primary need="pictures" tried={r.tried} onPick={(m) => retries.get(r.id)?.(m)} />}
       {open && r.status === 'pending' && <p className="text-xs text-stone-500">This can take up to a few minutes for long videos. You can switch tabs or close the app: the answer will be here.</p>}
       {open && r.status === 'done' && (
         <div className="space-y-2.5 border-t border-stone-200/70 pt-2.5 text-sm">
@@ -96,7 +96,7 @@ export function VideoCard({ r, example = false }: { r: VideoResult; example?: bo
             </div>
           )}
           <p className="text-xs text-stone-500">An AI fact-check can be wrong. For anything important, look at the sources.</p>
-          {retries.has(r.id) && !example && <ModelMenu label="↻ Re-check with another model" onPick={(m) => retries.get(r.id)?.(m)} />}
+          {retries.has(r.id) && !example && <ModelMenu label="↻ Re-check with another model" need="pictures" onPick={(m) => retries.get(r.id)?.(m)} />}
         </div>
       )}
     </article>
@@ -109,8 +109,9 @@ export function Video({ sharedLink = '' }: { sharedLink?: string }) {
   const [link, setLink] = useState(sharedLink);
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
-  // The AI picked in Settings does the video checks.
-  const p = st?.settings.ai.provider ?? 'gemini';
+  // The AI picked in Settings does the video checks, unless another one is picked here (e.g. it isn't set up).
+  const [pick, setPick] = useState<ModelChoice | undefined>();
+  const p = pick?.provider ?? st?.settings.ai.provider ?? 'gemini';
   const ready = st?.providers?.[p]?.ready;
   const g = st?.providers?.[p];
   const left = g && g.limit !== null ? Math.max(0, g.limit - g.used) : null;
@@ -133,7 +134,7 @@ export function Video({ sharedLink = '' }: { sharedLink?: string }) {
 
   /** The AI for this video: the one picked just now, else the one in Settings. */
   const providerFor = (m?: ModelChoice): Provider => m?.provider ?? st?.settings.ai.provider ?? 'gemini';
-  const addFile = (f: File | undefined, m?: ModelChoice) => {
+  const addFile = (f: File | undefined, m: ModelChoice | undefined = pick) => {
     if (!f) return;
     if (!f.type.startsWith('video/') && !/\.(mp4|mov|m4v|webm|3gp|mkv|avi)$/i.test(f.name)) return toast('error', 'Choose a video file.');
     if (f.size > 500_000_000) return toast('error', 'This video is too big (500 MB max). Trim it, or use a YouTube link.');
@@ -146,7 +147,7 @@ export function Video({ sharedLink = '' }: { sharedLink?: string }) {
       return { ...(await uploadVideo(f, (s) => { progress.set(id, s); list = [...list]; subs.forEach((x) => x()); })), model: m };
     });
   };
-  const addLink = (again?: string, m?: ModelChoice) => {
+  const addLink = (again?: string, m: ModelChoice | undefined = pick) => {
     const v = (again ?? link).trim();
     if (!isVideoLink(v)) return toast('error', 'Paste a YouTube or TikTok link (or upload the video).');
     setLink('');
@@ -171,17 +172,23 @@ export function Video({ sharedLink = '' }: { sharedLink?: string }) {
           <h1 className="text-2xl font-bold">Is this video true?</h1>
           <p className="text-sm text-stone-500">Upload a video or paste a link. You get true or false, a short summary in simple words, each claim checked, and the sources.</p>
         </div>
-        {st && <p className="hud">🤖 {st.model}{p !== 'gemini' ? ' · looks at pictures from the video (no sound): pick a Gemini model in Settings to watch it whole' : ' · watches the whole video'}</p>}
-        {st && !ready && <p className="panel text-sm text-amber-800">{providerOf(p).name} isn’t set up: add <code>{providerOf(p).env}</code> in Vercel, then redeploy, or pick another model in Settings.</p>}
+        {st && <p className="hud">🤖 {pick ? modelName(pick.provider, pick.id) : st.model}{p !== 'gemini' ? ' · looks at pictures from the video (no sound): pick a Gemini model in Settings to watch it whole' : ' · watches the whole video'}</p>}
+        {st && (!ready || left === 0) && (
+          <div className="panel space-y-2 text-sm text-amber-800">
+            <p>{!ready ? <>{providerOf(p).name} isn’t set up (<code>{providerOf(p).env}</code> in Vercel).</> : `Today’s ${providerOf(p).name} checks are used up.`} Pick another model to continue:</p>
+            <ModelMenu label="🤖 Use another model" primary need="pictures" onPick={setPick} />
+          </div>
+        )}
+        {pick && <button type="button" className="btn-ghost text-xs" onClick={() => setPick(undefined)}>✕ Back to the Settings model</button>}
         <input ref={input} type="file" accept="video/*" className="hidden" onChange={(e) => { addFile(e.target.files?.[0]); e.target.value = ''; }} />
-        <button type="button" className="dropzone" data-over={over} disabled={!ready} onClick={() => input.current?.click()}>
+        <button type="button" className="dropzone" data-over={over} disabled={!ready || left === 0} onClick={() => input.current?.click()}>
           <span className="text-3xl" aria-hidden="true">🎬</span>
           <span className="font-display font-semibold text-teal-900">Upload a video</span>
           <span className="text-xs text-stone-500">Tap to choose, or drag & drop here · up to 500 MB (about 20 minutes with Gemini)</span>
         </button>
         <form className="flex gap-2" onSubmit={(e) => (e.preventDefault(), addLink())}>
           <input className="input min-w-0 flex-1" value={link} onChange={(e) => setLink(e.target.value)} placeholder="Or paste a YouTube / TikTok link" inputMode="url" autoCapitalize="off" spellCheck={false} aria-label="Video link" />
-          <button className="btn" disabled={!ready || !link.trim()}>Check</button>
+          <button className="btn" disabled={!ready || left === 0 || !link.trim()}>Check</button>
         </form>
         <p className="text-xs text-stone-500">TikTok links: no AI can watch them, so only the caption and cover are checked. For the whole video, save it (Share → Save video) and upload it. {left !== null && ready ? `Uses 1 of ${left} ${providerOf(p).name} checks left today.` : ''}</p>
       </section>

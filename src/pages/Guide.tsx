@@ -70,7 +70,7 @@ const COMPANY: CompanyInfo = {
 
 const SECTIONS = [
   ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['video', '🎬 Video: is it true?'], ['company', '🏢 Look up a company'], ['lookup', '⚡ Quick look-up'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
-  ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Claude or Gemini (free)'], ['recheck', '↻ Re-check'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
+  ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Which AI'], ['recheck', '↻ Re-check'], ['failed', '⚠️ When an AI fails'], ['look', '🌙 Dark mode'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
   ['share', 'Share from your phone'], ['scam', 'If it’s a scam'], ['privacy', 'Privacy and cost'],
 ] as const;
 type Id = (typeof SECTIONS)[number][0];
@@ -161,7 +161,7 @@ export function Guide() {
           <li><b>Claude, Groq, OpenRouter</b> can’t watch videos: the app takes 6 pictures from your video on your phone and they check those (no sound). For a YouTube link they check its title and cover picture.</li>
           <li><b>TikTok links:</b> no AI can watch them, so only the caption and cover are checked. For the whole video, save it (Share → Save video) and upload it.</li>
         </ul>
-        <p>Each video uses 1 AI check. You can switch tabs or close the app while it works. If it fails or today’s limit is reached, tap <b>↻ Try with another model</b> and pick one from the list.</p>
+        <p>Each video uses 1 AI check. You can switch tabs or close the app while it works. If it fails or today’s limit is reached, tap <b>⚠️ It failed: try another model</b> and pick one from the list.</p>
         <p className="text-xs text-stone-500">Example (made up):</p>
         <VideoCard r={VIDEO} example />
       </Section>
@@ -265,11 +265,40 @@ export function Guide() {
       </Section>
 
       <Section id="recheck">
-        <p><b>↻ Re-check</b> asks an AI again about the same message, under <b>every</b> result, even a good one. Tap <b>↻ Re-check</b> and a list of all the Claude and Gemini models opens: tap one and it checks it right away, just for this once (Settings stay as they are; models not set up, or with no checks left today, are greyed out). It uses 1 AI check of that kind. You find it under a result on the Check screen and when you open one in History.</p>
+        <p><b>↻ Re-check</b> asks an AI again about the same message, under <b>every</b> result, even a good one. Tap <b>↻ Re-check</b> and a list of all the models (Claude, Gemini, Groq, OpenRouter) opens: tap one and it checks it right away, just for this once (Settings stay as they are; models not set up, or with no checks left today, are greyed out). It uses 1 AI check of that kind. You find it under a result on the Check screen and when you open one in History.</p>
         <p>Checking the <b>same</b> message again normally gives the answer remembered from last time, for free, even if you picked another model since. The result then says so (📌) and offers Re-check.</p>
         <p>Re-check needs the original, so your device keeps each History check’s words and picture (on this device only, removed with History).</p>
         <p className="text-xs text-stone-500">Example (made up, does nothing here):</p>
         <RecheckBar r={{ ...SAFE, remembered: true, aiBy: 'Gemini Flash (free)' }} canRecheck example />
+      </Section>
+
+      <Section id="failed">
+        <p>Sometimes the AI you picked can’t do it: it’s busy, its key is wrong, it isn’t set up, or today’s limit is reached. Then you don’t lose anything:</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>Screenshots, bills, emails:</b> the free checks still give an answer, and right at the top you see <b>⚠️ It failed: try another model</b>. Tap it, pick another model, and it checks again with that one.</li>
+          <li><b>Several pictures at once:</b> the ones that failed say so in the list, and one button sends <b>all of them</b> to the model you pick.</li>
+          <li><b>🎬 Video:</b> the card says <b>⚠️ It failed: try another model</b>. If the model in Settings isn’t set up or has no checks left today, pick another one right there before you upload.</li>
+          <li><b>🏢 Look up:</b> <b>Continue with another model</b>.</li>
+        </ul>
+        <p>The list only lets you pick models that <b>can</b> do the job: the one that just failed is marked ⚠️, and the ones that can’t read pictures or PDFs, can’t search the web, aren’t set up, or have no checks left today are greyed out with the reason. Your Settings stay as they are.</p>
+        <p className="text-xs text-stone-500">Example (made up, does nothing here):</p>
+        <RecheckBar r={{ ...SAFE, ai: 'failed', aiTried: 'Gemini Pro (free)', remembered: undefined }} canRecheck example />
+      </Section>
+
+      <Section id="look">
+        <p>Tap <b>🌙</b> at the top (next to the AI counter) for the dark look, and <b>☀️</b> to go back to light. It’s remembered on this phone or computer; you also find it in <b>Settings → 📱 This device → Look</b>.</p>
+        <p className="text-xs text-stone-500">The same result in both looks (made up):</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {(['light', 'dark'] as const).map((t) => (
+            <div key={t} className={`${t} space-y-2 rounded-2xl bg-mist p-3 text-stone-800`}>
+              <p className="hud">{t === 'light' ? '☀️ Light' : '🌙 Dark'}</p>
+              <div className="card flex items-center gap-3">
+                <span className="min-w-0 flex-1"><VerdictChip verdict="safe" /><span className="mt-0.5 block truncate text-sm font-medium text-stone-900">Duke Energy bill</span></span>
+                <ScoreRing score={6} verdict="safe" size={44} />
+              </div>
+            </div>
+          ))}
+        </div>
       </Section>
 
       <Section id="settings">
@@ -279,7 +308,7 @@ export function Guide() {
           <li><b>🔎 Free checks:</b> Google’s list of dangerous sites, how new a website is, and how many days a result is remembered (checking it again is then free).</li>
           <li><b>📷 Pictures:</b> picture size (Small is cheaper, Sharp reads tiny text better) and how many at once.</li>
           <li><b>⭐ Saving & clean-up:</b> keep the original by default, and the automatic clean-up.</li>
-          <li><b>📱 This device:</b> bigger text, how many checks History keeps, forget the access code.</li>
+          <li><b>📱 This device:</b> ☀️ light or 🌙 dark look, bigger text, how many checks History keeps, forget the access code.</li>
         </ul>
         <p>The secret keys (the AI key, storage, access code) stay in Vercel and are never shown. The Vercel variables <code>AI_MODEL</code> and <code>AI_DAILY_LIMIT</code> are only the starting values: what you pick in Settings wins. <b>↺ Starting values</b> puts everything back.</p>
       </Section>

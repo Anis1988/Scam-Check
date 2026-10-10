@@ -67,7 +67,9 @@ export function Settings() {
       toast('error', e instanceof Error ? e.message : String(e));
     }
   };
-  const device = (p: Partial<DevicePrefs>) => { const next = { ...prefs, ...p }; setP(next); setPrefs(next); };
+  const device = (p: Partial<DevicePrefs>) => { const next = { ...getPrefs(), ...p }; setP(next); setPrefs(next); };
+  // The ☀️/🌙 button at the top changes it too.
+  useEffect(() => { const upd = () => setP(getPrefs()); window.addEventListener('sc-prefs', upd); return () => window.removeEventListener('sc-prefs', upd); }, []);
   const commitLimit = () => {
     if (!cfg) return;
     const n = Math.round(Number(limitText));
@@ -261,6 +263,10 @@ export function Settings() {
       <ListsCard />
 
       <Section id="device" title="📱 This device" subtitle="Only on this phone or computer">
+        <div className="space-y-1.5">
+          <Field label="Look" hint="Also the ☀️/🌙 button at the top.">{null}</Field>
+          <Segmented<DevicePrefs['theme']> label="Look" value={prefs.theme} onChange={(v) => device({ theme: v })} options={[{ id: 'light', name: '☀️ Light' }, { id: 'dark', name: '🌙 Dark' }]} />
+        </div>
         <div className="space-y-1.5">
           <Field label="Text size">{null}</Field>
           <Segmented<DevicePrefs['textSize']> label="Text size" value={prefs.textSize} onChange={(v) => device({ textSize: v })} options={[{ id: 'normal', name: 'Normal' }, { id: 'large', name: 'Large' }]} />
