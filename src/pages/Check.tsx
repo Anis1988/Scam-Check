@@ -465,6 +465,7 @@ export function Check() {
                             : <>
                                 <VerdictChip verdict={r.verdict} unchecked={r.unchecked && r.ai !== 'pending'} extra={r.ai === 'pending' ? 'AI reading…' : undefined} />
                                 <span className="mt-0.5 block truncate text-sm font-medium text-stone-900">{r.brief?.whatItIs || r.title || r.summary}</span>
+                                {r.ai === 'done' && r.aiBy && <span className="hud block truncate !text-[10px]">🤖 {r.aiBy}</span>}
                                 {it.savedName && <span className="block truncate font-mono text-xs text-emerald-700">⭐ {it.savedName}</span>}
                               </>}
                         </span>

@@ -3,7 +3,7 @@ import { api, downloadFile, fileLink } from '../lib/api';
 import { isNative } from '../lib/native';
 import { ScoreRing, VerdictChip, toast } from './ui';
 import { KIND_LABEL, type SavedItem } from '../lib/types';
-import { BriefCard } from './ResultCard';
+import { BriefCard, CheckedBy } from './ResultCard';
 
 const DOT = { bad: 'text-red-600', warn: 'text-amber-600', good: 'text-emerald-600', info: 'text-stone-500' } as const;
 const when = (iso: string) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -21,6 +21,7 @@ export function SavedCard({ s, onNote, onDelete, onChange, example = false }: { 
         {s.unchecked ? <span className="flex h-12 w-12 shrink-0 items-center justify-center text-2xl" aria-hidden="true">{KIND_LABEL[s.kind].icon}</span> : <ScoreRing score={s.score} verdict={s.verdict} size={48} />}
         <span className="min-w-0 flex-1">
           {s.name && <span className="block truncate font-display text-base font-semibold text-stone-900">{s.name}</span>}
+          {s.aiBy && <span className="mt-0.5 block"><CheckedBy ai="done" aiBy={s.aiBy} /></span>}
           <span className="mt-0.5 flex flex-wrap items-center gap-1.5"><VerdictChip verdict={s.verdict} unchecked={s.unchecked} />{s.file && <span className="chip border-stone-200 bg-white/70 text-stone-600">{s.file.mime === 'application/pdf' ? '📄 PDF' : '🖼️ Picture'}</span>}</span>
           <span className="mt-1 block text-sm text-stone-700">{s.impersonating ? `Pretended to be ${s.impersonating}` : s.brief?.whatItIs || s.excerpt || KIND_LABEL[s.kind].text}</span>
           {s.note && <span className="block text-sm text-teal-800">📝 {s.note}</span>}

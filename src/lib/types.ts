@@ -114,6 +114,7 @@ export interface SavedItem {
   whatToDo: string[];
   excerpt: string;
   brief?: Brief;
+  aiBy?: string; // which AI checked it (none = free checks only)
   text?: string; // the original message, when you chose to keep it
   file?: { mime: string; name: string; size: number }; // a kept picture or PDF (the file itself: GET /api/file?id=…)
 }
