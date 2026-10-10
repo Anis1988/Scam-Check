@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { App as NativeApp } from '@capacitor/app';
+import { AppUpdateCheck } from './components/AppUpdate';
+import { DEFAULT_SERVER, getServer, isNative, setServer } from './lib/native';
 import { Toasts } from './components/ui';
 import { Check } from './pages/Check';
 import { History } from './pages/History';
@@ -41,12 +44,21 @@ function AiMeter() {
 
 function AccessGate({ onDone }: { onDone: () => void }) {
   const [v, setV] = useState('');
+  const [server, setSrv] = useState(getServer);
+  const done = () => { if (isNative()) setServer(server); setCode(v.trim()); onDone(); };
   return (
     <div className="card mx-auto max-w-sm space-y-3">
       <h1 className="text-xl font-semibold">Enter your access code</h1>
       <p className="text-sm text-stone-500">The code you set as <code>APP_ACCESS_TOKEN</code> in Vercel. It keeps strangers from using your AI checks.</p>
-      <input className="input w-full" type="password" value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && v && (setCode(v.trim()), onDone())} placeholder="Access code" autoFocus />
-      <button className="btn-primary w-full" disabled={!v} onClick={() => (setCode(v.trim()), onDone())}>Continue</button>
+      <input className="input w-full" type="password" value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && v && done()} placeholder="Access code" autoFocus />
+      {isNative() && (
+        <label className="block space-y-1">
+          <span className="label">Your site’s address</span>
+          <input className="input w-full font-mono text-sm" value={server} onChange={(e) => setSrv(e.target.value)} inputMode="url" autoCapitalize="off" spellCheck={false} placeholder={DEFAULT_SERVER} />
+          <span className="block text-xs text-stone-500">The address you open Scam Check at (Vercel → your project → Domains). Leave it if it already works.</span>
+        </label>
+      )}
+      <button className="btn-primary w-full" disabled={!v} onClick={done}>Continue</button>
     </div>
   );
 }
@@ -66,10 +78,22 @@ export default function App() {
     if (!path.startsWith('/share')) window.history.replaceState(null, '', t === 'Check' ? '/' : `/${t.toLowerCase()}`);
   };
 
+  // Android app: the phone's back button goes back to Check, then puts the app in the background.
+  const tabNow = useRef(tab);
+  tabNow.current = tab;
+  useEffect(() => {
+    if (!isNative()) return;
+    const h = NativeApp.addListener('backButton', () => {
+      if (tabNow.current !== 'Check') go('Check');
+      else void NativeApp.minimizeApp();
+    });
+    return () => void h.then((x) => x.remove());
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="min-h-screen">
       <Toasts />
-      <header className="sticky top-0 z-40 border-b border-white/70 bg-mist/75 backdrop-blur-xl" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <header className="sticky top-0 z-40 border-b border-white/70 bg-mist/75 backdrop-blur-xl" style={{ paddingTop: 'var(--safe-area-inset-top, env(safe-area-inset-top))' }}>
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-1 px-4 pt-2 md:flex-nowrap md:py-2.5">
           <div className="flex min-w-0 flex-1 items-center gap-2.5 md:flex-none">
             <Logo />
@@ -92,7 +116,8 @@ export default function App() {
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 pb-16 pt-5" style={{ paddingBottom: 'max(4rem, env(safe-area-inset-bottom))' }}>
+      <main className="mx-auto max-w-7xl px-4 pb-16 pt-5" style={{ paddingBottom: 'calc(4rem + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))' }}>
+        <AppUpdateCheck />
         {tab === 'Guide' ? <Guide /> : !hasCode ? <AccessGate onDone={() => setHasCode(true)} /> : tab === 'Check' ? <Check /> : tab === 'Saved' ? <Saved /> : tab === 'History' ? <History /> : <Settings />}
       </main>
     </div>

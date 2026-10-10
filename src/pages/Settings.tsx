@@ -4,6 +4,8 @@ import { clearHistory, getPrefs, setPrefs, type DevicePrefs } from '../lib/histo
 import { MODELS, type AiMode, type AppSettings, type Effort, type ListEntry } from '../lib/types';
 import { aiLeft, refreshStatus, setStatusSettings, useStatus } from '../lib/useStatus';
 import { Card, Field, Rail, Shell, Toggle, toast } from '../components/ui';
+import { APP_BUILD, downloadApp, latestApp } from '../components/AppUpdate';
+import { getServer, isNative, setServer } from '../lib/native';
 
 const MODES: { id: AiMode; name: string; hint: string }[] = [
   { id: 'ask', name: 'Save credits (recommended)', hint: 'Photos and PDFs go to the AI automatically (it’s the only way to read them). Texts and emails only when you tap “Ask the AI”.' },
@@ -228,6 +230,20 @@ export function Settings() {
       <ListsCard />
 
       <Section id="device" title="📱 This device" subtitle="Only on this phone or computer">
+        {isNative() && (
+          <>
+            <Field label="App version" hint={`1.0.${APP_BUILD}. New versions are also offered at the top of the app when you open it.`}>
+              <button className="btn" onClick={() => void latestApp().then((r) => {
+                if (!r) toast('error', 'Could not reach the download page. Try again in a minute.');
+                else if (r.build <= APP_BUILD) toast('success', 'You have the latest version.');
+                else void downloadApp(r.url);
+              }, () => toast('error', 'Could not reach the download page. Try again in a minute.'))}>Check for updates</button>
+            </Field>
+            <Field label="Your site’s address" hint={getServer()}>
+              <button className="btn" onClick={() => { const v = window.prompt('The address you open Scam Check at (Vercel → Domains):', getServer()); if (v) { setServer(v); window.location.reload(); } }}>Change</button>
+            </Field>
+          </>
+        )}
         <div className="space-y-1.5">
           <Field label="Text size">{null}</Field>
           <Segmented<DevicePrefs['textSize']> label="Text size" value={prefs.textSize} onChange={(v) => device({ textSize: v })} options={[{ id: 'normal', name: 'Normal' }, { id: 'large', name: 'Large' }]} />

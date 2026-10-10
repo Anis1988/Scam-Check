@@ -1,3 +1,6 @@
+import { Directory, Filesystem } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+import { apiUrl, isNative } from './native';
 import type { AiMode, AppSettings, Bill, CheckResult, Kind, ListEntry, SavedItem } from './types';
 
 const CODE_KEY = 'sc.accessCode';
@@ -14,7 +17,7 @@ export async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const code = getCode();
   let res: Response;
   try {
-    res = await fetch(path, { ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}), ...(code ? { 'X-Access-Token': code } : {}) } });
+    res = await fetch(apiUrl(path), { ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}), ...(code ? { 'X-Access-Token': code } : {}) } });
   } catch {
     throw new Error('Could not reach the server. Check your internet connection.');
   }
@@ -24,7 +27,7 @@ export async function call<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok || data === null) {
     if (res.status === 401) window.dispatchEvent(new Event('sc-unauthorized'));
     if (res.status === 413) throw new Error('That file is too big. Use a smaller picture or a PDF under 3 MB.');
-    const local = /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
+    const local = !isNative() && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
     const noServer = local
       ? `The server part didn't answer (HTTP ${res.status}). Get the latest code (git pull, npm install), then restart npm run dev (not npm run preview).`
       : `The server part didn't answer (HTTP ${res.status}${vercelCode(raw)}). Check Vercel → Logs.`;
@@ -118,8 +121,22 @@ export function fileLink(f: { mime: string; data: string }): string {
   return URL.createObjectURL(new Blob([bytes], { type: f.mime }));
 }
 
+/**
+ * Android app: the file is written to the phone's cache, then the Share menu opens (Save to Files, Drive, open
+ * with a PDF reader, send by WhatsApp…). A browser-style download doesn't exist inside an app.
+ */
+async function shareFile(f: { mime: string; name: string; data: string }): Promise<void> {
+  const ext = f.mime === 'application/pdf' ? '.pdf' : f.mime === 'image/png' ? '.png' : '.jpg';
+  const base = f.name.replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'scam-check';
+  const path = /\.(jpe?g|png|pdf|webp|gif)$/i.test(base) ? base : `${base}${ext}`;
+  await Filesystem.writeFile({ path, data: f.data, directory: Directory.Cache });
+  const { uri } = await Filesystem.getUri({ path, directory: Directory.Cache });
+  await Share.share({ title: path, files: [uri], dialogTitle: 'Save or open it' });
+}
+
 /** Saves a kept file to the phone or computer (Downloads), named after the saved check ("1-Duke Energy.jpg"). */
-export function downloadFile(f: { mime: string; name: string; data: string }): void {
+export function downloadFile(f: { mime: string; name: string; data: string }): void | Promise<void> {
+  if (isNative()) return shareFile(f);
   const href = fileLink(f);
   const ext = f.mime === 'application/pdf' ? '.pdf' : f.mime === 'image/png' ? '.png' : '.jpg';
   const base = f.name.replace(/[\\/:*?"<>|]+/g, ' ').trim();

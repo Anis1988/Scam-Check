@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { ResultCard } from '../components/ResultCard';
 import { SavedCard } from '../components/SavedCard';
 import { BillRow } from './Bills';
+import { UpdateBanner } from '../components/AppUpdate';
 import { Rail, ScoreRing, Shell, VerdictChip } from '../components/ui';
 import type { Bill, CheckResult, SavedItem, Verdict } from '../lib/types';
 
@@ -49,7 +50,7 @@ const BATCH: { icon: string; file: string; verdict: Verdict; score: number; line
 const SECTIONS = [
   ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['lookup', '⚡ Quick look-up'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
   ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
-  ['share', 'Share from your phone'], ['scam', 'If it’s a scam'], ['privacy', 'Privacy and cost'],
+  ['share', 'Share from your phone'], ['android', '📱 Android app'], ['scam', 'If it’s a scam'], ['privacy', 'Privacy and cost'],
 ] as const;
 type Id = (typeof SECTIONS)[number][0];
 
@@ -233,6 +234,19 @@ export function Guide() {
           <li>Already paid or gave details? Call your bank using the number on your card, right away.</li>
           <li>Report: forward texts to <b>7726</b> (SPAM), phishing emails to <b>reportphishing@apwg.org</b>, and tell the FTC at <b>reportfraud.ftc.gov</b>.</li>
         </ul>
+      </Section>
+
+      <Section id="android">
+        <p>There is also an <b>Android app</b>: the same screens, using the same server, so your saved checks, bills, lists, settings and AI limit are shared with the website.</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>Install:</b> on your phone, open the GitHub page <b>Scam-Check → Releases → android-latest</b> and tap <b>ScamCheck.apk</b>. The first time, Android asks to allow installing apps from your browser: allow it once. Then enter your access code (and check your site’s address).</li>
+          <li><b>Share straight to it:</b> in Messages, WhatsApp or Gmail, long-press a message → <b>Share</b> → <b>Scam Check</b>. The app opens with the words already filled in. You can also share a screenshot or photo to it.</li>
+          <li><b>Updates:</b> a banner shows at the top of the app. Tap <b>Update</b>, then <b>Install</b>; your data stays. <b>Later</b> hides it until the next version. Or check in <b>Settings → This device</b>.</li>
+          <li><b>Save / share</b> on a saved picture or PDF opens the phone’s Share menu: save it to Files or Drive, or open it in a PDF reader.</li>
+          <li>The phone’s back button goes back to Check, then closes the app.</li>
+        </ul>
+        <p className="text-xs text-stone-500">The banner you see when a new version is ready (made-up numbers, does nothing here):</p>
+        <UpdateBanner have={4} next={5} />
       </Section>
 
       <Section id="privacy">

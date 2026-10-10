@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, downloadFile, fileLink } from '../lib/api';
+import { isNative } from '../lib/native';
 import { ScoreRing, VerdictChip, toast } from './ui';
 import { KIND_LABEL, type SavedItem } from '../lib/types';
 import { BriefCard } from './ResultCard';
@@ -92,11 +93,12 @@ function Original({ s, example, onRemoved }: { s: SavedItem; example: boolean; o
     <div className="panel space-y-2">
       <p className="break-all text-sm font-semibold text-stone-700">{isPdf ? '📄' : '🖼️'} {s.file!.name} <span className="font-normal text-stone-500">· {kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`}</span></p>
       {url && (isPdf
-        ? <a className="btn-ghost" href={url} target="_blank" rel="noopener noreferrer">Open the PDF ↗</a>
+        ? (isNative() ? <button className="btn-ghost" onClick={() => void run('dl', async () => { const f = await load(); await downloadFile(s.name ? { ...f, name: s.name } : f); })}>Open the PDF ↗</button>
+          : <a className="btn-ghost" href={url} target="_blank" rel="noopener noreferrer">Open the PDF ↗</a>)
         : <img src={url} alt="The saved picture" className="rise max-h-[70vh] w-full rounded-xl border border-white bg-white object-contain shadow-[0_0_0_1px_rgba(31,66,71,0.08)]" />)}
       <div className="flex flex-wrap gap-2">
         {!url && <button className="btn" disabled={!!busy} onClick={() => void run('show', async () => setUrl(fileLink(await load())))}>{busy === 'show' ? <><span className="spinner" /> Loading…</> : isPdf ? '👁 View the PDF' : '👁 View the picture'}</button>}
-        <button className="btn" disabled={!!busy} onClick={() => void run('dl', async () => { const f = await load(); downloadFile(s.name ? { ...f, name: s.name } : f); })}>{busy === 'dl' ? <><span className="spinner" /> …</> : '⬇ Download'}</button>
+        <button className="btn" disabled={!!busy} onClick={() => void run('dl', async () => { const f = await load(); await downloadFile(s.name ? { ...f, name: s.name } : f); })}>{busy === 'dl' ? <><span className="spinner" /> …</> : isNative() ? '⬇ Save / share' : '⬇ Download'}</button>
         <button className="btn" disabled={!!busy} onClick={() => !example && window.confirm(`Delete the ${isPdf ? 'PDF' : 'picture'}? The key facts and your note stay.`) && void run('rm', async () => { onRemoved?.(await api.removeFile(s.id)); toast('success', 'Deleted.'); })}>🗑 Delete {isPdf ? 'PDF' : 'picture'}</button>
       </div>
     </div>

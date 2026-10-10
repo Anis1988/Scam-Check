@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { api, readUpload, type CheckInput, type Upload } from '../lib/api';
 import { readQr } from '../lib/qr';
+import { Directory, Filesystem } from '@capacitor/filesystem';
 import { loadHistory, saveToHistory } from '../lib/history';
 import { KIND_LABEL, MODELS, money, type Bill, type CheckResult, type Kind, type Verdict } from '../lib/types';
 import { aiLeft, refreshStatus, useStatus } from '../lib/useStatus';
@@ -19,12 +20,19 @@ const TIPS = [
   'Call back on the number on your card or a past bill, not the one in the message.',
 ];
 
-/** Something shared to the app from the phone's Share menu (/share?text=…). */
-function takeShare(): string {
-  if (!window.location.pathname.startsWith('/share')) return '';
+/**
+ * Something shared to the app from the phone's Share menu: /share?text=… (the website and the Android app), or
+ * /share?file=… (a picture or PDF the Android app copied into its own cache).
+ */
+function takeShare(): { text: string; file: string; mime: string } {
+  if (!window.location.pathname.startsWith('/share')) return { text: '', file: '', mime: '' };
   const q = new URLSearchParams(window.location.search);
   window.history.replaceState(null, '', '/');
-  return [q.get('title'), q.get('text'), q.get('url')].filter(Boolean).join('\n').slice(0, 20_000);
+  return {
+    text: [q.get('title'), q.get('text'), q.get('url')].filter(Boolean).join('\n').slice(0, 20_000),
+    file: /^shared-\d+\.(jpg|pdf)$/.test(q.get('file') ?? '') ? q.get('file')! : '',
+    mime: q.get('mime') ?? '',
+  };
 }
 
 /** One thing being checked: its input (to ask the AI later) and its result. */
@@ -41,7 +49,7 @@ export function Check() {
   const left = aiLeft(st);
   const [shared] = useState(takeShare);
   const [kind, setKind] = useState<Kind>('text');
-  const [text, setText] = useState(shared);
+  const [text, setText] = useState(shared.text);
   const [from, setFrom] = useState('');
   const [files, setFiles] = useState<FileItem[]>([]);
   const [busy, setBusy] = useState(false);
@@ -57,6 +65,20 @@ export function Check() {
     window.addEventListener('sc-history', upd);
     return () => window.removeEventListener('sc-history', upd);
   }, []);
+  // A picture or PDF shared from another app (Android app): added like a picked file.
+  useEffect(() => {
+    if (!shared.file) return;
+    void (async () => {
+      try {
+        const { data } = await Filesystem.readFile({ path: shared.file, directory: Directory.Cache });
+        const blob = typeof data === 'string' ? await (await fetch(`data:${shared.mime || 'image/jpeg'};base64,${data}`)).blob() : data;
+        await addFiles([new File([blob], shared.file, { type: shared.mime || 'image/jpeg' })]);
+        void Filesystem.deleteFile({ path: shared.file, directory: Directory.Cache }).catch(() => undefined);
+      } catch {
+        toast('error', 'The shared picture could not be opened. Add it with the picture button instead.');
+      }
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const patch = (key: string, p: Partial<Item>) => setItems((list) => list.map((x) => (x.key === key ? { ...x, ...p } : x)));
 
   // A file dropped outside the drop area must not make the browser open it (and leave the app).
