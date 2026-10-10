@@ -83,10 +83,11 @@ export function promptText(input: AiInput, cfg: AppSettings['ai']): string {
 }
 
 /** Asks the chosen AI (Claude or Gemini). */
-export async function askAi(input: AiInput, cfg: AppSettings['ai'], provider: Provider = 'claude'): Promise<AiAnswer & { by: string }> {
+export async function askAi(input: AiInput, cfg: AppSettings['ai'], provider: Provider = 'claude'): Promise<AiAnswer & { by: string; note?: string }> {
   if (provider === 'gemini') {
     const a = await askGemini(input, cfg);
-    return { ...a, by: aiName('gemini', { ...cfg, geminiModel: a.model }) };
+    const by = aiName('gemini', { ...cfg, geminiModel: a.model });
+    return { ...a, by, note: a.fallback ? `${aiName('gemini', cfg).replace(' (free)', '')} wasn’t available (${a.fallback}), so ${by.replace(' (free)', '')} checked it.` : undefined };
   }
   return { ...(await askClaude(input, cfg)), by: aiName('claude', cfg) };
 }

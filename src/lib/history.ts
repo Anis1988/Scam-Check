@@ -1,4 +1,5 @@
 import type { CheckResult } from './types';
+import { clearInputs, pruneInputs } from './inputs';
 
 /** Choices that only apply to this phone or computer (Settings → This device). */
 export interface DevicePrefs { textSize: 'normal' | 'large'; historySize: number }
@@ -27,9 +28,11 @@ export function saveToHistory(r: CheckResult): CheckResult[] {
   const list = [r, ...loadHistory().filter((x) => x.id !== r.id)].slice(0, getPrefs().historySize);
   try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* full or private mode */ }
   window.dispatchEvent(new Event('sc-history'));
+  void pruneInputs(list.map((x) => x.id));
   return list;
 }
 export function clearHistory(): void {
   try { localStorage.removeItem(KEY); } catch { /* ignore */ }
+  void clearInputs();
   window.dispatchEvent(new Event('sc-history'));
 }
