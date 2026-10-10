@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react';
-import { api, readUpload, type CheckInput, type Upload } from '../lib/api';
+import { api, isAudio, readUpload, type CheckInput, type Upload } from '../lib/api';
 import { readQr } from '../lib/qr';
-import { Directory, Filesystem } from '@capacitor/filesystem';
+import { openShared, sharedFiles, type SharedFile } from '../lib/share';
 import { getInput } from '../lib/inputs';
 import { loadHistory, saveToHistory } from '../lib/history';
 import { askAgain, newKey, patchItem, runBatch, setBatch, showOne, useBatch, type Item } from '../lib/batch';
@@ -15,7 +15,7 @@ import { Rail, ScoreRing, Shell, VerdictChip, toast } from '../components/ui';
 import { dueText } from '../components/bills';
 
 // No typing on Check (owner's choice): pictures, PDFs, email files and QR codes. Texts shared from other apps still work.
-const KINDS: Kind[] = ['screenshot', 'bill', 'email', 'qr'];
+const KINDS: Kind[] = ['screenshot', 'bill', 'voicemail', 'email', 'qr'];
 const MODE_NAME = { ask: 'Save credits', smart: 'Smart', always: 'Always', never: 'Never (free only)' } as const;
 const TIPS = [
   'Real companies never ask for gift cards, crypto or a wire transfer.',
@@ -27,22 +27,22 @@ const TIPS = [
 
 /**
  * Something shared to the app from the phone's Share menu: /share?text=… (the website and the Android app), or
- * /share?file=… (a picture or PDF the Android app copied into its own cache).
+ * /share?files=a,b&mimes=x,y (pictures, PDFs or recordings the Android app copied into its own cache; videos go to 🎬 Video).
  */
-function takeShare(): { text: string; file: string; mime: string } {
-  if (!window.location.pathname.startsWith('/share')) return { text: '', file: '', mime: '' };
+function takeShare(): { text: string; files: SharedFile[] } {
+  if (!window.location.pathname.startsWith('/share')) return { text: '', files: [] };
   const q = new URLSearchParams(window.location.search);
   window.history.replaceState(null, '', '/');
   return {
     text: [q.get('title'), q.get('text'), q.get('url')].filter(Boolean).join('\n').slice(0, 20_000),
-    file: /^shared-\d+\.(jpg|pdf)$/.test(q.get('file') ?? '') ? q.get('file')! : '',
-    mime: q.get('mime') ?? '',
+    files: sharedFiles(q).filter((f) => !f.mime.startsWith('video/')),
   };
 }
 
 /** One thing being checked: its input (to ask the AI later) and its result. */
 type FileItem = Upload & { key: string; qr?: string }; // qr: what a QR code in the picture says (read on the phone)
 const isPdf = (f: { mime: string }) => f.mime === 'application/pdf';
+const fileIcon = (f: { mime: string }) => (isAudio(f) ? '🎙️' : '📄');
 
 export function Check() {
   const st = useStatus();
@@ -69,20 +69,26 @@ export function Check() {
     window.addEventListener('sc-history', upd);
     return () => window.removeEventListener('sc-history', upd);
   }, []);
-  // A picture or PDF shared from another app (Android app): added like a picked file.
+  // Pictures, PDFs or recordings shared from another app (Android app): added like picked files, then checked at once.
+  const autoRun = useRef(false);
   useEffect(() => {
-    if (!shared.file) return;
+    if (!shared.files.length) return;
     void (async () => {
-      try {
-        const { data } = await Filesystem.readFile({ path: shared.file, directory: Directory.Cache });
-        const blob = typeof data === 'string' ? await (await fetch(`data:${shared.mime || 'image/jpeg'};base64,${data}`)).blob() : data;
-        await addFiles([new File([blob], shared.file, { type: shared.mime || 'image/jpeg' })]);
-        void Filesystem.deleteFile({ path: shared.file, directory: Directory.Cache }).catch(() => undefined);
-      } catch {
-        toast('error', 'The shared picture could not be opened. Add it with the picture button instead.');
+      const got: File[] = [];
+      for (const f of shared.files) {
+        const file = await openShared(f).catch(() => null);
+        if (file) got.push(file);
       }
+      if (got.length < shared.files.length) toast('error', `${shared.files.length - got.length === 1 ? 'A shared file' : 'Some shared files'} could not be opened. Add ${got.length ? 'it' : 'them'} with the button instead.`);
+      autoRun.current = got.length > 0;
+      await addFiles(got);
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!autoRun.current || !files.length || busy) return;
+    autoRun.current = false;
+    void run();
+  }, [files]); // eslint-disable-line react-hooks/exhaustive-deps
   const patch = patchItem;
 
   // A file dropped outside the drop area must not make the browser open it (and leave the app).
@@ -113,6 +119,7 @@ export function Check() {
     for (const f of list.slice(0, room)) {
       try {
         const up = await readUpload(f, cfg?.pictures.maxSize ?? 1400);
+        if ('cut' in up && up.cut) toast('info', `${f.name}: only the first 3 minutes are checked.`);
         // Every picture is also looked at for a QR code (free, on the phone).
         const qr = up.preview ? await readQr(up.preview).catch(() => '') : '';
         if (kind === 'qr' && !qr) { toast('error', `No QR code found in ${f.name}. Try a closer, sharper photo.`); continue; }
@@ -123,7 +130,8 @@ export function Check() {
     }
     if (!added.length) return;
     setFiles((x) => [...x, ...added]);
-    if (kind === 'email' || kind === 'text') setKind(added.every((f) => f.qr) ? 'qr' : added.every(isPdf) ? 'bill' : 'screenshot');
+    if (added.every(isAudio)) setKind('voicemail');
+    else if (kind === 'email' || kind === 'text' || kind === 'voicemail') setKind(added.every((f) => f.qr) ? 'qr' : added.every(isPdf) ? 'bill' : 'screenshot');
   };
 
   // A screenshot pasted anywhere on Check (Ctrl+V) is added like a picked file.
@@ -131,7 +139,7 @@ export function Check() {
   addRef.current = addFiles;
   useEffect(() => {
     const h = (e: ClipboardEvent) => {
-      const pics = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith('image/') || f.type === 'application/pdf');
+      const pics = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith('image/') || f.type === 'application/pdf' || isAudio(f));
       if (pics.length) (e.preventDefault(), void addRef.current(pics));
     };
     window.addEventListener('paste', h);
@@ -164,9 +172,9 @@ export function Check() {
     const inputs: CheckInput[] = kind === 'qr'
       ? files.filter((f) => f.qr).map((f) => ({ kind: 'qr' as Kind, text: f.qr, aiMode }))
       : files.length <= 1
-      ? [{ kind, text: `${text}${qrLine(files[0])}`.trim(), from, file: files[0], aiMode }]
+      ? [{ kind: files[0] && isAudio(files[0]) ? 'voicemail' : kind, text: `${text}${qrLine(files[0])}`.trim(), from, file: files[0], aiMode }]
       : [
-          ...files.map((f) => ({ kind: (isPdf(f) || kind === 'bill' ? 'bill' : 'screenshot') as Kind, text: qrLine(f).trim() || undefined, file: f, aiMode })),
+          ...files.map((f) => ({ kind: (isAudio(f) ? 'voicemail' : isPdf(f) || kind === 'bill' ? 'bill' : 'screenshot') as Kind, text: qrLine(f).trim() || undefined, file: f, aiMode })),
           ...(text.trim() ? [{ kind: (kind === 'email' ? 'email' : 'text') as Kind, text, from, aiMode }] : []),
         ];
     if (!inputs.length) return toast('error', 'Add a photo of a QR code first.');
@@ -314,7 +322,7 @@ export function Check() {
           <div className="dropzone max-w-md py-12" data-over="true">
             <p className="text-4xl" aria-hidden="true">📥</p>
             <p className="font-display text-xl font-semibold text-teal-900">Drop to check</p>
-            <p className="text-sm text-stone-600">Pictures, PDFs or an .eml email, up to {maxBatch} at once</p>
+            <p className="text-sm text-stone-600">Pictures, PDFs, recordings or an .eml email, up to {maxBatch} at once</p>
           </div>
         </div>
       )}
@@ -323,9 +331,9 @@ export function Check() {
           <div>
             <p className="label">New check</p>
             <h1 className="text-2xl font-bold">Is it a scam?</h1>
-            <p className="text-sm text-stone-500">Add screenshots, photos or PDFs of bills, an email file or a QR code. Each one gets ✅ Looks safe, ⚠️ Suspicious or 🚨 Likely scam, with the reasons.</p>
+            <p className="text-sm text-stone-500">Add screenshots, photos or PDFs of bills, a voicemail, an email file or a QR code. Each one gets ✅ Looks safe, ⚠️ Suspicious or 🚨 Likely scam, with the reasons.</p>
           </div>
-          <div className="grid grid-cols-4 gap-1.5" role="tablist" aria-label="What are you checking?">
+          <div className="grid grid-cols-5 gap-1.5" role="tablist" aria-label="What are you checking?">
             {KINDS.map((k) => (
               <button key={k} role="tab" aria-selected={kind === k} onClick={() => setKind(k)}
                 className={`flex min-w-0 flex-col items-center gap-1 rounded-xl border px-0 py-2.5 text-[10.5px] font-semibold leading-tight transition sm:text-xs ${kind === k ? 'border-teal-500/70 bg-white text-teal-900 shadow-[0_0_0_3px_rgba(74,146,155,0.12),0_0_16px_-4px_rgba(74,146,155,0.5)]' : 'border-stone-200/80 bg-white/50 text-stone-600 hover:bg-white/80'}`}>
@@ -335,11 +343,11 @@ export function Check() {
           </div>
           <p className="text-xs text-stone-500">{KIND_LABEL[kind].hint}</p>
 
-          <input ref={fileInput} type="file" multiple className="hidden" accept={kind === 'email' ? '.eml,message/rfc822' : kind === 'qr' ? 'image/*' : 'image/*,application/pdf,.eml'} onChange={(e) => { void addFiles([...(e.target.files ?? [])]); e.target.value = ''; }} />
+          <input ref={fileInput} type="file" multiple className="hidden" accept={kind === 'email' ? '.eml,message/rfc822' : kind === 'qr' ? 'image/*' : kind === 'voicemail' ? 'audio/*,.m4a,.amr,.3gp,.opus' : 'image/*,application/pdf,.eml,audio/*'} onChange={(e) => { void addFiles([...(e.target.files ?? [])]); e.target.value = ''; }} />
           <button type="button" className="dropzone" onClick={() => fileInput.current?.click()}>
-            <span className="text-3xl" aria-hidden="true">{kind === 'bill' ? '🧾' : kind === 'qr' ? '🔳' : kind === 'email' ? '📧' : '📷'}</span>
-            <span className="font-display font-semibold text-teal-900">{kind === 'bill' ? 'Add photos or PDFs of bills' : kind === 'qr' ? 'Take or choose photos of QR codes' : kind === 'email' ? 'Add the email file (.eml)' : 'Add screenshots'}</span>
-            <span className="text-xs text-stone-500">{kind === 'email' ? 'In Gmail: ⋮ → Download message. In Outlook: Save as. Then tap here or drag it in.' : `Tap to choose, or drag & drop here · up to ${maxBatch} at once · each gets its own result`}</span>
+            <span className="text-3xl" aria-hidden="true">{kind === 'bill' ? '🧾' : kind === 'qr' ? '🔳' : kind === 'email' ? '📧' : kind === 'voicemail' ? '🎙️' : '📷'}</span>
+            <span className="font-display font-semibold text-teal-900">{kind === 'bill' ? 'Add photos or PDFs of bills' : kind === 'qr' ? 'Take or choose photos of QR codes' : kind === 'email' ? 'Add the email file (.eml)' : kind === 'voicemail' ? 'Add a voicemail or call recording' : 'Add screenshots'}</span>
+            <span className="text-xs text-stone-500">{kind === 'email' ? 'In Gmail: ⋮ → Download message. In Outlook: Save as. Then tap here or drag it in.' : kind === 'voicemail' ? 'From your phone: open the voicemail → Share or Save, then add it here · up to 3 minutes each' : `Tap to choose, or drag & drop here · up to ${maxBatch} at once · each gets its own result`}</span>
           </button>
           {files.length > 0 && (
             <div>
@@ -348,7 +356,7 @@ export function Check() {
                 {files.map((f) => (
                   <li key={f.key} className={`relative aspect-square overflow-hidden rounded-xl border border-white bg-white/70 shadow-[0_0_0_1px_rgba(31,66,71,0.08)] ${busy ? 'scan' : ''}`}>
                     {f.qr && <span className="absolute bottom-1 left-1 rounded-md bg-stone-900/65 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur">🔳 QR</span>}
-                    {f.preview ? <img src={f.preview} alt={f.name} className="h-full w-full object-cover" /> : <span className="flex h-full flex-col items-center justify-center gap-1 p-1 text-center"><span className="text-2xl" aria-hidden="true">📄</span><span className="w-full truncate text-[10px] text-stone-600">{f.name}</span></span>}
+                    {f.preview ? <img src={f.preview} alt={f.name} className="h-full w-full object-cover" /> : <span className="flex h-full flex-col items-center justify-center gap-1 p-1 text-center"><span className="text-2xl" aria-hidden="true">{fileIcon(f)}</span><span className="w-full truncate text-[10px] text-stone-600">{f.name}</span></span>}
                     {!busy && <button className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-stone-900/60 text-sm text-white backdrop-blur" onClick={() => setFiles((x) => x.filter((y) => y.key !== f.key))} aria-label={`Remove ${f.name}`}>✕</button>}
                   </li>
                 ))}
@@ -400,7 +408,7 @@ export function Check() {
                   <div className="w-full space-y-1.5 border-t border-stone-200/70 pt-2">
                     <p className="text-sm text-amber-800">⚠️ The AI couldn’t check {stuckOnes.length === 1 ? '1 of them' : `${stuckOnes.length} of them`}{stuckOnes[0].result!.aiTried ? ` (${stuckOnes[0].result!.aiTried})` : ''}.</p>
                     <ModelMenu label={`Continue ${stuckOnes.length === 1 ? 'it' : `all ${stuckOnes.length}`} with another model`} primary
-                      need={stuckOnes.some((x) => needOf(x.input?.file) === 'pdf') ? 'pdf' : stuckOnes.some((x) => x.input?.file) ? 'pictures' : undefined}
+                      need={(['pdf', 'audio', 'pictures'] as const).find((n) => stuckOnes.some((x) => needOf(x.input?.file) === n))}
                       tried={stuckOnes[0].result!.aiTried} onPick={(m) => stuckOnes.forEach((x) => void askAi(x, true, m))} />
                   </div>
                 )}
@@ -414,7 +422,7 @@ export function Check() {
                     <li key={it.key} className="rise" style={{ animationDelay: `${i * 40}ms` }}>
                       <button className="card flex w-full items-center gap-3 text-left transition hover:shadow-[0_0_0_1px_rgba(74,146,155,0.35),0_10px_30px_-12px_rgba(74,146,155,0.45)]" onClick={() => setOpenKey(open ? '' : it.key)} aria-expanded={open} disabled={!r}>
                         <span className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white bg-white/70 ${!r || r.ai === 'pending' ? 'scan' : ''}`}>
-                          {f?.preview ? <img src={f.preview} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full items-center justify-center text-2xl" aria-hidden="true">{f ? '📄' : KIND_LABEL[it.input?.kind ?? 'text'].icon}</span>}
+                          {f?.preview ? <img src={f.preview} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full items-center justify-center text-2xl" aria-hidden="true">{f ? fileIcon(f) : KIND_LABEL[it.input?.kind ?? 'text'].icon}</span>}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-xs text-stone-500">{f?.name ?? 'The words you pasted'}</span>

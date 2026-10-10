@@ -12,6 +12,7 @@ import { api, getCode, setCode } from './lib/api';
 import { Video } from './pages/Video';
 import { Lookup } from './pages/Lookup';
 import { aiLeft, refreshStatus, useStatus } from './lib/useStatus';
+import { sharedFiles, type SharedFile } from './lib/share';
 import { getPrefs, setPrefs } from './lib/history';
 
 const TABS = ['Check', 'Video', 'Lookup', 'Saved', 'History', 'Guide', 'Settings'] as const;
@@ -26,6 +27,13 @@ function sharedVideoLink(): string {
   const link = [q.get('url'), ...(q.get('text') ?? '').split(/\s+/)].find((x) => x && /^https?:\/\/([a-z0-9-]+\.)*(youtube\.com|youtu\.be|tiktok\.com)\//i.test(x)) ?? '';
   if (link) window.history.replaceState(null, '', '/video');
   return link;
+}
+/** A video file shared to the Android app (from the gallery, WhatsApp…) opens the Video tab and is checked. */
+function sharedVideoFile(): SharedFile | null {
+  if (!window.location.pathname.startsWith('/share')) return null;
+  const f = sharedFiles(new URLSearchParams(window.location.search)).find((x) => x.mime.startsWith('video/')) ?? null;
+  if (f) window.history.replaceState(null, '', '/video');
+  return f;
 }
 
 function Logo() {
@@ -108,6 +116,7 @@ function AccessGate({ onDone }: { onDone: () => void }) {
 
 export default function App() {
   const [videoLink] = useState(sharedVideoLink);
+  const [videoFile] = useState(sharedVideoFile);
   const [tab, setTab] = useState<Tab>(() => (TABS.find((t) => t !== 'Check' && window.location.pathname.toLowerCase().startsWith(`/${t.toLowerCase()}`)) ?? 'Check'));
   const [hasCode, setHasCode] = useState(!!getCode());
   useEffect(() => {
@@ -161,7 +170,7 @@ export default function App() {
       </header>
       <main className="mx-auto max-w-7xl px-4 pb-16 pt-5" style={{ paddingBottom: 'calc(4rem + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))' }}>
         <AppUpdateCheck />
-        {tab === 'Guide' ? <Guide /> : !hasCode ? <AccessGate onDone={() => setHasCode(true)} /> : tab === 'Check' ? <Check /> : tab === 'Video' ? <Video sharedLink={videoLink} /> : tab === 'Lookup' ? <Lookup /> : tab === 'Saved' ? <Saved /> : tab === 'History' ? <History /> : <Settings />}
+        {tab === 'Guide' ? <Guide /> : !hasCode ? <AccessGate onDone={() => setHasCode(true)} /> : tab === 'Check' ? <Check /> : tab === 'Video' ? <Video sharedLink={videoLink} sharedFile={videoFile} /> : tab === 'Lookup' ? <Lookup /> : tab === 'Saved' ? <Saved /> : tab === 'History' ? <History /> : <Settings />}
       </main>
     </div>
   );

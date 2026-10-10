@@ -37,7 +37,7 @@ export function ResultCard({ r, example = false, onChanged }: { r: CheckResult; 
         <div className="card">
           <div className="flex flex-wrap items-center justify-between gap-2"><p className="label">Result</p><CheckedBy ai={r.ai} aiBy={r.aiBy} /></div>
           <p className="font-display text-2xl font-semibold">❔ Not checked</p>
-          <p className="mt-1 break-words text-sm text-stone-600">{r.aiNote ?? r.summary} Paste the words of the message instead, so the free checks can read them.</p>
+          <p className="mt-1 break-words text-sm text-stone-600">{r.aiNote ?? r.summary}{r.kind === 'voicemail' ? '' : ' Paste the words of the message instead, so the free checks can read them.'}</p>
         </div>
       ) : (
         <div className={`rise rounded-2xl bg-gradient-to-br to-white/70 p-4 backdrop-blur-xl ${VERDICT_STYLE[r.verdict]}`}>

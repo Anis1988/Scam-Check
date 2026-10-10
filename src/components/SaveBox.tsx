@@ -35,7 +35,7 @@ export function SaveBox({ id, text, file, example = false, savedName }: { id: st
       {hasOriginal && (
         <label className="flex cursor-pointer items-start gap-2 text-sm text-stone-700">
           <input type="checkbox" className="mt-1 h-4 w-4 accent-teal-700" checked={keepIt} onChange={(e) => setKeep(e.target.checked)} />
-          <span>Keep the original {file ? (file.mime === 'application/pdf' ? '(the PDF' : '(the picture') + (text?.trim() ? ' and the message)' : ')') : '(the message)'}, to see or download it later.</span>
+          <span>Keep the original {file ? (file.mime === 'application/pdf' ? '(the PDF' : file.mime.startsWith('audio/') ? '(the recording' : '(the picture') + (text?.trim() ? ' and the message)' : ')') : '(the message)'}, to see or download it later.</span>
         </label>
       )}
       <div className="flex gap-2">

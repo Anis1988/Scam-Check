@@ -1,18 +1,18 @@
 import type { CheckResult, ModelChoice } from '../lib/types';
-import { ModelMenu } from './ModelMenu';
+import { ModelMenu, type Need } from './ModelMenu';
 
 /** The AI couldn't answer (it failed, hit today's limit, or isn't set up): another model is offered first. */
 export const stuck = (r: CheckResult) => r.ai === 'failed' || r.ai === 'limit' || r.ai === 'off';
 
 /** What a model must be able to read to check this original: a PDF, a picture, or nothing special (text). */
-export const needOf = (file?: { mime: string }): 'pictures' | 'pdf' | undefined => (!file ? undefined : file.mime === 'application/pdf' ? 'pdf' : 'pictures');
+export const needOf = (file?: { mime: string }): Need | undefined => (!file ? undefined : file.mime === 'application/pdf' ? 'pdf' : file.mime.startsWith('audio/') ? 'audio' : 'pictures');
 
 /**
  * ↻ Re-check: one button on any result, even a good one, that lists every AI model (ModelMenu); tapping one asks it at
  * once (1 AI check of that kind), Settings stay as they are. When today's limit was reached it says so and offers the
  * other models to continue. Also says when the answer shown was remembered from an earlier check.
  */
-export function RecheckBar({ r, canRecheck, onRecheck, need, example = false }: { r: CheckResult; canRecheck: boolean; onRecheck?: (m: ModelChoice) => void; need?: 'pictures' | 'pdf'; example?: boolean }) {
+export function RecheckBar({ r, canRecheck, onRecheck, need, example = false }: { r: CheckResult; canRecheck: boolean; onRecheck?: (m: ModelChoice) => void; need?: Need; example?: boolean }) {
   if (r.ai === 'pending') return null;
   if (!canRecheck && !r.remembered) return null;
 

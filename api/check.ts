@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { CheckResult } from '../src/lib/types.js';
+import { providerOf } from '../src/lib/types.js';
 import { guard, json } from '../server/guard.js';
 import { buildResult, freeChecks } from '../server/analyze.js';
 import { isPrivate, noAiNote, pickAi } from '../server/ai.js';
@@ -8,7 +9,7 @@ import { getLists, getResult, getSettings, overLimit, saveResult, storeReady } f
 import { withLists } from '../server/lists.js';
 
 export const Body = z.object({
-  kind: z.enum(['email', 'text', 'bill', 'screenshot', 'qr']),
+  kind: z.enum(['email', 'text', 'bill', 'screenshot', 'qr', 'voicemail']),
   text: z.string().max(100_000).optional(),
   from: z.string().trim().max(60).optional(),
   fileHash: z.string().regex(/^[a-f0-9]{64}$/).optional(), // SHA-256 of the picture/PDF (the file itself only goes to /api/ai)
@@ -60,8 +61,8 @@ export async function POST(req: Request): Promise<Response> {
     // 1. Free checks first: patterns, links, phone numbers, email sender.
     const cfg = await getSettings();
     const free = text ? await freeChecks(text, { from: b.from, check: cfg.checks }) : { text: '', signals: [], links: [], phones: [] };
-    const base = buildResult(id, b.kind, text || (b.kind === 'bill' ? 'Bill (picture or PDF)' : 'Screenshot'), free, 'off');
-    if (b.fileHash && !text) Object.assign(base, { unchecked: true, summary: 'Pictures and PDFs are read by the AI check.' });
+    const base = buildResult(id, b.kind, text || (b.kind === 'bill' ? 'Bill (picture or PDF)' : b.kind === 'voicemail' ? 'Voicemail' : 'Screenshot'), free, 'off');
+    if (b.fileHash && !text) Object.assign(base, { unchecked: true, summary: b.kind === 'voicemail' ? 'Recordings are listened to by the AI check.' : 'Pictures and PDFs are read by the AI check.' });
 
     // 2. The AI, only when needed (it costs money): pictures/PDFs (it is the only way to read them), "always",
     //    or "smart" when the free checks aren't already sure. With "ask" (the default), text only gets an
@@ -76,7 +77,7 @@ export async function POST(req: Request): Promise<Response> {
     let result: CheckResult = base;
     if (wantAi && !prov) result = { ...base, aiNote: noAiNote(cfg.ai, isPrivate(b.kind, b.pdf ? 'application/pdf' : undefined)) };
     else if (wantAi && !storeReady()) result = { ...base, aiNote: 'The AI check needs the free Upstash Redis storage (Vercel → Storage) to keep its daily limit.' };
-    else if (wantAi && prov && (await overLimit(prov))) result = { ...base, ai: 'limit', aiNote: `Today’s ${prov === 'gemini' ? 'Gemini' : 'AI'} checks are used up (daily limit in Settings). The result below is from the free checks.` };
+    else if (wantAi && prov && (await overLimit(prov))) result = { ...base, ai: 'limit', aiNote: `Today’s ${providerOf(prov).name} checks are used up (daily limit in Settings). The result below is from the free checks: pick another model to continue.` };
     else if (wantAi) return out({ ...base, ai: 'pending' });
     else if (b.aiMode === 'smart' && base.score >= 65) result = { ...base, ai: 'skipped', aiNote: 'The free checks were already sure, so no AI credit was used.' };
     await saveResult(result, cfg.checks.rememberDays).catch(() => undefined);

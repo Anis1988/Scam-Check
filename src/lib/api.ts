@@ -90,12 +90,13 @@ export const api = {
  * PDFs are sent as they are (3 MB max).
  */
 export async function readUpload(f: File, maxSize = 1400): Promise<Upload> {
+  if (isAudio(f)) return readAudio(f);
   if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) {
     if (f.size > 3 * 1024 * 1024) throw new Error('This PDF is over 3 MB. Take a photo or screenshot of the page instead.');
     return { mime: 'application/pdf', data: await toBase64(f), name: f.name };
   }
   if (/\.eml$/i.test(f.name) || f.type === 'message/rfc822') throw new Error('EML');
-  if (!f.type.startsWith('image/') && !/\.(heic|heif|jpe?g|png|webp|gif)$/i.test(f.name)) throw new Error('Choose a picture (photo or screenshot) or a PDF.');
+  if (!f.type.startsWith('image/') && !/\.(heic|heif|jpe?g|png|webp|gif)$/i.test(f.name)) throw new Error('Choose a picture (photo or screenshot), a PDF or a recording.');
   const img = await loadImage(f);
   const k = Math.min(1, maxSize / Math.max(img.width, img.height));
   const c = document.createElement('canvas');
@@ -105,6 +106,50 @@ export async function readUpload(f: File, maxSize = 1400): Promise<Upload> {
   URL.revokeObjectURL(img.src);
   const url = c.toDataURL('image/jpeg', 0.8);
   return { mime: 'image/jpeg', data: url.split(',')[1], name: f.name, preview: url };
+}
+
+/** 🎙️ A voicemail or recorded call. */
+export const isAudio = (f: { type?: string; mime?: string; name?: string }) => (f.type ?? f.mime ?? '').startsWith('audio/') || /\.(mp3|m4a|aac|wav|ogg|oga|opus|amr|3gp|flac|webm)$/i.test(f.name ?? '');
+const AUDIO_SENT_AS_IS: Record<string, string> = { mp3: 'audio/mpeg', m4a: 'audio/mp4', ogg: 'audio/ogg', opus: 'audio/ogg', webm: 'audio/webm', flac: 'audio/flac', wav: 'audio/wav' };
+
+/**
+ * A recording is made small on the phone: one channel, phone quality (16 kHz, or 8 kHz when longer than 1½ minutes),
+ * as a WAV file every AI can take. At most 3 minutes (the server takes about 4 MB): longer ones keep their start.
+ * Recordings the phone can't open (e.g. some .amr) are sent as they are when small enough.
+ */
+async function readAudio(f: File): Promise<Upload & { cut?: boolean }> {
+  const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  let audio: AudioBuffer;
+  const ctx = new Ctx();
+  try {
+    audio = await ctx.decodeAudioData(await f.arrayBuffer());
+  } catch {
+    const mime = AUDIO_SENT_AS_IS[f.name.split('.').pop()?.toLowerCase() ?? ''];
+    if (mime && f.size <= 3 * 1024 * 1024) return { mime, data: await toBase64(f), name: f.name };
+    throw new Error('This recording can’t be opened here. Save it as MP3, M4A or WAV (up to 3 MB) and try again.');
+  } finally {
+    void ctx.close().catch(() => undefined);
+  }
+  const rate = audio.duration <= 90 ? 16000 : 8000;
+  const secs = Math.min(audio.duration, rate === 16000 ? 90 : 180);
+  const off = new OfflineAudioContext(1, Math.max(1, Math.ceil(secs * rate)), rate);
+  const src = off.createBufferSource();
+  src.buffer = audio;
+  src.connect(off.destination);
+  src.start();
+  const pcm = (await off.startRendering()).getChannelData(0);
+  // 16-bit WAV
+  const buf = new ArrayBuffer(44 + pcm.length * 2);
+  const v = new DataView(buf);
+  const str = (o: number, t: string) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+  str(0, 'RIFF'); v.setUint32(4, 36 + pcm.length * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true);
+  v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, pcm.length * 2, true);
+  for (let i = 0; i < pcm.length; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, pcm[i])) * 0x7fff, true);
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return { mime: 'audio/wav', data: btoa(bin), name: f.name.replace(/\.[^.]+$/, '') + '.wav', cut: audio.duration > secs + 1 };
 }
 
 function loadImage(f: File): Promise<HTMLImageElement> {
@@ -136,9 +181,9 @@ export function fileLink(f: { mime: string; data: string }): string {
  * with a PDF reader, send by WhatsApp…). A browser-style download doesn't exist inside an app.
  */
 async function shareFile(f: { mime: string; name: string; data: string }): Promise<void> {
-  const ext = f.mime === 'application/pdf' ? '.pdf' : f.mime === 'image/png' ? '.png' : '.jpg';
+  const ext = ({ 'application/pdf': '.pdf', 'image/png': '.png', 'audio/wav': '.wav', 'audio/mpeg': '.mp3', 'audio/mp4': '.m4a', 'audio/ogg': '.ogg', 'audio/webm': '.webm', 'audio/flac': '.flac' } as Record<string, string>)[f.mime] ?? '.jpg';
   const base = f.name.replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'scam-check';
-  const path = /\.(jpe?g|png|pdf|webp|gif)$/i.test(base) ? base : `${base}${ext}`;
+  const path = /\.(jpe?g|png|pdf|webp|gif|wav|mp3|m4a|ogg|webm|flac)$/i.test(base) ? base : `${base}${ext}`;
   await Filesystem.writeFile({ path, data: f.data, directory: Directory.Cache });
   const { uri } = await Filesystem.getUri({ path, directory: Directory.Cache });
   await Share.share({ title: path, files: [uri], dialogTitle: 'Save or open it' });
@@ -148,9 +193,9 @@ async function shareFile(f: { mime: string; name: string; data: string }): Promi
 export function downloadFile(f: { mime: string; name: string; data: string }): void | Promise<void> {
   if (isNative()) return shareFile(f);
   const href = fileLink(f);
-  const ext = f.mime === 'application/pdf' ? '.pdf' : f.mime === 'image/png' ? '.png' : '.jpg';
+  const ext = ({ 'application/pdf': '.pdf', 'image/png': '.png', 'audio/wav': '.wav', 'audio/mpeg': '.mp3', 'audio/mp4': '.m4a', 'audio/ogg': '.ogg', 'audio/webm': '.webm', 'audio/flac': '.flac' } as Record<string, string>)[f.mime] ?? '.jpg';
   const base = f.name.replace(/[\\/:*?"<>|]+/g, ' ').trim();
-  const name = /\.(jpe?g|png|pdf|webp|gif)$/i.test(base) ? base : `${base || 'scam-check'}${ext}`;
+  const name = /\.(jpe?g|png|pdf|webp|gif|wav|mp3|m4a|ogg|webm|flac)$/i.test(base) ? base : `${base || 'scam-check'}${ext}`;
   const a = Object.assign(document.createElement('a'), { href, download: name });
   document.body.appendChild(a);
   a.click();

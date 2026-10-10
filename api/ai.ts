@@ -11,7 +11,7 @@ import { getResult, getSettings, recordBill, saveResult, takeAi } from '../serve
 import { Body, idOf, out } from './check.js';
 
 const AiBody = Body.extend({
-  file: z.object({ mime: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']), data: z.string().max(4_300_000).regex(/^[A-Za-z0-9+/=]+$/) }).optional(),
+  file: z.object({ mime: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf', 'audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/webm', 'audio/flac']), data: z.string().max(4_300_000).regex(/^[A-Za-z0-9+/=]+$/) }).optional(),
   fresh: z.boolean().optional(), // ↻ Re-check: ask the AI again, even if an answer is remembered
   // ↻ Re-check with a model picked just for this once (Settings stay as they are).
   model: z.object({ provider: z.enum(['claude', 'gemini', 'groq', 'openrouter']), id: z.string().regex(/^[A-Za-z0-9._:/-]{2,120}$/) }).optional(),
@@ -52,7 +52,7 @@ async function work(b: z.infer<typeof AiBody>, id: string, text: string, cached:
     const pick = b.fresh ? b.model : undefined;
     const cfg = !pick ? saved : { ...saved, ai: { ...saved.ai, ...pickModel(saved.ai, pick.provider, pick.id) } };
     const free = text ? await freeChecks(text, { from: b.from, check: cfg.checks }) : { text: '', signals: [], links: [], phones: [] };
-    const base = buildResult(id, b.kind, text || (b.kind === 'bill' ? 'Bill (picture or PDF)' : 'Screenshot'), free, 'pending');
+    const base = buildResult(id, b.kind, text || (b.kind === 'bill' ? 'Bill (picture or PDF)' : b.kind === 'voicemail' ? 'Voicemail' : 'Screenshot'), free, 'pending');
     // Claude or Gemini (Settings → AI); bills and PDFs may be kept for Claude only.
     const priv = isPrivate(b.kind, b.file?.mime ?? (b.pdf ? 'application/pdf' : undefined));
     const prov = pickAi(cfg.ai, priv);

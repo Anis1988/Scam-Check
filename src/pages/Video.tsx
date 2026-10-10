@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent } from 'react';
 import { api, uploadVideo, videoFrames } from '../lib/api';
+import { openShared, type SharedFile } from '../lib/share';
 import { ModelMenu } from '../components/ModelMenu';
 import { FACT_LABEL, modelName, providerOf, type FactVerdict, type ModelChoice, type Provider, type VideoResult } from '../lib/types';
 import { refreshStatus, useStatus } from '../lib/useStatus';
@@ -103,7 +104,7 @@ export function VideoCard({ r, example = false }: { r: VideoResult; example?: bo
   );
 }
 
-export function Video({ sharedLink = '' }: { sharedLink?: string }) {
+export function Video({ sharedLink = '', sharedFile = null }: { sharedLink?: string; sharedFile?: SharedFile | null }) {
   const st = useStatus();
   const videos = useVideos();
   const [link, setLink] = useState(sharedLink);
@@ -154,6 +155,13 @@ export function Video({ sharedLink = '' }: { sharedLink?: string }) {
     void checkVideo(v, /tiktok\.com/i.test(v) ? 'tiktok' : 'youtube', async (id) => (retries.set(id, (next) => addLink(v, next)), { url: v, model: m }));
   };
   useEffect(() => { if (sharedLink && isVideoLink(sharedLink) && ready) addLink(); }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A video shared from the gallery or another app (Android app): checked as soon as the AI is known.
+  const tookFile = useRef(false);
+  useEffect(() => {
+    if (!sharedFile || !ready || tookFile.current) return;
+    tookFile.current = true;
+    void openShared(sharedFile).then((f) => addFile(f), () => toast('error', 'The shared video could not be opened. Upload it with the button instead.'));
+  }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
   const onDrop = (e: DragEvent) => { e.preventDefault(); setOver(false); addFile(e.dataTransfer.files[0]); };
 
   return (

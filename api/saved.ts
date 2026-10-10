@@ -10,7 +10,7 @@ const Post = z.discriminatedUnion('action', [
     action: z.literal('save'), id: z.string().regex(/^[a-f0-9]{32}$/), note: z.string().trim().max(500).default(''),
     // "Keep the original": the message and the picture/PDF, so you can see (and download) them later.
     text: z.string().max(100_000).optional(),
-    file: z.object({ mime: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']), name: z.string().max(200), data: z.string().max(4_300_000).regex(/^[A-Za-z0-9+/=]+$/) }).optional(),
+    file: z.object({ mime: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf', 'audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/webm', 'audio/flac']), name: z.string().max(200), data: z.string().max(4_300_000).regex(/^[A-Za-z0-9+/=]+$/) }).optional(),
   }),
   z.object({ action: z.literal('delete-file'), id: z.string().regex(/^[a-f0-9]{32}$/) }),
   z.object({ action: z.literal('note'), id: z.string().regex(/^[a-f0-9]{32}$/), note: z.string().trim().max(500), name: z.string().trim().min(1).max(80).optional() }),
@@ -41,7 +41,7 @@ function titleOf(r: CheckResult): string {
   return (r.title || r.impersonating || (fake && `Fake ${fake}`) || real || r.sender?.name || r.links[0]?.domain || KIND_LABEL[r.kind].text).replace(/\s+/g, ' ').trim().slice(0, 60);
 }
 /** A file name the phone and computer accept. */
-const fileName = (name: string, mime: string) => `${name.replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'scam-check'}${mime === 'application/pdf' ? '.pdf' : mime === 'image/png' ? '.png' : '.jpg'}`;
+const fileName = (name: string, mime: string) => `${name.replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'scam-check'}${({ 'application/pdf': '.pdf', 'image/png': '.png', 'audio/wav': '.wav', 'audio/mpeg': '.mp3', 'audio/mp4': '.m4a', 'audio/ogg': '.ogg', 'audio/webm': '.webm', 'audio/flac': '.flac' } as Record<string, string>)[mime] ?? '.jpg'}`;
 
 /** GET /api/saved -> your saved checks (newest first). */
 export async function GET(req: Request): Promise<Response> {
