@@ -8,7 +8,7 @@ import type { Bill, CheckResult, SavedItem, Verdict } from '../lib/types';
 const at = '2026-10-10T14:05:00.000Z';
 // Made-up examples, to show what things look like.
 const SAFE: CheckResult = {
-  id: 'example2', kind: 'bill', verdict: 'safe', score: 6, ai: 'done', checkedAt: at, preview: 'Bill (picture or PDF)', title: 'Duke Energy bill',
+  id: 'example2', kind: 'bill', verdict: 'safe', score: 6, ai: 'done', aiBy: 'Claude Opus 5.5', checkedAt: at, preview: 'Bill (picture or PDF)', title: 'Duke Energy bill',
   summary: 'This is a normal Duke Energy bill. Nothing suspicious.',
   signals: [{ source: 'link', level: 'good', weight: -8, title: 'duke-energy.com is Duke Energy’s real website' }],
   links: [{ url: 'https://duke-energy.com', domain: 'duke-energy.com', level: 'good', note: 'Real Duke Energy website' }],
@@ -48,7 +48,7 @@ const BATCH: { icon: string; file: string; verdict: Verdict; score: number; line
 
 const SECTIONS = [
   ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['lookup', '⚡ Quick look-up'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
-  ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
+  ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Claude or Gemini (free)'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
   ['share', 'Share from your phone'], ['scam', 'If it’s a scam'], ['privacy', 'Privacy and cost'],
 ] as const;
 type Id = (typeof SECTIONS)[number][0];
@@ -206,10 +206,21 @@ export function Guide() {
         <p>History (your last checks) is on this device only and keeps itself short by itself.</p>
       </Section>
 
+      <Section id="whichai">
+        <p>In <b>Settings → AI → Which AI</b>, choose who reads your pictures and answers “Ask the AI”:</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>Claude (paid):</b> the best at spotting tricky scams, a few cents a check. What you send is not used to train it.</li>
+          <li><b>Gemini (free):</b> Google’s AI, free within Google’s daily allowance (the app stops at 50 a day to start, you can change it). On the free plan <b>Google may keep and use what you send</b>.</li>
+        </ul>
+        <p>That’s why, with Gemini, the switch <b>🔒 Bills and PDFs always go to Claude</b> is on: texts, emails, screenshots and QR codes go to Gemini for free, while bills and PDFs (account numbers, amounts) stay with Claude. Each AI has its own daily limit.</p>
+        <p>The last line of every result says which AI checked it, e.g. “🤖 Claude Opus 5.5” in the bill example above, or “🤖 Gemini Flash (free)”.</p>
+        <p><b>One-time setup for Gemini:</b> go to <b>aistudio.google.com</b>, sign in, tap <b>Get API key</b> → <b>Create API key</b>, and add it in Vercel as <code>GEMINI_API_KEY</code> (Settings → Environment Variables), then redeploy. Like your other keys, never paste it anywhere else.</p>
+      </Section>
+
       <Section id="settings">
         <p>Everything is set in the <b>⚙️ Settings</b> tab, and it’s the same on your phone and computer:</p>
         <ul className="list-disc space-y-1.5 pl-5">
-          <li><b>🤖 AI:</b> when to use it (Save credits, Smart, Always, Never), which AI model (Opus = best, Sonnet = cheaper, Haiku = cheapest), how many AI checks a day or <b>Unlimited</b>, how hard it thinks (Low is cheapest), and the summary of safe ones.</li>
+          <li><b>🤖 AI:</b> which AI (Claude or Gemini, free), when to use it (Save credits, Smart, Always, Never), which AI model (Opus = best, Sonnet = cheaper, Haiku = cheapest), how many AI checks a day or <b>Unlimited</b>, how hard it thinks (Low is cheapest), and the summary of safe ones.</li>
           <li><b>🔎 Free checks:</b> Google’s list of dangerous sites, how new a website is, and how many days a result is remembered (checking it again is then free).</li>
           <li><b>📷 Pictures:</b> picture size (Small is cheaper, Sharp reads tiny text better) and how many at once.</li>
           <li><b>⭐ Saving & clean-up:</b> keep the original by default, and the automatic clean-up.</li>

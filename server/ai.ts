@@ -1,11 +1,37 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
-import type { AppSettings, Kind, Signal } from '../src/lib/types.js';
+import type { AppSettings, Kind, Provider, Signal } from '../src/lib/types.js';
+import { GEMINI_MODELS, MODELS } from '../src/lib/types.js';
+import { askGemini } from './gemini.js';
 
-export const aiReady = () => !!process.env.ANTHROPIC_API_KEY?.trim();
+export const claudeReady = () => !!process.env.ANTHROPIC_API_KEY?.trim();
+export const geminiReady = () => !!process.env.GEMINI_API_KEY?.trim();
 
-const Answer = z.object({
+/**
+ * Which AI checks this message (Settings → AI): Claude, or Gemini (free). With Gemini and "Bills and PDFs always go
+ * to Claude" (on by default), private documents still go to Claude: free plans may keep what you send.
+ * null = none is set up for it.
+ */
+export function pickAi(cfg: AppSettings['ai'], isPrivate: boolean): Provider | null {
+  if (cfg.provider === 'gemini') {
+    if (isPrivate && cfg.privateToClaude) return claudeReady() ? 'claude' : null;
+    return geminiReady() ? 'gemini' : null;
+  }
+  return claudeReady() ? 'claude' : null;
+}
+/** Why no AI can check it (for the note under the result). */
+export function noAiNote(cfg: AppSettings['ai'], isPrivate: boolean): string {
+  if (cfg.provider === 'gemini' && isPrivate && cfg.privateToClaude) return 'Bills and PDFs go to Claude only (Settings → AI), and Claude is not set up (ANTHROPIC_API_KEY in Vercel).';
+  if (cfg.provider === 'gemini') return 'Gemini is not set up (GEMINI_API_KEY in Vercel).';
+  return 'The AI check is not set up (ANTHROPIC_API_KEY in Vercel).';
+}
+/** A bill or a PDF counts as private. */
+export const isPrivate = (kind: Kind, mime?: string) => kind === 'bill' || mime === 'application/pdf';
+export const aiName = (p: Provider, cfg: AppSettings['ai']) =>
+  p === 'gemini' ? `${GEMINI_MODELS.find((m) => m.id === cfg.geminiModel)?.name ?? cfg.geminiModel} (free)` : MODELS.find((m) => m.id === cfg.model)?.name ?? cfg.model;
+
+export const Answer = z.object({
   verdict: z.enum(['safe', 'suspicious', 'scam']).describe('safe = no real warning signs; suspicious = some signs, the person should check another way; scam = clearly a scam or phishing'),
   confidence: z.number().describe('0 to 100: how sure you are of the verdict'),
   summary: z.string().describe('one or two short sentences in plain everyday English, speaking to the person ("This text pretends to be USPS…")'),
@@ -32,7 +58,7 @@ const Answer = z.object({
 });
 export type AiAnswer = z.infer<typeof Answer>;
 
-const SYSTEM = `You check messages for scams and phishing for one person in the US (Cincinnati, Ohio). They show you an email, a text message, a bill or invoice, or a screenshot, and want to know if it is safe.
+export const SYSTEM = `You check messages for scams and phishing for one person in the US (Cincinnati, Ohio). They show you an email, a text message, a bill or invoice, or a screenshot, and want to know if it is safe.
 
 How to judge:
 - Look for real scam signs: impersonating a company or agency, pressure or threats, unusual payment (gift cards, crypto, wire, Zelle, Cash App), requests for codes/passwords/account numbers, links whose domain doesn't match the company, mismatched sender, prizes, fake invoices or subscription renewals, toll/package/utility shut-off messages, tech-support pop-ups, remote-access apps, fake jobs, romance or "wrong number" openers, investment promises.
@@ -45,23 +71,32 @@ How to judge:
 
 const KIND_WORDS: Record<Kind, string> = { email: 'an email', text: 'a text message', bill: 'a bill or invoice', screenshot: 'a screenshot', qr: 'the link inside a QR code (from a sign, letter, parking meter or flyer)' };
 
-export async function askAi(input: { kind: Kind; text?: string; file?: { mime: string; data: string }; from?: string; signals: Signal[] }, cfg: AppSettings['ai']): Promise<AiAnswer> {
+export interface AiInput { kind: Kind; text?: string; file?: { mime: string; data: string }; from?: string; signals: Signal[] }
+
+/** The words sent with the message (the same for every AI). */
+export function promptText(input: AiInput, cfg: AppSettings['ai']): string {
   const found = input.signals.length
     ? input.signals.map((s) => `- [${s.source}] ${s.title}${s.detail ? `: ${s.detail}` : ''}`).join('\n')
     : '- nothing found';
+  return [
+    `This is ${KIND_WORDS[input.kind]}${input.file ? ' (attached)' : ''}. Today is ${new Date().toISOString().slice(0, 10)}.`,
+    input.from ? `It came from: ${input.from.slice(0, 80)}` : '',
+    input.text ? `<message>\n${input.text.slice(0, 15_000)}\n</message>` : '',
+    `Findings of the free automatic checks:\n${found}`,
+    cfg.summaries ? '' : 'Leave "brief" empty, even if it is safe (summaries are turned off).',
+  ].filter(Boolean).join('\n\n');
+}
+
+/** Asks the chosen AI (Claude or Gemini). */
+export function askAi(input: AiInput, cfg: AppSettings['ai'], provider: Provider = 'claude'): Promise<AiAnswer> {
+  return provider === 'gemini' ? askGemini(input, cfg) : askClaude(input, cfg);
+}
+
+async function askClaude(input: AiInput, cfg: AppSettings['ai']): Promise<AiAnswer> {
   const content: Anthropic.Beta.Messages.BetaContentBlockParam[] = [];
   if (input.file?.mime === 'application/pdf') content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: input.file.data } });
   else if (input.file) content.push({ type: 'image', source: { type: 'base64', media_type: input.file.mime as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif', data: input.file.data } });
-  content.push({
-    type: 'text',
-    text: [
-      `This is ${KIND_WORDS[input.kind]}${input.file ? ' (attached)' : ''}. Today is ${new Date().toISOString().slice(0, 10)}.`,
-      input.from ? `It came from: ${input.from.slice(0, 80)}` : '',
-      input.text ? `<message>\n${input.text.slice(0, 15_000)}\n</message>` : '',
-      `Findings of the free automatic checks:\n${found}`,
-      cfg.summaries ? '' : 'Leave "brief" empty, even if it is safe (summaries are turned off).',
-    ].filter(Boolean).join('\n\n'),
-  });
+  content.push({ type: 'text', text: promptText(input, cfg) });
   const client = new Anthropic({ timeout: 120_000, maxRetries: 2 });
   const res = await client.beta.messages.parse({
     model: cfg.model, // Settings (starts from AI_MODEL)

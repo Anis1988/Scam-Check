@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, getCode, type Status } from './api';
+import { GEMINI_MODELS, MODELS } from './types';
 
 /** What is set up, today's AI use and the settings: loaded once, shared by every screen, refreshed after changes. */
 let current: Status | null = null;
@@ -19,7 +20,11 @@ export function refreshStatus(): Promise<void> {
 /** After saving settings: everyone sees them at once. */
 export function setStatusSettings(settings: Status['settings']): void {
   if (!current) return;
-  current = { ...current, settings, model: settings.ai.model, limit: settings.ai.unlimited ? null : settings.ai.dailyLimit };
+  const claude = { ...current.claude, limit: settings.ai.unlimited ? null : settings.ai.dailyLimit };
+  const gemini = { ...current.gemini, limit: settings.ai.geminiDailyLimit };
+  const main = settings.ai.provider === 'gemini' ? gemini : claude;
+  const model = settings.ai.provider === 'gemini' ? `${GEMINI_MODELS.find((m) => m.id === settings.ai.geminiModel)?.name ?? settings.ai.geminiModel} (free)` : MODELS.find((m) => m.id === settings.ai.model)?.name ?? settings.ai.model;
+  current = { ...current, settings, claude, gemini, ai: main.ready, used: main.used, limit: main.limit, model };
   listeners.forEach((f) => f(current));
 }
 

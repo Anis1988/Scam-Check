@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { CheckResult } from '../src/lib/types.js';
 import { guard, json } from '../server/guard.js';
-import { askAi, aiReady } from '../server/ai.js';
+import { aiName, askAi, isPrivate, noAiNote, pickAi } from '../server/ai.js';
 import { buildResult, freeChecks } from '../server/analyze.js';
 import { mergeAi } from '../server/merge.js';
 import { getResult, getSettings, recordBill, saveResult, takeAi } from '../server/store.js';
@@ -35,14 +35,17 @@ export async function POST(req: Request): Promise<Response> {
     const cfg = await getSettings();
     const free = text ? await freeChecks(text, { from: b.from, check: cfg.checks }) : { text: '', signals: [], links: [], phones: [] };
     const base = buildResult(id, b.kind, text || (b.kind === 'bill' ? 'Bill (picture or PDF)' : 'Screenshot'), free, 'pending');
-    if (!aiReady()) return out({ ...base, ai: 'off', aiNote: 'The AI check is not set up (ANTHROPIC_API_KEY in Vercel).' });
-    if (!(await takeAi())) return out({ ...base, ai: 'limit', aiNote: 'Today’s AI checks are used up (daily limit in Settings). The result below is from the free checks.', unchecked: !text || undefined });
+    // Claude or Gemini (Settings → AI); bills and PDFs may be kept for Claude only.
+    const priv = isPrivate(b.kind, b.file?.mime ?? (b.pdf ? 'application/pdf' : undefined));
+    const prov = pickAi(cfg.ai, priv);
+    if (!prov) return out({ ...base, ai: 'off', aiNote: noAiNote(cfg.ai, priv) });
+    if (!(await takeAi(prov))) return out({ ...base, ai: 'limit', aiNote: `Today’s ${prov === 'gemini' ? 'Gemini' : 'AI'} checks are used up (daily limit in Settings). The result below is from the free checks.`, unchecked: !text || undefined });
     let result: CheckResult;
     try {
-      const a = await askAi({ kind: b.kind, text: text || undefined, file: b.file, from: b.from, signals: free.signals }, cfg.ai);
+      const a = await askAi({ kind: b.kind, text: text || undefined, file: b.file, from: b.from, signals: free.signals }, cfg.ai, prov);
       // A picture or PDF: the free checks also run on what the AI read in it (its links and phone numbers too).
       const all = text ? free : await freeChecks(a.readText, { from: b.from, links: a.links, phones: a.phones, check: cfg.checks });
-      result = mergeAi(base, all, a, cfg.ai.summaries);
+      result = { ...mergeAi(base, all, a, cfg.ai.summaries), aiBy: aiName(prov, cfg.ai) };
       // 📅 Bills: a safe bill is listed, and compared with the same company's last one.
       if (result.bill && cfg.bills.track) result.billCompare = await recordBill(result).catch(() => undefined);
     } catch (e) {

@@ -34,7 +34,9 @@ export async function call<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 /** limit null = unlimited. */
-export interface Status { ai: boolean; store: boolean; model: string; used: number; limit: number | null; safeBrowsing: boolean; settings: AppSettings }
+export interface AiUse { ready: boolean; used: number; limit: number | null }
+/** ai / model / used / limit: the AI chosen in Settings (Claude or Gemini). */
+export interface Status { ai: boolean; store: boolean; model: string; used: number; limit: number | null; claude: AiUse; gemini: AiUse; safeBrowsing: boolean; settings: AppSettings }
 export interface Upload { mime: string; data: string; name: string; preview?: string }
 
 export interface CheckInput { kind: Kind; text?: string; from?: string; file?: Upload; aiMode: AiMode }
@@ -46,7 +48,7 @@ export const api = {
   status: () => call<Status>('/api/status'),
   /** The free checks, at once (the file itself isn't sent here). */
   check: async (b: CheckInput) =>
-    call<CheckResult>('/api/check', { method: 'POST', body: JSON.stringify({ kind: b.kind, text: b.text || undefined, from: b.from || undefined, fileHash: b.file ? await hashOf(b.file.data) : undefined, aiMode: b.aiMode }) }),
+    call<CheckResult>('/api/check', { method: 'POST', body: JSON.stringify({ kind: b.kind, text: b.text || undefined, from: b.from || undefined, fileHash: b.file ? await hashOf(b.file.data) : undefined, pdf: b.file?.mime === 'application/pdf' || undefined, aiMode: b.aiMode }) }),
   /** The AI's opinion (10-40 s): the same message, with the file. */
   ai: (b: CheckInput) =>
     call<CheckResult>('/api/ai', { method: 'POST', body: JSON.stringify({ kind: b.kind, text: b.text || undefined, from: b.from || undefined, file: b.file ? { mime: b.file.mime, data: b.file.data } : undefined, aiMode: b.aiMode }) }),
