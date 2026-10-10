@@ -1,9 +1,9 @@
 import { z } from 'zod';
-import type { CompanyInfo } from '../src/lib/types.js';
+import type { CompanyInfo, ScamNews } from '../src/lib/types.js';
 import { guard, json } from '../server/guard.js';
 import { ready } from '../server/ai.js';
 import { CannotDo, askWithSearch } from '../server/search.js';
-import { pickModel, providerOf } from '../src/lib/types.js';
+import { modelFor, modelName, pickModel, providerOf } from '../src/lib/types.js';
 import { checkLinks } from '../server/domains.js';
 import { jsonIn } from '../server/gemini.js';
 import { checkPhones } from '../server/phones.js';
@@ -39,10 +39,44 @@ const str = (v: unknown, n = 300) => (typeof v === 'string' ? v.trim().slice(0, 
 /** 🔄 Recent companies, the same on every device (the last 20). */
 const recent = (name: string, typed: string) => syncedPut(COMPANIES, KEY(typed), { name, checkedAt: new Date().toISOString() }, 20).catch(() => undefined);
 
-/** GET /api/company -> your recent companies (newest first). */
+/**
+ * 📰 Scams going around now: a short list from this week's news (a live web search, never memory), made only when
+ * you ask for it (1 AI check) and kept for everyone's devices; it's offered again after 7 days.
+ */
+const NEWS = 'sc:news';
+const NEWS_RULES = `List the scams going around RIGHT NOW in the United States (the last few weeks), for one ordinary person. Search the web: FTC consumer alerts, FBI IC3, AARP fraud watch, BBB Scam Tracker, state attorneys general, major news. Only scams you found in recent sources; never invent. Plain, simple, calm everyday English, short.
+
+Answer with ONE JSON object only:
+{"items": [{"name": "short name, e.g. 'Fake toll texts'", "how": "what they say or do, one short sentence", "tell": "how to spot it or what to do, one short sentence", "who": "who is targeted, a few words, or an empty string"}] (4 to 6, most widespread first)}`;
+const NewsBody = z.object({
+  news: z.literal(true),
+  model: z.object({ provider: z.enum(['claude', 'gemini', 'groq', 'openrouter']), id: z.string().regex(/^[A-Za-z0-9._:/-]{2,120}$/) }).optional(),
+});
+async function makeNews(b: z.infer<typeof NewsBody>): Promise<Response> {
+  const saved = await getSettings();
+  const cfg = b.model ? { ...saved, ai: { ...saved.ai, ...pickModel(saved.ai, b.model.provider, b.model.id) } } : saved;
+  const p = cfg.ai.provider;
+  const tried = modelName(p, modelFor(cfg.ai, p));
+  if (!ready(p)) return json({ error: `${providerOf(p).name} isn’t set up (${providerOf(p).env} in Vercel): pick another model.`, tried }, 503);
+  if (p === 'openrouter') return json({ error: 'OpenRouter’s free models can’t search the web: pick Gemini, Claude or Groq.', tried }, 400);
+  if (!(await takeAi(p))) return json({ error: `Today’s ${providerOf(p).name} checks are used up (daily limit in Settings): pick another model to continue.`, tried }, 429);
+  try {
+    const g = await askWithSearch(p, cfg.ai, { instructions: NEWS_RULES, text: `Today is ${new Date().toISOString().slice(0, 10)}. What scams are going around now?`, search: true });
+    const items = (Array.isArray(jsonIn(g.text).items) ? (jsonIn(g.text).items as Record<string, unknown>[]) : []).map((x) => ({ name: str(x.name, 80), how: str(x.how, 300), tell: str(x.tell, 300), who: str(x.who, 80) || undefined })).filter((x) => x.name && x.how).slice(0, 6);
+    if (!items.length) throw new Error('No list came back: try again, or pick another model');
+    const news: ScamNews = { items, sources: g.sources, aiBy: g.by, checkedAt: new Date().toISOString() };
+    await db()?.set(NEWS, news, { ex: 60 * 86400 });
+    return json(news);
+  } catch (e) {
+    return json({ error: (e instanceof Error ? e.message : String(e)).slice(0, 300), tried }, e instanceof CannotDo ? 400 : 502);
+  }
+}
+
+/** GET /api/company -> your recent companies (newest first); GET /api/company?news=1 -> 📰 the last scam news list. */
 export async function GET(req: Request): Promise<Response> {
   const blocked = guard(req, 'company', 60);
   if (blocked) return blocked;
+  if (new URL(req.url).searchParams.get('news')) return json({ news: (await db()?.get<ScamNews>(NEWS).catch(() => null)) ?? null });
   const list = await syncedList<{ name: string; checkedAt: string }>(COMPANIES).catch(() => []);
   return json({ synced: !!db(), names: list.map(([, x]) => x.name) });
 }
@@ -80,7 +114,10 @@ export async function POST(req: Request): Promise<Response> {
   if (blocked) return blocked;
   let b: z.infer<typeof Body>;
   try {
-    b = Body.parse(await req.json());
+    const raw = await req.json();
+    const n = NewsBody.safeParse(raw);
+    if (n.success) return await makeNews(n.data);
+    b = Body.parse(raw);
   } catch {
     return json({ error: 'Type a company name.' }, 400);
   }

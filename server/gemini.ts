@@ -102,7 +102,7 @@ export interface Source { title: string; url: string }
  * parts: a video (file or YouTube link) and/or words. Returns Gemini's text (JSON asked in the instructions),
  * the sources, and the model that answered (Flash takes over when Pro isn't available).
  */
-export async function geminiSearch(parts: Record<string, unknown>[], instructions: string, cfg: AppSettings['ai'], video = false): Promise<{ text: string; sources: Source[]; model: string; fallback?: string }> {
+export async function geminiSearch(parts: Record<string, unknown>[], instructions: string, cfg: AppSettings['ai'], video = false, search = true): Promise<{ text: string; sources: Source[]; model: string; fallback?: string }> {
   const call = async (model: string) => {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: 'POST',
@@ -110,9 +110,9 @@ export async function geminiSearch(parts: Record<string, unknown>[], instruction
       body: JSON.stringify({
         system_instruction: { parts: [{ text: instructions }] },
         contents: [{ role: 'user', parts }],
-        tools: [{ google_search: {} }],
+        ...(search ? { tools: [{ google_search: {} }] } : {}),
         // Videos: fewer details per frame keeps long videos inside the free allowance.
-        generationConfig: { temperature: 0.2, maxOutputTokens: 6000, ...(video ? { mediaResolution: 'MEDIA_RESOLUTION_LOW' } : {}) },
+        generationConfig: { temperature: 0.2, maxOutputTokens: 8000, ...(video ? { mediaResolution: 'MEDIA_RESOLUTION_LOW' } : {}) },
       }),
       signal: AbortSignal.timeout(240_000),
     });

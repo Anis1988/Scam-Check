@@ -12,6 +12,9 @@
     },
     "api/company.ts": {
       "maxDuration": 60
+    },
+    "api/doc.ts": {
+      "maxDuration": 300
     }
   },
   "rewrites": [
