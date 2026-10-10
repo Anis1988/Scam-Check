@@ -30,6 +30,8 @@ export function rateLimited(req: Request, name: string, maxPerMinute: number): R
 function sameOrigin(req: Request): boolean {
   const origin = req.headers.get('origin');
   if (!origin) return true;
+  // The Android app (branch "android") runs its screens from https://localhost; it still needs the access code.
+  if (origin === 'https://localhost' || origin === 'capacitor://localhost') return true;
   try {
     return new URL(origin).host === new URL(req.url).host;
   } catch {
