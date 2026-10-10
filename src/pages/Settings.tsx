@@ -152,7 +152,7 @@ export function Settings() {
               <details className="text-sm">
                 <summary className="cursor-pointer text-xs font-semibold text-stone-500">A model that isn’t listed…</summary>
                 <div className="mt-2 flex gap-2">
-                  <input className="input min-w-0 flex-1 font-mono text-sm" value={otherModel} onChange={(e) => setOtherModel(e.target.value)} placeholder="e.g. gemini-2.5-pro, or a Groq/Mistral/OpenRouter model" aria-label="Model name" />
+                  <input className="input min-w-0 flex-1 font-mono text-sm" value={otherModel} onChange={(e) => setOtherModel(e.target.value)} placeholder="e.g. gemini-2.5-pro, or a Groq/OpenRouter model" aria-label="Model name" />
                   <button className="btn" disabled={otherModel.trim().length < 3} onClick={() => { const v = otherModel.trim(); const p = (v.startsWith('claude-') ? 'claude' : v.startsWith('gemini-') ? 'gemini' : cfg.ai.provider === 'claude' || cfg.ai.provider === 'gemini' ? 'openrouter' : cfg.ai.provider); set('ai', pickModel(cfg.ai, p, v)); setOtherModel(''); }}>Use it</button>
                 </div>
                 <p className="mt-1 text-xs text-stone-500">Names starting with claude- go to Claude, gemini- to Gemini; any other name goes to the free AI picked above (or OpenRouter).</p>

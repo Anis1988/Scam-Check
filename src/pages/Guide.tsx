@@ -151,19 +151,24 @@ export function Guide() {
       </Section>
 
       <Section id="video">
-        <p>In the <b>🎬 Video</b> tab, upload a video (from your phone or computer, up to about 20 minutes) or paste a <b>YouTube</b> or <b>TikTok</b> link. Gemini (free) watches and listens to it, checks what it claims with <b>Google Search</b>, and tells you in simple words:</p>
+        <p>In the <b>🎬 Video</b> tab, upload a video (from your phone or computer) or paste a <b>YouTube</b> or <b>TikTok</b> link. The AI picked in <b>Settings</b> checks what it claims with a <b>web search</b> and tells you in simple words:</p>
         <ul className="list-disc space-y-1.5 pl-5">
           <li>✅ True, ⚖️ Partly true, ⚠️ Misleading, ❌ False, ❔ Can’t be checked, or 💬 Opinion or entertainment.</li>
           <li>A short summary, each main claim with what’s really true, signs it’s AI-made or edited, and the <b>sources</b>.</li>
         </ul>
-        <p><b>TikTok links:</b> no AI can watch them, so only the caption is checked. For the whole video, save it (Share → Save video) and upload it. Each video uses 1 Gemini check. You can switch tabs or close the app while it works.</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>Gemini</b> watches and listens to the whole video (up to about 20 minutes), YouTube links too.</li>
+          <li><b>Claude, Groq, OpenRouter</b> can’t watch videos: the app takes 6 pictures from your video on your phone and they check those (no sound). For a YouTube link they check its title and cover picture.</li>
+          <li><b>TikTok links:</b> no AI can watch them, so only the caption and cover are checked. For the whole video, save it (Share → Save video) and upload it.</li>
+        </ul>
+        <p>Each video uses 1 AI check. You can switch tabs or close the app while it works. If it fails or today’s limit is reached, tap <b>↻ Try with another model</b> and pick one from the list.</p>
         <p className="text-xs text-stone-500">Example (made up):</p>
         <VideoCard r={VIDEO} example />
       </Section>
 
       <Section id="company">
-        <p>In the <b>🏢 Look up</b> tab, type a company name (Duke Energy, Chase, Amazon…). You get what they do, their <b>real website</b>, <b>customer service phone and email</b>, contact page and hours, from a live Google search with sources. The app also checks the website (real one, how old) and the phone numbers.</p>
-        <p>It never comes from an AI’s memory, because a wrong number could lead you to a scammer. Still, the safest number is the one on your card, bill or the company’s own app. Uses 1 Gemini check; the same company is remembered for a week (free).</p>
+        <p>In the <b>🏢 Look up</b> tab, type a company name (Duke Energy, Chase, Amazon…). You get what they do, their <b>real website</b>, <b>customer service phone and email</b>, contact page and hours, from a live web search with sources, by the AI picked in Settings. The app also checks the website (real one, how old) and the phone numbers.</p>
+        <p>It never comes from an AI’s memory, because a wrong number could lead you to a scammer: <b>Gemini</b> uses Google Search, <b>Claude</b> its own web search (about 1 cent more per look-up), <b>Groq</b> its free “Compound” search. OpenRouter’s free models can’t search, so they’re greyed out here. If today’s limit is reached, tap <b>Continue with another model</b>. Still, the safest number is the one on your card, bill or the company’s own app. Uses 1 AI check; the same company is remembered for a week (free).</p>
         <p className="text-xs text-stone-500">Example (made up, the links do nothing here):</p>
         <CompanyCard c={COMPANY} example />
       </Section>
@@ -251,10 +256,10 @@ export function Guide() {
         <p>In <b>Settings → AI → AI model</b>, tap the model you want: Claude’s and Gemini’s are in the same list. The one you pick reads your pictures, bills and PDFs and answers “Ask the AI”:</p>
         <ul className="list-disc space-y-1.5 pl-5">
           <li><b>Claude (paid):</b> the best at spotting tricky scams, a few cents a check. What you send is not used to train it.</li>
-          <li><b>Groq, Mistral, OpenRouter (free):</b> more free AIs, each with its own free key and daily limit (50 to start). They run strong models like Meta’s Llama 4, OpenAI’s open model GPT-OSS and DeepSeek. They read screenshots (models marked 🚫📷 can’t: another model of the same AI reads the picture instead), but not PDFs: a PDF goes to Gemini or Claude.</li>
+          <li><b>Groq, OpenRouter (free):</b> more free AIs, each with its own free key and daily limit (50 to start). They run strong models like Meta’s Llama 4, OpenAI’s open model GPT-OSS and DeepSeek. They read screenshots (models marked 🚫📷 can’t: another model of the same AI reads the picture instead), but not PDFs: a PDF goes to Gemini or Claude.</li>
           <li><b>Gemini (free):</b> Google’s AI, free within Google’s daily allowance. Pick <b>Gemini Pro</b> (the biggest and most careful), <b>Flash</b> or <b>Flash-Lite</b>. Pro’s free allowance is small: when it runs out, Flash takes over by itself and the result says so. The app stops at 50 Gemini checks a day to start (you can change it). On the free plan <b>Google may keep and use what you send</b>.</li>
         </ul>
-        <p>Each one has its own daily limit: with Claude you set the number of paid checks (or Unlimited), with Gemini how many free checks a day.</p>
+        <p>The model you pick does <b>everything</b>: checks, 🎬 Video and 🏢 Look up. Each AI has its own daily limit: with Claude you set the number of paid checks (or Unlimited), with the free ones how many a day. When one is used up, the result shows <b>⏸ Limit reached: continue with another model</b>: tap it and pick another one to carry on.</p>
         <p>The <b>top</b> of every result says which AI checked it, e.g. “🤖 Checked by Claude Opus 5.5” in the bill example above, or “🤖 Checked by Gemini Pro (free)”. When no AI was needed it says “🔎 Free checks only (no AI)”. It stays on the result in History and on your saved checks too.</p>
         <p><b>One-time setup for Gemini:</b> go to <b>aistudio.google.com</b>, sign in, tap <b>Get API key</b> → <b>Create API key</b>, and add it in Vercel as <code>GEMINI_API_KEY</code> (Settings → Environment Variables), then redeploy. Like your other keys, never paste it anywhere else.</p>
       </Section>

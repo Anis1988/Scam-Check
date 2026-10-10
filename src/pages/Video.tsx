@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent } from 'react';
-import { api, uploadVideo } from '../lib/api';
-import { FACT_LABEL, type FactVerdict, type VideoResult } from '../lib/types';
+import { api, uploadVideo, videoFrames } from '../lib/api';
+import { ModelMenu } from '../components/ModelMenu';
+import { FACT_LABEL, providerOf, type FactVerdict, type ModelChoice, type Provider, type VideoResult } from '../lib/types';
 import { refreshStatus, useStatus } from '../lib/useStatus';
 import { CheckedBy } from '../components/ResultCard';
 import { Rail, Shell, toast } from '../components/ui';
@@ -13,6 +14,8 @@ const KEY = 'sc.videos';
 let list: VideoResult[] = (() => { try { return JSON.parse(localStorage.getItem(KEY) ?? '[]') as VideoResult[]; } catch { return []; } })();
 const subs = new Set<() => void>();
 const progress = new Map<string, number>(); // upload progress (0-1) while sending
+/** How to check a video again with another model (kept while the app is open). */
+const retries = new Map<string, (m: ModelChoice) => void>();
 function put(r: VideoResult) {
   list = [r, ...list.filter((x) => x.id !== r.id)].slice(0, 20);
   try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* full */ }
@@ -64,6 +67,7 @@ export function VideoCard({ r, example = false }: { r: VideoResult; example?: bo
         <span className="text-stone-400" aria-hidden="true">{open ? '−' : '+'}</span>
       </button>
       {open && r.status === 'failed' && <p className="break-words text-sm text-amber-800">{r.error}</p>}
+      {open && r.status === 'failed' && retries.has(r.id) && <ModelMenu label="↻ Try with another model" primary onPick={(m) => retries.get(r.id)?.(m)} />}
       {open && r.status === 'pending' && <p className="text-xs text-stone-500">This can take up to a few minutes for long videos. You can switch tabs or close the app: the answer will be here.</p>}
       {open && r.status === 'done' && (
         <div className="space-y-2.5 border-t border-stone-200/70 pt-2.5 text-sm">
@@ -87,11 +91,12 @@ export function VideoCard({ r, example = false }: { r: VideoResult; example?: bo
           {r.note && <p className="break-words text-xs text-stone-500">{r.note}</p>}
           {r.sources && r.sources.length > 0 && (
             <div className="space-y-1">
-              <p className="label">Sources (Google Search)</p>
+              <p className="label">Sources (web search)</p>
               <ul className="space-y-0.5">{r.sources.map((s) => <li key={s.url} className="truncate text-xs"><a className="text-teal-700 underline" href={s.url} target="_blank" rel="noopener noreferrer" tabIndex={example ? -1 : 0}>{s.title || s.url}</a></li>)}</ul>
             </div>
           )}
           <p className="text-xs text-stone-500">An AI fact-check can be wrong. For anything important, look at the sources.</p>
+          {retries.has(r.id) && !example && <ModelMenu label="↻ Re-check with another model" onPick={(m) => retries.get(r.id)?.(m)} />}
         </div>
       )}
     </article>
@@ -104,8 +109,10 @@ export function Video({ sharedLink = '' }: { sharedLink?: string }) {
   const [link, setLink] = useState(sharedLink);
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
-  const ready = st?.providers?.gemini?.ready;
-  const g = st?.providers?.gemini;
+  // The AI picked in Settings does the video checks.
+  const p = st?.settings.ai.provider ?? 'gemini';
+  const ready = st?.providers?.[p]?.ready;
+  const g = st?.providers?.[p];
   const left = g && g.limit !== null ? Math.max(0, g.limit - g.used) : null;
 
   // Checks still running on the server (you switched tabs or closed the app): their answers are picked up here.
@@ -124,17 +131,26 @@ export function Video({ sharedLink = '' }: { sharedLink?: string }) {
     return () => { alive = false; };
   }, []);
 
-  const addFile = (f: File | undefined) => {
+  /** The AI for this video: the one picked just now, else the one in Settings. */
+  const providerFor = (m?: ModelChoice): Provider => m?.provider ?? st?.settings.ai.provider ?? 'gemini';
+  const addFile = (f: File | undefined, m?: ModelChoice) => {
     if (!f) return;
     if (!f.type.startsWith('video/') && !/\.(mp4|mov|m4v|webm|3gp|mkv|avi)$/i.test(f.name)) return toast('error', 'Choose a video file.');
     if (f.size > 500_000_000) return toast('error', 'This video is too big (500 MB max). Trim it, or use a YouTube link.');
-    void checkVideo(f.name, 'upload', (id) => (progress.set(id, 0), uploadVideo(f, (s) => { progress.set(id, s); list = [...list]; subs.forEach((x) => x()); })));
+    // Gemini watches the whole video (sent straight to Google); the others look at pictures taken from it here.
+    const p = providerFor(m);
+    void checkVideo(f.name, 'upload', async (id) => {
+      retries.set(id, (next) => addFile(f, next));
+      if (p !== 'gemini') return { frames: await videoFrames(f), model: m };
+      progress.set(id, 0);
+      return { ...(await uploadVideo(f, (s) => { progress.set(id, s); list = [...list]; subs.forEach((x) => x()); })), model: m };
+    });
   };
-  const addLink = () => {
-    const v = link.trim();
+  const addLink = (again?: string, m?: ModelChoice) => {
+    const v = (again ?? link).trim();
     if (!isVideoLink(v)) return toast('error', 'Paste a YouTube or TikTok link (or upload the video).');
     setLink('');
-    void checkVideo(v, /tiktok\.com/i.test(v) ? 'tiktok' : 'youtube', async () => ({ url: v }));
+    void checkVideo(v, /tiktok\.com/i.test(v) ? 'tiktok' : 'youtube', async (id) => (retries.set(id, (next) => addLink(v, next)), { url: v, model: m }));
   };
   useEffect(() => { if (sharedLink && isVideoLink(sharedLink) && ready) addLink(); }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
   const onDrop = (e: DragEvent) => { e.preventDefault(); setOver(false); addFile(e.dataTransfer.files[0]); };
@@ -144,8 +160,8 @@ export function Video({ sharedLink = '' }: { sharedLink?: string }) {
       <Rail title="How it works">
         <ol className="space-y-1.5 text-sm text-stone-600">
           <li><span className="num text-teal-700">01</span> Upload a video, or paste a YouTube or TikTok link</li>
-          <li><span className="num text-teal-700">02</span> Gemini watches it (free)</li>
-          <li><span className="num text-teal-700">03</span> Its claims are checked with Google Search</li>
+          <li><span className="num text-teal-700">02</span> The AI from Settings watches it (Gemini), or looks at pictures from it (the others)</li>
+          <li><span className="num text-teal-700">03</span> Its claims are checked with a web search</li>
         </ol>
       </Rail>
     }>
@@ -155,18 +171,19 @@ export function Video({ sharedLink = '' }: { sharedLink?: string }) {
           <h1 className="text-2xl font-bold">Is this video true?</h1>
           <p className="text-sm text-stone-500">Upload a video or paste a link. You get true or false, a short summary in simple words, each claim checked, and the sources.</p>
         </div>
-        {st && !ready && <p className="panel text-sm text-amber-800">This needs Gemini (free): get a key at <b>aistudio.google.com</b> → Get API key, add it in Vercel as <code>GEMINI_API_KEY</code>, then redeploy.</p>}
+        {st && <p className="hud">🤖 {st.model}{p !== 'gemini' ? ' · looks at pictures from the video (no sound): pick a Gemini model in Settings to watch it whole' : ' · watches the whole video'}</p>}
+        {st && !ready && <p className="panel text-sm text-amber-800">{providerOf(p).name} isn’t set up: add <code>{providerOf(p).env}</code> in Vercel, then redeploy, or pick another model in Settings.</p>}
         <input ref={input} type="file" accept="video/*" className="hidden" onChange={(e) => { addFile(e.target.files?.[0]); e.target.value = ''; }} />
         <button type="button" className="dropzone" data-over={over} disabled={!ready} onClick={() => input.current?.click()}>
           <span className="text-3xl" aria-hidden="true">🎬</span>
           <span className="font-display font-semibold text-teal-900">Upload a video</span>
-          <span className="text-xs text-stone-500">Tap to choose, or drag & drop here · up to 500 MB (about 20 minutes)</span>
+          <span className="text-xs text-stone-500">Tap to choose, or drag & drop here · up to 500 MB (about 20 minutes with Gemini)</span>
         </button>
         <form className="flex gap-2" onSubmit={(e) => (e.preventDefault(), addLink())}>
           <input className="input min-w-0 flex-1" value={link} onChange={(e) => setLink(e.target.value)} placeholder="Or paste a YouTube / TikTok link" inputMode="url" autoCapitalize="off" spellCheck={false} aria-label="Video link" />
           <button className="btn" disabled={!ready || !link.trim()}>Check</button>
         </form>
-        <p className="text-xs text-stone-500">TikTok links: no AI can watch them, so only the caption is checked. For the whole video, save it (Share → Save video) and upload it. {left !== null && ready ? `Uses 1 of ${left} Gemini checks left today.` : ''}</p>
+        <p className="text-xs text-stone-500">TikTok links: no AI can watch them, so only the caption and cover are checked. For the whole video, save it (Share → Save video) and upload it. {left !== null && ready ? `Uses 1 of ${left} ${providerOf(p).name} checks left today.` : ''}</p>
       </section>
       {videos.length > 0 && <p className="label">Your video checks (on this device)</p>}
       <div className="space-y-2">{videos.map((r) => <VideoCard key={`${r.id}${r.status}`} r={r} />)}</div>

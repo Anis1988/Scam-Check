@@ -63,11 +63,11 @@ export const api = {
   saveSettings: (s: AppSettings) => call<AppSettings & { cleaned: number }>('/api/settings', { method: 'POST', body: JSON.stringify(s) }),
   setNote: (id: string, note: string, name?: string) => call<SavedItem>('/api/saved', { method: 'POST', body: JSON.stringify({ action: 'note', id, note, name: name?.trim() || undefined }) }),
   /** 🎬 Video: the check (it keeps going on the server if the app closes; GET it again with its id). */
-  videoCheck: (b: { id: string; label: string; file?: { name: string }; inline?: { mime: string; data: string }; url?: string }) =>
+  videoCheck: (b: { id: string; label: string; file?: { name: string }; inline?: { mime: string; data: string }; url?: string; frames?: { mime: 'image/jpeg'; data: string }[]; model?: ModelChoice }) =>
     call<VideoResult>('/api/video', { method: 'POST', body: JSON.stringify({ action: 'check', ...b }) }),
   video: (id: string) => call<VideoResult>(`/api/video?id=${encodeURIComponent(id)}`),
   /** 🏢 A company's real contact details (live Google search). */
-  company: (name: string, fresh = false) => call<CompanyInfo>('/api/company', { method: 'POST', body: JSON.stringify({ name, fresh: fresh || undefined }) }),
+  company: (name: string, fresh = false, model?: ModelChoice) => call<CompanyInfo>('/api/company', { method: 'POST', body: JSON.stringify({ name, fresh: fresh || undefined, model }) }),
   /** ⚡ Quick look-up: just a link, phone number or email address (free checks only). */
   lookup: (value: string) => call<CheckResult>('/api/lookup', { method: 'POST', body: JSON.stringify({ value }) }),
   bills: () => call<Bill[]>('/api/bills'),
@@ -167,5 +167,40 @@ export async function uploadVideo(f: File, onProgress?: (share: number) => void)
   } catch (e) {
     if (f.size <= 3_000_000) return { inline: { mime, data: await toBase64(f) } };
     throw new Error(`The video couldn’t be uploaded (${e instanceof Error ? e.message : e}). Try a shorter clip, or a YouTube link.`);
+  }
+}
+
+/**
+ * 🎬 For AIs that can't watch videos (Claude, Groq, OpenRouter): a few pictures taken evenly from the video, on this
+ * device (nothing else is sent). JPEG, 768 px max.
+ */
+export async function videoFrames(f: File, n = 6): Promise<{ mime: 'image/jpeg'; data: string }[]> {
+  const url = URL.createObjectURL(f);
+  const v = document.createElement('video');
+  v.muted = true;
+  v.playsInline = true;
+  v.preload = 'auto';
+  v.src = url;
+  const wait = (ev: 'loadeddata' | 'seeked') => new Promise<void>((ok, fail) => {
+    const t = setTimeout(() => fail(new Error('This video can’t be opened here: try another format, or pick a Gemini model')), 15000);
+    v.addEventListener(ev, () => (clearTimeout(t), ok()), { once: true });
+    v.addEventListener('error', () => (clearTimeout(t), fail(new Error('This video can’t be opened here: try another format, or pick a Gemini model'))), { once: true });
+  });
+  try {
+    await wait('loadeddata');
+    const d = Number.isFinite(v.duration) ? v.duration : 0;
+    const c = document.createElement('canvas');
+    const out: { mime: 'image/jpeg'; data: string }[] = [];
+    for (let i = 0; i < (d ? n : 1); i++) {
+      if (d) { v.currentTime = (d * (i + 0.5)) / n; await wait('seeked'); }
+      const k = Math.min(1, 768 / Math.max(v.videoWidth || 768, v.videoHeight || 768));
+      c.width = Math.round((v.videoWidth || 768) * k);
+      c.height = Math.round((v.videoHeight || 432) * k);
+      c.getContext('2d')!.drawImage(v, 0, 0, c.width, c.height);
+      out.push({ mime: 'image/jpeg', data: c.toDataURL('image/jpeg', 0.7).split(',')[1] });
+    }
+    return out;
+  } finally {
+    URL.revokeObjectURL(url);
   }
 }

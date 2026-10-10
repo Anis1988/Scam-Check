@@ -5,13 +5,12 @@ import { Answer, SYSTEM, promptText, type AiAnswer, type AiInput } from './ai.js
 import { loose } from './gemini.js';
 
 /**
- * The other free AIs (Settings → AI model): Groq, Mistral and OpenRouter. They all speak the OpenAI way, so one
+ * The other free AIs (Settings → AI model): Groq and OpenRouter. They all speak the OpenAI way, so one
  * small client serves them all (plain HTTPS, no extra library). Same instructions and answer shape as Claude, so
  * everything after it (mixing with the free checks, never hiding a strong warning) is unchanged.
  */
 const BASE: Record<FreeProvider, string> = {
   groq: 'https://api.groq.com/openai/v1',
-  mistral: 'https://api.mistral.ai/v1',
   openrouter: 'https://openrouter.ai/api/v1',
 };
 
@@ -33,7 +32,7 @@ export async function askOpenAI(p: FreeProvider, input: AiInput, cfg: AppSetting
   const text = promptText(input, cfg);
   const url = input.file ? `data:${input.file.mime};base64,${input.file.data}` : '';
   const content = input.file
-    ? [{ type: 'image_url', image_url: p === 'mistral' ? url : { url } }, { type: 'text', text }]
+    ? [{ type: 'image_url', image_url: { url } }, { type: 'text', text }]
     : text;
   const body = (json: boolean) => JSON.stringify({
     model,
