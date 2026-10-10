@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent } from 'react';
 import { api, uploadVideo, videoFrames } from '../lib/api';
+import { done, once } from '../lib/history';
 import { ModelMenu } from '../components/ModelMenu';
 import { FACT_LABEL, modelName, providerOf, type FactVerdict, type ModelChoice, type Provider, type VideoResult } from '../lib/types';
 import { refreshStatus, useStatus } from '../lib/useStatus';
@@ -21,7 +22,28 @@ function put(r: VideoResult) {
   try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* full */ }
   subs.forEach((f) => f());
 }
-/** 🗑 A video check: gone from this device and the server. */
+/**
+ * 🔄 The video checks as the server has them (the same on the phone and the computer). Ones still uploading from
+ * this device aren't on the server yet: they stay.
+ */
+async function syncVideos() {
+  // Once per device: video checks from before the list was shared join it first.
+  if (!once('sc.videosShared')) {
+    const ok = !list.length || (await api.shareOldVideos(list.map((v) => v.id)).catch(() => null))?.synced;
+    if (!ok) return;
+    done('sc.videosShared');
+  }
+  const r = await api.videos().catch(() => null);
+  if (!r?.synced) return;
+  const known = new Set(r.videos.map((v) => v.id));
+  const next = [...list.filter((v) => !known.has(v.id) && v.status === 'pending' && progress.has(v.id)), ...r.videos].slice(0, 50);
+  if (JSON.stringify(next) === JSON.stringify(list)) return;
+  list = next;
+  try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* full */ }
+  subs.forEach((f) => f());
+}
+
+/** 🗑 A video check: gone from every device and the server. */
 async function removeVideo(r: VideoResult) {
   if (!window.confirm(`Delete this video check (${r.title || r.label})?`)) return;
   list = list.filter((x) => x.id !== r.id);
@@ -136,6 +158,13 @@ export function Video({ sharedLink = '' }: { sharedLink?: string }) {
   const g = st?.providers?.[p];
   const left = g && g.limit !== null ? Math.max(0, g.limit - g.used) : null;
 
+  useEffect(() => {
+    void syncVideos();
+    const back = () => document.visibilityState === 'visible' && void syncVideos();
+    document.addEventListener('visibilitychange', back);
+    window.addEventListener('focus', back);
+    return () => { document.removeEventListener('visibilitychange', back); window.removeEventListener('focus', back); };
+  }, []);
   // Checks still running on the server (you switched tabs or closed the app): their answers are picked up here.
   useEffect(() => {
     let alive = true;
@@ -214,7 +243,7 @@ export function Video({ sharedLink = '' }: { sharedLink?: string }) {
       </section>
       {videos.length > 0 && (
         <div className="flex items-center justify-between gap-2">
-          <p className="label">Your video checks (on this device)</p>
+          <p className="label">Your video checks</p>
           <button className="btn-ghost text-xs" onClick={() => void removeAllVideos()}>🗑 Delete all</button>
         </div>
       )}

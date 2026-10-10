@@ -9,6 +9,7 @@ import { Video } from './pages/Video';
 import { Lookup } from './pages/Lookup';
 import { getCode, setCode } from './lib/api';
 import { aiLeft, refreshStatus, useStatus } from './lib/useStatus';
+import { syncHistory } from './lib/batch';
 import { getPrefs, setPrefs } from './lib/history';
 
 const TABS = ['Check', 'Video', 'Lookup', 'Saved', 'History', 'Guide', 'Settings'] as const;
@@ -80,6 +81,15 @@ export default function App() {
   const [videoLink] = useState(sharedVideoLink);
   const [tab, setTab] = useState<Tab>(() => (TABS.find((t) => t !== 'Check' && window.location.pathname.toLowerCase().startsWith(`/${t.toLowerCase()}`)) ?? 'Check'));
   const [hasCode, setHasCode] = useState(!!getCode());
+  // 🔄 History is the same on every device: fetched at start and each time you come back to the app.
+  useEffect(() => {
+    if (!hasCode) return;
+    void syncHistory();
+    const back = () => document.visibilityState === 'visible' && (void syncHistory(), void refreshStatus());
+    document.addEventListener('visibilitychange', back);
+    window.addEventListener('focus', back);
+    return () => { document.removeEventListener('visibilitychange', back); window.removeEventListener('focus', back); };
+  }, [hasCode]);
   useEffect(() => {
     const off = () => setHasCode(false);
     if (hasCode) void refreshStatus();

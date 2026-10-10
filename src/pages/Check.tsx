@@ -226,7 +226,7 @@ export function Check() {
 
   /** 🗑 Gone from the screen, History and the server (a ⭐ saved copy stays). */
   const removeCheck = (r: CheckResult) => {
-    if (!window.confirm(`Delete this check (${r.title || KIND_LABEL[r.kind].text})? It’s removed from this device and the server. A ⭐ saved copy stays.`)) return;
+    if (!window.confirm(`Delete this check (${r.title || KIND_LABEL[r.kind].text})? It’s removed from all your devices. A ⭐ saved copy stays.`)) return;
     void deleteChecks([r.id]).then(() => toast('success', 'Deleted.'), (e) => toast('error', e instanceof Error ? e.message : String(e)));
   };
   const recheckBar = (it: Item) => it.result && <RecheckBar r={it.result} canRecheck={!!it.input} need={needOf(it.input?.file)} onRecheck={(m) => void askAi(it, true, m)} />;

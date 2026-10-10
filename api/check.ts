@@ -5,7 +5,7 @@ import { providerOf } from '../src/lib/types.js';
 import { guard, json } from '../server/guard.js';
 import { buildResult, freeChecks } from '../server/analyze.js';
 import { isPrivate, noAiNote, pickAi } from '../server/ai.js';
-import { deleteResult, getLists, getResult, getSettings, overLimit, saveResult, storeReady } from '../server/store.js';
+import { HISTORY, deleteResult, getLists, getResult, getSettings, overLimit, saveResult, storeReady, syncedList, syncedPut } from '../server/store.js';
 import { withLists } from '../server/lists.js';
 
 export const Body = z.object({
@@ -26,14 +26,40 @@ export const out = async (r: CheckResult) => json(withLists(r, await getLists().
 
 const parseError = (e: unknown) => (e instanceof z.ZodError ? `Invalid request: ${e.issues[0]?.path.join('.')} ${e.issues[0]?.message}` : 'Invalid request.');
 
-/** GET /api/check?id=... -> a remembered result (7 days by default). */
+/** GET /api/check?id=... -> a remembered result (7 days by default); GET /api/check -> History (every device). */
 export async function GET(req: Request): Promise<Response> {
   const blocked = guard(req, 'check', 30);
   if (blocked) return blocked;
   const id = new URL(req.url).searchParams.get('id') ?? '';
+  // No id: 🔄 History, the same on every device (newest first), through your trusted / blocked lists.
+  if (!id) {
+    const lists = await getLists().catch(() => []);
+    const list = await syncedList<CheckResult>(HISTORY).catch(() => []);
+    return json({ synced: storeReady(), checks: list.map(([, r]) => withLists(r, lists)) });
+  }
   if (!/^[a-f0-9]{32}$/.test(id)) return json({ error: 'Bad id.' }, 400);
   const r = await getResult(id).catch(() => null);
   return r ? out(r) : json({ error: 'Not found (this result is too old: check it again).' }, 404);
+}
+
+/**
+ * PUT /api/check {checks} -> once per device: History it had before History was shared, added to the shared one
+ * (so nothing is lost and the phone's and the computer's checks come together).
+ */
+const OldChecks = z.object({ checks: z.array(z.object({ id: z.string().regex(/^[a-f0-9]{32}$/), checkedAt: z.string().max(40), verdict: z.enum(['safe', 'suspicious', 'scam']) }).passthrough()).max(100) });
+export async function PUT(req: Request): Promise<Response> {
+  const blocked = guard(req, 'check', 10);
+  if (blocked) return blocked;
+  let b: z.infer<typeof OldChecks>;
+  try {
+    b = OldChecks.parse(await req.json());
+  } catch (e) {
+    return json({ error: parseError(e) }, 400);
+  }
+  const have = new Set((await syncedList<CheckResult>(HISTORY).catch(() => [])).map(([id]) => id));
+  const add = b.checks.filter((c) => !have.has(c.id) && JSON.stringify(c).length < 30_000);
+  for (const c of add) await syncedPut(HISTORY, c.id, { ...(c as unknown as CheckResult), remembered: undefined }, 100);
+  return json({ added: add.length, synced: storeReady() });
 }
 
 /** DELETE /api/check?ids=a,b -> 🗑 forgets these checks on the server too (up to 200 at once). */

@@ -22,15 +22,48 @@ export const storeReady = () => !!db();
 export async function getResult(id: string): Promise<CheckResult | null> {
   return (await db()?.get<CheckResult>(`sc:result:${id}`)) ?? null;
 }
-/** Kept for "Results remembered" days (Settings, 7 by default): the same message is answered again for free. */
-/** 🗑 A check deleted by you: its answer isn't kept on the server any more (checking it again starts fresh). */
+/** 🗑 A check deleted by you: its answer isn't kept on the server any more (checking it again starts fresh), and it
+ * leaves History on every device. */
 export async function deleteResult(id: string): Promise<void> {
   await db()?.del(`sc:result:${id}`);
+  await syncedDel(HISTORY, [id]);
 }
 
+/**
+ * Kept for "Results remembered" days (Settings, 7 by default): the same message is answered again for free.
+ * Every check also goes into History, shared by all your devices (the last 100, until you delete them).
+ */
 export async function saveResult(r: CheckResult, days?: number): Promise<void> {
   const d = days ?? (await getSettings()).checks.rememberDays;
   await db()?.set(`sc:result:${r.id}`, r, { ex: Math.max(1, d) * 86400 });
+  await syncedPut(HISTORY, r.id, r, 100);
+}
+
+/**
+ * 🔄 Lists every device shares (the phone app and the website show the same): 🕘 History, 🎬 video checks and
+ * 🏢 recent companies. A Redis hash per list (id -> item with checkedAt), the newest `max` kept.
+ */
+export const HISTORY = 'sc:history';
+export const VIDEOS = 'sc:videos';
+export const COMPANIES = 'sc:companies';
+type Dated = { checkedAt: string };
+export async function syncedPut<T extends Dated>(key: string, id: string, item: T, max: number): Promise<void> {
+  const r = db();
+  if (!r) return;
+  await r.hset(key, { [id]: item });
+  if ((await r.hlen(key)) > max + 10) {
+    const old = (await syncedList<T>(key)).slice(max);
+    for (const [oldId] of old) await r.hdel(key, oldId);
+  }
+}
+/** Newest first, as [id, item]. */
+export async function syncedList<T extends Dated>(key: string): Promise<[string, T][]> {
+  const all = (await db()?.hgetall<Record<string, T>>(key)) ?? {};
+  return Object.entries(all).sort((a, b) => (b[1].checkedAt ?? '').localeCompare(a[1].checkedAt ?? ''));
+}
+export async function syncedDel(key: string, ids: string[]): Promise<void> {
+  const r = db();
+  if (r) for (const id of ids) await r.hdel(key, id);
 }
 
 /**

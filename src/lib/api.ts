@@ -53,6 +53,13 @@ export const api = {
   ai: (b: CheckInput, fresh = false, model?: ModelChoice) =>
     call<CheckResult>('/api/ai', { method: 'POST', body: JSON.stringify({ kind: b.kind, text: b.text || undefined, from: b.from || undefined, file: b.file ? { mime: b.file.mime, data: b.file.data } : undefined, pdf: b.file?.mime === 'application/pdf' || undefined, aiMode: b.aiMode, fresh: fresh || undefined, model }) }),
   result: (id: string) => call<CheckResult>(`/api/check?id=${encodeURIComponent(id)}`),
+  /** 🔄 The lists every device shares: History, video checks, recent companies. synced = false: no server storage. */
+  history: () => call<{ synced: boolean; checks: CheckResult[] }>('/api/check'),
+  shareOldHistory: (checks: CheckResult[]) => call<{ added: number; synced: boolean }>('/api/check', { method: 'PUT', body: JSON.stringify({ checks: checks.filter((c) => c.ai !== 'pending').slice(0, 100) }) }),
+  videos: () => call<{ synced: boolean; videos: VideoResult[] }>('/api/video'),
+  shareOldVideos: (ids: string[]) => call<{ added: number; synced: boolean }>('/api/video', { method: 'PUT', body: JSON.stringify({ ids: ids.slice(0, 50) }) }),
+  companies: () => call<{ synced: boolean; names: string[] }>('/api/company'),
+  shareOldCompanies: (names: string[]) => call<{ synced: boolean }>('/api/company', { method: 'PUT', body: JSON.stringify({ names: names.slice(0, 20) }) }),
   /** 🗑 Forget checks on the server too. */
   deleteChecks: (ids: string[]) => (ids.length ? call<{ deleted: number }>(`/api/check?ids=${ids.slice(0, 200).join(',')}`, { method: 'DELETE' }) : Promise.resolve({ deleted: 0 })),
   deleteVideo: (id: string) => call<{ deleted: number }>(`/api/video?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),

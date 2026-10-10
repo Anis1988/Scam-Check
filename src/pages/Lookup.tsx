@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { saveToHistory } from '../lib/history';
+import { done, once, saveToHistory } from '../lib/history';
 import { deleteChecks } from '../lib/batch';
 import { providerOf, type CheckResult, type CompanyInfo, type ModelChoice } from '../lib/types';
 import { ModelMenu, needsSearch } from '../components/ModelMenu';
@@ -104,6 +104,19 @@ export function Lookup() {
 
   /** 🗑 A company: off the recent list and out of the server's memory (the next search starts fresh). */
   const saveRecent = (next: string[]) => { setRecent(next); try { localStorage.setItem(RECENT, JSON.stringify(next)); } catch { /* full */ } };
+  // 🔄 Recent companies, the same on the phone and the computer.
+  useEffect(() => {
+    void (async () => {
+      // Once per device: its recent companies from before the list was shared join it first.
+      if (!once('sc.companiesShared')) {
+        const ok = !recent.length || (await api.shareOldCompanies(recent).catch(() => null))?.synced;
+        if (!ok) return;
+        done('sc.companiesShared');
+      }
+      const r = await api.companies().catch(() => null);
+      if (r?.synced) saveRecent(r.names.slice(0, 8));
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const forget = (n: string) => {
     if (!window.confirm(`Delete the look-up for ${n}?`)) return;
     saveRecent(recent.filter((x) => x.toLowerCase() !== n.toLowerCase()));

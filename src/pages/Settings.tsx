@@ -277,13 +277,8 @@ export function Settings() {
           <Field label="Text size">{null}</Field>
           <Segmented<DevicePrefs['textSize']> label="Text size" value={prefs.textSize} onChange={(v) => device({ textSize: v })} options={[{ id: 'normal', name: 'Normal' }, { id: 'large', name: 'Large' }]} />
         </div>
-        <Field label="History keeps" hint="Your last checks, on this device only.">
-          <select className="input" value={prefs.historySize} onChange={(e) => device({ historySize: Number(e.target.value) })} aria-label="History keeps">
-            {[20, 50, 100].map((n) => <option key={n} value={n}>{n} checks</option>)}
-          </select>
-        </Field>
         <Field label="Clear History">
-          <button className="btn" onClick={() => window.confirm('Delete all your checks? They’re removed from this device and the server. ⭐ Saved checks stay.') && void deleteAllChecks().then(() => toast('success', 'History cleared.'), () => undefined)}>🗑 Delete all</button>
+          <button className="btn" onClick={() => window.confirm('Delete all your checks? They’re removed from all your devices. ⭐ Saved checks stay.') && void deleteAllChecks().then(() => toast('success', 'History cleared.'), () => undefined)}>🗑 Delete all</button>
         </Field>
         <Field label="Access code" hint="Saved on this device only.">
           <button className="btn" onClick={() => (setCode(''), window.location.reload())}>Forget it</button>

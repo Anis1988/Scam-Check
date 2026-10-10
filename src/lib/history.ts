@@ -25,18 +25,36 @@ export function applyPrefs(p = getPrefs()): void {
   window.dispatchEvent(new Event('sc-prefs'));
 }
 
+/** A one-time step already done on this device (e.g. sharing old lists with the server)? */
+export const once = (key: string): boolean => { try { return localStorage.getItem(key) === '1'; } catch { return true; } };
+export const done = (key: string): void => { try { localStorage.setItem(key, '1'); } catch { /* private mode */ } };
+
 /** Your past checks, kept on this device only (the last 50 by default). */
 const KEY = 'sc.history';
+/** The last 100 checks, the same on every device (the server keeps as many). */
+export const HISTORY_MAX = 100;
 export function loadHistory(): CheckResult[] {
   try { return JSON.parse(localStorage.getItem(KEY) ?? '[]') as CheckResult[]; } catch { return []; }
 }
 export function saveToHistory(r: CheckResult): CheckResult[] {
-  const list = [r, ...loadHistory().filter((x) => x.id !== r.id)].slice(0, getPrefs().historySize);
+  const list = [r, ...loadHistory().filter((x) => x.id !== r.id)].slice(0, HISTORY_MAX);
   try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* full or private mode */ }
   window.dispatchEvent(new Event('sc-history'));
   void pruneInputs(list.map((x) => x.id));
   return list;
 }
+/** 🔄 History as the server has it (the same on every device), kept here too for a quick start. */
+export function replaceHistory(checks: CheckResult[]): CheckResult[] {
+  const list = checks.slice(0, HISTORY_MAX);
+  const before = localStorage.getItem(KEY);
+  const next = JSON.stringify(list);
+  if (before === next) return list;
+  try { localStorage.setItem(KEY, next); } catch { /* full or private mode */ }
+  window.dispatchEvent(new Event('sc-history'));
+  void pruneInputs(list.map((x) => x.id));
+  return list;
+}
+
 /** Takes checks out of History on this device (see deleteChecks in lib/batch for everywhere). */
 export function dropFromHistory(ids: string[]): CheckResult[] {
   const gone = new Set(ids);
