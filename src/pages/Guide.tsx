@@ -4,7 +4,9 @@ import { SavedCard } from '../components/SavedCard';
 import { BillRow } from './Bills';
 import { RecheckBar } from '../components/Recheck';
 import { Rail, ScoreRing, Shell, VerdictChip } from '../components/ui';
-import type { Bill, CheckResult, SavedItem, Verdict } from '../lib/types';
+import type { Bill, CheckResult, CompanyInfo, SavedItem, Verdict, VideoResult } from '../lib/types';
+import { VideoCard } from './Video';
+import { CompanyCard } from './Lookup';
 
 const at = '2026-10-10T14:05:00.000Z';
 // Made-up examples, to show what things look like.
@@ -47,8 +49,27 @@ const BATCH: { icon: string; file: string; verdict: Verdict; score: number; line
   { icon: '📱', file: 'Screenshot_0913.png', verdict: 'suspicious', score: 48, line: 'A “delivery problem” text from an unknown number.' },
 ];
 
+// Made-up video check and company look-up for the examples.
+const VIDEO: VideoResult = {
+  id: 'example-video', status: 'done', from: 'youtube', label: 'youtube.com/watch?v=…', checkedAt: at, verdict: 'misleading', title: 'Claim that bananas cure flu',
+  summary: 'The video says eating 5 bananas a day cures the flu. Bananas are healthy, but no study shows they cure or prevent the flu.',
+  claims: [
+    { claim: 'Bananas cure the flu', verdict: 'false', why: 'No research shows this. Rest, fluids and a flu shot are what doctors recommend.' },
+    { claim: 'Bananas are rich in potassium', verdict: 'true', why: 'A medium banana has about 400 mg of potassium.' },
+  ],
+  sources: [{ title: 'cdc.gov', url: 'https://www.cdc.gov/flu' }], aiBy: 'Gemini Flash (free)',
+};
+const COMPANY: CompanyInfo = {
+  name: 'Duke Energy', whatTheyDo: 'An electric and gas company serving the Carolinas, Florida, Ohio, Indiana and Kentucky.',
+  website: { url: 'https://www.duke-energy.com', domain: 'duke-energy.com', level: 'good', note: 'Real Duke Energy website' },
+  phones: [{ label: 'Customer service', number: '800-555-0123', note: 'toll-free', level: 'info' }], emails: [],
+  contactPage: 'https://www.duke-energy.com/contact-us', hours: 'Mon–Fri 7 am – 7 pm',
+  scamWarning: 'Scammers call threatening to cut your power unless you pay by gift card or app: Duke Energy never does that.',
+  sources: [{ title: 'duke-energy.com', url: 'https://www.duke-energy.com' }], aiBy: 'Gemini Flash (free)', checkedAt: at,
+};
+
 const SECTIONS = [
-  ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['lookup', '⚡ Quick look-up'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
+  ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['video', '🎬 Video: is it true?'], ['company', '🏢 Look up a company'], ['lookup', '⚡ Quick look-up'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
   ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Claude or Gemini (free)'], ['recheck', '↻ Re-check'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
   ['share', 'Share from your phone'], ['scam', 'If it’s a scam'], ['privacy', 'Privacy and cost'],
 ] as const;
@@ -95,8 +116,8 @@ export function Guide() {
 
       <Section id="how">
         <ol className="list-decimal space-y-1.5 pl-5">
-          <li><b>Pick what you got:</b> ✉️ Email, 💬 Text, 🧾 Bill or 📱 Screenshot.</li>
-          <li><b>Paste it, or add pictures.</b> On a computer you can also drag & drop them. For a text, you can also type the number it came from.</li>
+          <li><b>Pick what you got:</b> 📱 Screenshot, 🧾 Bill, ✉️ Email (the .eml file) or 🔳 QR code. No typing needed.</li>
+          <li><b>Add it:</b> tap to choose, or on a computer drag & drop it (or paste a screenshot with Ctrl+V). A text message: take a screenshot of it, or share it to the app from Messages.</li>
           <li>Tap <b>🛡️ Check it</b>. The free checks answer at once; photos and PDFs also go to the AI (it’s the only way to read them). Each one gets an answer with a <b>safety score from 1 to 10</b>, the reasons and what to do.</li>
         </ol>
         <p><b>The safety score:</b> 10 is pretty safe, 1 is extremely bad. The fuller the ring, the safer. It always matches the answer:</p>
@@ -109,7 +130,7 @@ export function Guide() {
       </Section>
 
       <Section id="many">
-        <p><b>Drag & drop:</b> on a computer, drag pictures, PDFs or an email file (.eml) anywhere onto the Check page and let go. You can also paste a screenshot into the message box (Ctrl+V).</p>
+        <p><b>Drag & drop:</b> on a computer, drag pictures, PDFs or an email file (.eml) anywhere onto the Check page and let go. You can also paste a screenshot anywhere on Check (Ctrl+V).</p>
         <p><b>Several at once:</b> choose or drop up to 10 pictures (you can change the number in Settings). Each picture is checked <b>on its own</b> and gets its own safety score (1 to 10) and, if it looks safe, its own short summary. Each picture uses 1 AI check.</p>
         <p>Tap a result to see why and what to do, or tap <b>⭐ Save all</b> to save them all in one go.</p>
         <p><b>Keep using the app while it checks:</b> switch tabs, or even close the app or the browser. Everything is sent to the server at once and finished there. Your results stay on the Check screen, and <b>History</b> fills in the answers by itself (“AI checking…” until they arrive).</p>
@@ -129,8 +150,26 @@ export function Guide() {
         </ul>
       </Section>
 
+      <Section id="video">
+        <p>In the <b>🎬 Video</b> tab, upload a video (from your phone or computer, up to about 20 minutes) or paste a <b>YouTube</b> or <b>TikTok</b> link. Gemini (free) watches and listens to it, checks what it claims with <b>Google Search</b>, and tells you in simple words:</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li>✅ True, ⚖️ Partly true, ⚠️ Misleading, ❌ False, ❔ Can’t be checked, or 💬 Opinion or entertainment.</li>
+          <li>A short summary, each main claim with what’s really true, signs it’s AI-made or edited, and the <b>sources</b>.</li>
+        </ul>
+        <p><b>TikTok links:</b> no AI can watch them, so only the caption is checked. For the whole video, save it (Share → Save video) and upload it. Each video uses 1 Gemini check. You can switch tabs or close the app while it works.</p>
+        <p className="text-xs text-stone-500">Example (made up):</p>
+        <VideoCard r={VIDEO} example />
+      </Section>
+
+      <Section id="company">
+        <p>In the <b>🏢 Look up</b> tab, type a company name (Duke Energy, Chase, Amazon…). You get what they do, their <b>real website</b>, <b>customer service phone and email</b>, contact page and hours, from a live Google search with sources. The app also checks the website (real one, how old) and the phone numbers.</p>
+        <p>It never comes from an AI’s memory, because a wrong number could lead you to a scammer. Still, the safest number is the one on your card, bill or the company’s own app. Uses 1 Gemini check; the same company is remembered for a week (free).</p>
+        <p className="text-xs text-stone-500">Example (made up, the links do nothing here):</p>
+        <CompanyCard c={COMPANY} example />
+      </Section>
+
       <Section id="lookup">
-        <p>At the top of the Check page, paste <b>just</b> a link, a phone number or an email address and tap <b>Look up</b>. You get the same free checks in a second: is the website pretending to be a company, how new it is, Google’s list of dangerous sites, the phone number’s country and type, a free email address pretending to be a company…</p>
+        <p>In the <b>🏢 Look up</b> tab, under the company search, paste <b>just</b> a link, a phone number or an email address and tap <b>Look up</b>. You get the same free checks in a second: is the website pretending to be a company, how new it is, Google’s list of dangerous sites, the phone number’s country and type, a free email address pretending to be a company…</p>
         <p>It never uses the AI, so it’s always free. The link is only looked up, never opened.</p>
       </Section>
 
@@ -212,6 +251,7 @@ export function Guide() {
         <p>In <b>Settings → AI → AI model</b>, tap the model you want: Claude’s and Gemini’s are in the same list. The one you pick reads your pictures, bills and PDFs and answers “Ask the AI”:</p>
         <ul className="list-disc space-y-1.5 pl-5">
           <li><b>Claude (paid):</b> the best at spotting tricky scams, a few cents a check. What you send is not used to train it.</li>
+          <li><b>Groq, Mistral, OpenRouter (free):</b> more free AIs, each with its own free key and daily limit (50 to start). They run strong models like Meta’s Llama 4, OpenAI’s open model GPT-OSS and DeepSeek. They read screenshots (models marked 🚫📷 can’t: another model of the same AI reads the picture instead), but not PDFs: a PDF goes to Gemini or Claude.</li>
           <li><b>Gemini (free):</b> Google’s AI, free within Google’s daily allowance. Pick <b>Gemini Pro</b> (the biggest and most careful), <b>Flash</b> or <b>Flash-Lite</b>. Pro’s free allowance is small: when it runs out, Flash takes over by itself and the result says so. The app stops at 50 Gemini checks a day to start (you can change it). On the free plan <b>Google may keep and use what you send</b>.</li>
         </ul>
         <p>Each one has its own daily limit: with Claude you set the number of paid checks (or Unlimited), with Gemini how many free checks a day.</p>
@@ -245,7 +285,8 @@ export function Guide() {
       </Section>
 
       <Section id="share">
-        <p>Add the app to your home screen (in Chrome: ⋮ → Install app). Then, in Messages or WhatsApp, long-press a message → <b>Share</b> → <b>Scam Check</b>: it opens with the text already filled in.</p>
+        <p>Add the app to your home screen (in Chrome: ⋮ → Install app). Then, in Messages or WhatsApp, long-press a message → <b>Share</b> → <b>Scam Check</b>: it opens on Check with the message shown in a card, ready to check.</p>
+        <p>Share a <b>YouTube or TikTok</b> video to the app and it opens the <b>🎬 Video</b> tab and checks it.</p>
       </Section>
 
       <Section id="scam">

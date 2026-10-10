@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { api, setCode } from '../lib/api';
 import { clearHistory, getPrefs, setPrefs, type DevicePrefs } from '../lib/history';
-import { GEMINI_MODELS, MODELS, type AiMode, type AppSettings, type Effort, type ListEntry } from '../lib/types';
+import { PROVIDERS, modelFor, pickModel, providerOf, type AiMode, type AppSettings, type Effort, type ListEntry } from '../lib/types';
 import { refreshStatus, setStatusSettings, useStatus, useStatusError } from '../lib/useStatus';
 import { Card, Field, Rail, Shell, Toggle, toast } from '../components/ui';
 
@@ -85,8 +85,7 @@ export function Settings() {
       ) : !st ? <p className="text-sm text-stone-500"><span className="spinner" /> Loading…</p> : (
         <ul className="space-y-2 text-sm">
           {[
-            ['Claude key', st.claude?.ready, 'ANTHROPIC_API_KEY in Vercel'],
-            ['Gemini key (free)', st.gemini?.ready, 'GEMINI_API_KEY (optional)'],
+            ...PROVIDERS.map((p) => [`${p.name} key${p.paid ? '' : ' (free)'}`, st.providers?.[p.id]?.ready, `${p.env}${p.id === 'claude' ? ' in Vercel' : ' (optional)'}`] as const),
             ['Storage', st.store, 'Upstash Redis (Vercel → Storage)'],
             ['Google Safe Browsing key', st.safeBrowsing, 'GOOGLE_SAFE_BROWSING_KEY (optional, free)'],
             ['Free checks', true, 'Always on'],
@@ -126,32 +125,37 @@ export function Settings() {
             <div className="space-y-1.5">
               <p className="label">AI model</p>
               <p className="text-xs text-stone-500">Tap the one you want. It checks everything that goes to the AI.</p>
-              {([['claude', 'Claude · paid', 'By Anthropic: the best at tricky scams, a few cents a check. What you send is not used to train it.', [...MODELS, ...(MODELS.some((m) => m.id === cfg.ai.model) ? [] : [{ id: cfg.ai.model, name: cfg.ai.model, hint: 'Your own choice.' }])]],
-                 ['gemini', 'Gemini · free', 'By Google: free within Google’s daily allowance. On the free plan Google may keep and use what you send.', [...GEMINI_MODELS, ...(GEMINI_MODELS.some((m) => m.id === cfg.ai.geminiModel) ? [] : [{ id: cfg.ai.geminiModel, name: cfg.ai.geminiModel, hint: 'Your own choice.' }])]]] as const).map(([prov, title, about, list]) => (
-                <div key={prov} className="space-y-1.5 pt-1">
-                  <p className="text-sm font-semibold text-stone-800">{title}</p>
-                  <p className="text-xs text-stone-500">{about}</p>
-                  {prov === 'gemini' && !st?.gemini?.ready && <p className="text-xs text-amber-800">Needs a free key first: <b>aistudio.google.com</b> → Get API key, then add it in Vercel as <code>GEMINI_API_KEY</code> and redeploy.</p>}
-                  <div className="grid gap-2" role="radiogroup" aria-label={title}>
-                    {list.map((m) => {
-                      const on = cfg.ai.provider === prov && (prov === 'claude' ? cfg.ai.model : cfg.ai.geminiModel) === m.id;
-                      return (
-                        <button key={m.id} role="radio" aria-checked={on} onClick={() => set('ai', prov === 'claude' ? { provider: 'claude', model: m.id } : { provider: 'gemini', geminiModel: m.id, privateToClaude: false })}
-                          className={`flex items-center gap-3 rounded-xl border p-3 text-left transition ${on ? 'border-teal-500/70 bg-white shadow-[0_0_0_3px_rgba(74,146,155,0.12)]' : 'border-stone-200/80 bg-white/50'}`}>
-                          <span className="text-sm">{on ? '◉' : '○'}</span>
-                          <span className="min-w-0"><span className="block text-sm font-semibold">{m.name}</span><span className="block text-xs text-stone-500">{m.hint}</span></span>
-                        </button>
-                      );
-                    })}
+              {PROVIDERS.map((pr) => {
+                const chosen = modelFor(cfg.ai, pr.id);
+                const list = pr.models.some((m) => m.id === chosen) ? pr.models : [...pr.models, { id: chosen, name: chosen, hint: 'Your own choice.', pictures: true, pdf: pr.id === 'claude' || pr.id === 'gemini' }];
+                const up = st?.providers?.[pr.id]?.ready;
+                return (
+                  <div key={pr.id} className="space-y-1.5 pt-1">
+                    <p className="text-sm font-semibold text-stone-800">{pr.name} · {pr.paid ? 'paid' : 'free'}</p>
+                    <p className="text-xs text-stone-500">{pr.about}</p>
+                    {st && !up && <p className="text-xs text-amber-800">Needs its key first: add <code>{pr.env}</code> in Vercel, then redeploy.</p>}
+                    <div className="grid gap-2" role="radiogroup" aria-label={pr.name}>
+                      {list.map((m) => {
+                        const on = cfg.ai.provider === pr.id && chosen === m.id;
+                        return (
+                          <button key={m.id} role="radio" aria-checked={on} onClick={() => set('ai', pickModel(cfg.ai, pr.id, m.id))}
+                            className={`flex items-center gap-3 rounded-xl border p-3 text-left transition ${on ? 'border-teal-500/70 bg-white shadow-[0_0_0_3px_rgba(74,146,155,0.12)]' : 'border-stone-200/80 bg-white/50'}`}>
+                            <span className="text-sm">{on ? '◉' : '○'}</span>
+                            <span className="min-w-0"><span className="block text-sm font-semibold">{m.name}</span><span className="block text-xs text-stone-500">{m.hint}{!m.pictures ? ' 🚫📷' : ''}</span></span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               <details className="text-sm">
                 <summary className="cursor-pointer text-xs font-semibold text-stone-500">A model that isn’t listed…</summary>
                 <div className="mt-2 flex gap-2">
-                  <input className="input min-w-0 flex-1 font-mono text-sm" value={otherModel} onChange={(e) => setOtherModel(e.target.value)} placeholder="e.g. claude-sonnet-5-5 or gemini-2.5-pro" aria-label="Model name" />
-                  <button className="btn" disabled={!/^(claude|gemini)-[a-z0-9.-]{2,60}$/.test(otherModel.trim())} onClick={() => { const v = otherModel.trim(); set('ai', v.startsWith('gemini') ? { provider: 'gemini', geminiModel: v, privateToClaude: false } : { provider: 'claude', model: v }); setOtherModel(''); }}>Use it</button>
+                  <input className="input min-w-0 flex-1 font-mono text-sm" value={otherModel} onChange={(e) => setOtherModel(e.target.value)} placeholder="e.g. gemini-2.5-pro, or a Groq/Mistral/OpenRouter model" aria-label="Model name" />
+                  <button className="btn" disabled={otherModel.trim().length < 3} onClick={() => { const v = otherModel.trim(); const p = (v.startsWith('claude-') ? 'claude' : v.startsWith('gemini-') ? 'gemini' : cfg.ai.provider === 'claude' || cfg.ai.provider === 'gemini' ? 'openrouter' : cfg.ai.provider); set('ai', pickModel(cfg.ai, p, v)); setOtherModel(''); }}>Use it</button>
                 </div>
+                <p className="mt-1 text-xs text-stone-500">Names starting with claude- go to Claude, gemini- to Gemini; any other name goes to the free AI picked above (or OpenRouter).</p>
               </details>
             </div>
             <div className="space-y-1.5">
@@ -166,9 +170,9 @@ export function Settings() {
                 ))}
               </div>
             </div>
-            {cfg.ai.provider === 'gemini' ? (
-              <Field label="AI checks a day (Gemini)" hint="Stays under Google’s free allowance. When they’re used up, you still get the free checks.">
-                <select className="input" value={cfg.ai.geminiDailyLimit} onChange={(e) => set('ai', { geminiDailyLimit: Number(e.target.value) })} aria-label="Gemini checks a day">
+            {cfg.ai.provider !== 'claude' ? (
+              <Field label={`AI checks a day (${providerOf(cfg.ai.provider).name})`} hint="Stays under the free allowance. When they’re used up, you still get the free checks.">
+                <select className="input" value={cfg.ai.provider === 'gemini' ? cfg.ai.geminiDailyLimit : cfg.ai.freeDailyLimit} onChange={(e) => set('ai', cfg.ai.provider === 'gemini' ? { geminiDailyLimit: Number(e.target.value) } : { freeDailyLimit: Number(e.target.value) })} aria-label="Free AI checks a day">
                   {[10, 25, 50, 100, 200].map((n) => <option key={n} value={n}>{n}</option>)}
                 </select>
               </Field>

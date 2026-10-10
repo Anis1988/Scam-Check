@@ -9,7 +9,7 @@ import { LocalStore } from './localStore.js';
  * "Keep the original".
  */
 let redis: Redis | null | undefined;
-function db(): Redis | null {
+export function db(): Redis | null {
   if (redis !== undefined) return redis;
   const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -35,13 +35,13 @@ export async function saveResult(r: CheckResult, days?: number): Promise<void> {
  */
 export const aiLimit = async (p: Provider = 'claude'): Promise<number | null> => {
   const s = await getSettings();
-  return p === 'gemini' ? s.ai.geminiDailyLimit : s.ai.unlimited ? null : s.ai.dailyLimit;
+  return p === 'claude' ? (s.ai.unlimited ? null : s.ai.dailyLimit) : p === 'gemini' ? s.ai.geminiDailyLimit : s.ai.freeDailyLimit;
 };
 export const overLimit = async (p: Provider = 'claude') => {
   const limit = await aiLimit(p);
   return limit !== null && (await aiUsed(p)) >= limit;
 };
-const dayKey = (p: Provider) => `${p === 'gemini' ? 'sc:gem' : 'sc:ai'}:${new Date().toISOString().slice(0, 10)}`;
+const dayKey = (p: Provider) => `${p === 'gemini' ? 'sc:gem' : p === 'claude' ? 'sc:ai' : `sc:${p}`}:${new Date().toISOString().slice(0, 10)}`;
 
 export async function aiUsed(p: Provider = 'claude'): Promise<number> {
   return Number((await db()?.get<number>(dayKey(p))) ?? 0);
