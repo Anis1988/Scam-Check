@@ -1,14 +1,29 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { VERDICT_LABEL, type SavedItem, type Verdict } from '../lib/types';
 import { useStatus } from '../lib/useStatus';
 import { SavedCard } from '../components/SavedCard';
 import { Rail, Shell, toast } from '../components/ui';
+import { Bills } from './Bills';
 
 type Filter = 'all' | Verdict | 'files';
 
 /** ⭐ Saved checks, kept on the server until you delete them: on the phone and the computer alike. */
 export function Saved() {
+  const [view, setView] = useState<'saved' | 'bills'>(() => (window.location.pathname.startsWith('/bills') ? 'bills' : 'saved'));
+  const tabs = (
+    <div className="flex gap-1 rounded-xl border border-stone-200/80 bg-white/50 p-1" role="tablist" aria-label="Saved or bills">
+      {([['saved', '⭐ Saved checks'], ['bills', '📅 Bills']] as const).map(([id, name]) => (
+        <button key={id} role="tab" aria-selected={view === id} onClick={() => setView(id)}
+          className={`min-h-[40px] flex-1 rounded-lg px-3 text-sm font-semibold transition ${view === id ? 'bg-white text-teal-800 shadow-[0_0_0_1px_rgba(74,146,155,0.35),0_0_12px_-3px_rgba(74,146,155,0.5)]' : 'text-stone-500 hover:text-stone-800'}`}>{name}</button>
+      ))}
+    </div>
+  );
+  if (view === 'bills') return <Bills tabs={tabs} />;
+  return <SavedChecks tabs={tabs} />;
+}
+
+function SavedChecks({ tabs }: { tabs: ReactNode }) {
   const st = useStatus();
   const [list, setList] = useState<SavedItem[] | null>(null);
   const [err, setErr] = useState('');
@@ -72,6 +87,7 @@ export function Saved() {
           <p className="text-xs text-stone-500">🧹 Clean-up: {c?.enabled ? `${c.what === 'all' ? 'whole checks' : 'pictures and messages'} after ${c.days} days` : 'off'} (Settings)</p>
         </Rail>
       }>
+      {tabs}
       <div>
         <p className="label">Your library</p>
         <h1 className="text-2xl font-bold">⭐ Saved</h1>

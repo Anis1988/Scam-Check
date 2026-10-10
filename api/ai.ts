@@ -5,8 +5,8 @@ import { guard, json } from '../server/guard.js';
 import { askAi, aiReady } from '../server/ai.js';
 import { buildResult, freeChecks } from '../server/analyze.js';
 import { mergeAi } from '../server/merge.js';
-import { getResult, getSettings, saveResult, takeAi } from '../server/store.js';
-import { Body, idOf } from './check.js';
+import { getResult, getSettings, recordBill, saveResult, takeAi } from '../server/store.js';
+import { Body, idOf, out } from './check.js';
 
 const AiBody = Body.extend({
   file: z.object({ mime: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']), data: z.string().max(4_300_000).regex(/^[A-Za-z0-9+/=]+$/) }).optional(),
@@ -30,24 +30,26 @@ export async function POST(req: Request): Promise<Response> {
   const text = (b.text ?? '').trim();
   try {
     const cached = await getResult(id).catch(() => null);
-    if (cached?.ai === 'done') return json(cached);
+    if (cached?.ai === 'done') return out(cached);
     if (!text && !b.file) return json({ error: 'Nothing to check.' }, 400);
     const cfg = await getSettings();
     const free = text ? await freeChecks(text, { from: b.from, check: cfg.checks }) : { text: '', signals: [], links: [], phones: [] };
     const base = buildResult(id, b.kind, text || (b.kind === 'bill' ? 'Bill (picture or PDF)' : 'Screenshot'), free, 'pending');
-    if (!aiReady()) return json({ ...base, ai: 'off', aiNote: 'The AI check is not set up (ANTHROPIC_API_KEY in Vercel).' });
-    if (!(await takeAi())) return json({ ...base, ai: 'limit', aiNote: 'Today’s AI checks are used up (daily limit in Settings). The result below is from the free checks.', unchecked: !text || undefined });
+    if (!aiReady()) return out({ ...base, ai: 'off', aiNote: 'The AI check is not set up (ANTHROPIC_API_KEY in Vercel).' });
+    if (!(await takeAi())) return out({ ...base, ai: 'limit', aiNote: 'Today’s AI checks are used up (daily limit in Settings). The result below is from the free checks.', unchecked: !text || undefined });
     let result: CheckResult;
     try {
       const a = await askAi({ kind: b.kind, text: text || undefined, file: b.file, from: b.from, signals: free.signals }, cfg.ai);
       // A picture or PDF: the free checks also run on what the AI read in it (its links and phone numbers too).
       const all = text ? free : await freeChecks(a.readText, { from: b.from, links: a.links, phones: a.phones, check: cfg.checks });
       result = mergeAi(base, all, a, cfg.ai.summaries);
+      // 📅 Bills: a safe bill is listed, and compared with the same company's last one.
+      if (result.bill && cfg.bills.track) result.billCompare = await recordBill(result).catch(() => undefined);
     } catch (e) {
       result = { ...base, ai: 'failed', unchecked: !text || undefined, aiNote: `The AI check failed (${(e instanceof Error ? e.message : String(e)).slice(0, 160)}). The result below is from the free checks.` };
     }
     await saveResult(result, cfg.checks.rememberDays).catch(() => undefined);
-    return json(result);
+    return out(result);
   } catch (e) {
     return json({ error: (e instanceof Error ? e.message : String(e)).slice(0, 300) }, 502);
   }

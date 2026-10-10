@@ -4,10 +4,11 @@ import type { CheckResult } from '../src/lib/types.js';
 import { guard, json } from '../server/guard.js';
 import { buildResult, freeChecks } from '../server/analyze.js';
 import { aiReady } from '../server/ai.js';
-import { getResult, getSettings, overLimit, saveResult, storeReady } from '../server/store.js';
+import { getLists, getResult, getSettings, overLimit, saveResult, storeReady } from '../server/store.js';
+import { withLists } from '../server/lists.js';
 
 export const Body = z.object({
-  kind: z.enum(['email', 'text', 'bill', 'screenshot']),
+  kind: z.enum(['email', 'text', 'bill', 'screenshot', 'qr']),
   text: z.string().max(100_000).optional(),
   from: z.string().trim().max(60).optional(),
   fileHash: z.string().regex(/^[a-f0-9]{64}$/).optional(), // SHA-256 of the picture/PDF (the file itself only goes to /api/ai)
@@ -18,6 +19,9 @@ export type CheckBody = z.infer<typeof Body>;
 /** The same message (same kind, sender, words and file) always gets the same id: its result is reused (7 days by default). */
 export const idOf = (b: CheckBody) => createHash('sha256').update(JSON.stringify([b.kind, b.from ?? '', (b.text ?? '').trim(), b.fileHash ?? ''])).digest('hex').slice(0, 32);
 
+/** Every result goes out through your ✅ trusted / 🚫 blocked lists. */
+export const out = async (r: CheckResult) => json(withLists(r, await getLists().catch(() => [])));
+
 const parseError = (e: unknown) => (e instanceof z.ZodError ? `Invalid request: ${e.issues[0]?.path.join('.')} ${e.issues[0]?.message}` : 'Invalid request.');
 
 /** GET /api/check?id=... -> a remembered result (7 days by default). */
@@ -27,7 +31,7 @@ export async function GET(req: Request): Promise<Response> {
   const id = new URL(req.url).searchParams.get('id') ?? '';
   if (!/^[a-f0-9]{32}$/.test(id)) return json({ error: 'Bad id.' }, 400);
   const r = await getResult(id).catch(() => null);
-  return r ? json(r) : json({ error: 'Not found (this result is too old: check it again).' }, 404);
+  return r ? out(r) : json({ error: 'Not found (this result is too old: check it again).' }, 404);
 }
 
 /**
@@ -50,7 +54,7 @@ export async function POST(req: Request): Promise<Response> {
     // Checked recently (Settings → Results remembered): the saved answer (no new AI cost), unless AI is now asked for
     // or the AI failed / was over the limit last time (then it may try again).
     const cached = await getResult(id).catch(() => null);
-    if (cached && (cached.ai === 'done' || (b.aiMode !== 'always' && cached.ai !== 'failed' && cached.ai !== 'limit'))) return json(cached);
+    if (cached && (cached.ai === 'done' || (b.aiMode !== 'always' && cached.ai !== 'failed' && cached.ai !== 'limit'))) return out(cached);
 
     // 1. Free checks first: patterns, links, phone numbers, email sender.
     const cfg = await getSettings();
@@ -71,10 +75,10 @@ export async function POST(req: Request): Promise<Response> {
     if (wantAi && !aiReady()) result = { ...base, aiNote: 'The AI check is not set up (ANTHROPIC_API_KEY in Vercel).' };
     else if (wantAi && !storeReady()) result = { ...base, aiNote: 'The AI check needs the free Upstash Redis storage (Vercel → Storage) to keep its daily limit.' };
     else if (wantAi && (await overLimit())) result = { ...base, ai: 'limit', aiNote: 'Today’s AI checks are used up (daily limit in Settings). The result below is from the free checks.' };
-    else if (wantAi) return json({ ...base, ai: 'pending' });
+    else if (wantAi) return out({ ...base, ai: 'pending' });
     else if (b.aiMode === 'smart' && base.score >= 65) result = { ...base, ai: 'skipped', aiNote: 'The free checks were already sure, so no AI credit was used.' };
     await saveResult(result, cfg.checks.rememberDays).catch(() => undefined);
-    return json(result);
+    return out(result);
   } catch (e) {
     return json({ error: (e instanceof Error ? e.message : String(e)).slice(0, 300) }, 502);
   }

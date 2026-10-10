@@ -1,5 +1,5 @@
 import { Redis } from '@upstash/redis';
-import type { AppSettings, CheckResult, SavedItem } from '../src/lib/types.js';
+import type { AppSettings, Bill, BillCompare, CheckResult, ListEntry, SavedItem } from '../src/lib/types.js';
 import { DEFAULT_SETTINGS } from '../src/lib/types.js';
 import { LocalStore } from './localStore.js';
 
@@ -141,4 +141,64 @@ export async function cleanUp(force = false): Promise<number> {
     }
   }
   return n;
+}
+
+/** 📅 Bills: safe bills the AI read (who, how much, when), kept until you delete them (max 300). */
+const BILLS = 'sc:bills';
+export async function listBills(): Promise<Bill[]> {
+  const all = (await db()?.hgetall<Record<string, Bill>>(BILLS)) ?? {};
+  return Object.values(all).sort((a, b) => (b.dueDate || b.checkedAt).localeCompare(a.dueDate || a.checkedAt));
+}
+export const companyKey = (c: string) => c.toLowerCase().replace(/\b(inc|llc|corp|co|company|the)\b\.?/g, '').replace(/[^a-z0-9]+/g, '');
+/**
+ * Records a bill and compares it with the same company's previous one. The same bill (company + due date)
+ * checked twice counts once.
+ */
+export async function recordBill(r: CheckResult): Promise<BillCompare | undefined> {
+  const d = db();
+  if (!d || !r.bill) return undefined;
+  const ck = companyKey(r.bill.company);
+  if (!ck) return undefined;
+  const key = `${ck}|${r.bill.dueDate || r.id}`;
+  const all = await listBills();
+  const old = all.find((b) => b.key === key);
+  if (!old && all.length >= 300) return undefined;
+  await d.hset(BILLS, { [key]: { ...r.bill, key, id: r.id, checkedAt: old?.checkedAt ?? r.checkedAt, paid: old?.paid } satisfies Bill });
+  const when = (b: { dueDate: string; checkedAt: string }) => b.dueDate || b.checkedAt.slice(0, 10);
+  const prev = all
+    .filter((b) => b.key !== key && companyKey(b.company) === ck && when(b) < when({ dueDate: r.bill!.dueDate, checkedAt: r.checkedAt }))
+    .sort((a, b) => when(b).localeCompare(when(a)))[0];
+  if (!prev || !prev.amount) return undefined;
+  return { prevAmount: prev.amount, prevDue: prev.dueDate, prevCheckedAt: prev.checkedAt, change: Math.round(((r.bill.amount - prev.amount) / prev.amount) * 100) };
+}
+export async function updateBill(key: string, patch: Partial<Bill>): Promise<Bill | null> {
+  const d = db();
+  const b = (await d?.hget<Bill>(BILLS, key)) ?? null;
+  if (!d || !b) return null;
+  const next = { ...b, ...patch, key };
+  await d.hset(BILLS, { [key]: next });
+  return next;
+}
+export const deleteBill = async (key: string) => { await db()?.hdel(BILLS, key); };
+
+/** ✅ Trusted / 🚫 Blocked (max 500). */
+const LISTS = 'sc:lists';
+let listCache: { at: number; l: ListEntry[] } | null = null;
+export async function getLists(): Promise<ListEntry[]> {
+  if (listCache && Date.now() - listCache.at < 2000) return listCache.l;
+  const all = (await db()?.hgetall<Record<string, ListEntry>>(LISTS)) ?? {};
+  const l = Object.values(all).sort((a, b) => b.addedAt.localeCompare(a.addedAt));
+  listCache = { at: Date.now(), l };
+  return l;
+}
+export async function putList(e: ListEntry): Promise<void> {
+  const d = db();
+  if (!d) throw new Error('Lists need the Upstash Redis storage (Vercel → Storage).');
+  if (!(await d.hexists(LISTS, e.key)) && (await d.hlen(LISTS)) >= 500) throw new Error('Your lists are full (500): remove some first.');
+  await d.hset(LISTS, { [e.key]: e });
+  listCache = null;
+}
+export async function deleteList(key: string): Promise<void> {
+  await db()?.hdel(LISTS, key);
+  listCache = null;
 }

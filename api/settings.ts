@@ -15,6 +15,7 @@ const Body = z.object({
   checks: z.object({ safeBrowsing: z.boolean(), websiteAge: z.boolean(), rememberDays: z.number().int().min(1).max(30) }),
   pictures: z.object({ maxSize: z.number().int().min(800).max(2400), maxBatch: z.number().int().min(1).max(10) }),
   saving: z.object({ keepOriginal: z.boolean() }),
+  bills: z.object({ track: z.boolean() }),
   cleanup: z.object({ enabled: z.boolean(), days: z.number().int().min(7).max(3650), what: z.enum(['files', 'all']) }),
 });
 

@@ -2,7 +2,8 @@ import { z } from 'zod';
 import type { CheckResult, SavedItem } from '../src/lib/types.js';
 import { guard, json } from '../server/guard.js';
 import { KIND_LABEL } from '../src/lib/types.js';
-import { cleanUp, deleteFile, deleteSaved, getResult, getSaved, listSaved, nextSavedNumber, putFile, putSaved } from '../server/store.js';
+import { withLists } from '../server/lists.js';
+import { cleanUp, deleteFile, getLists, deleteSaved, getResult, getSaved, listSaved, nextSavedNumber, putFile, putSaved } from '../server/store.js';
 
 const Post = z.discriminatedUnion('action', [
   z.object({
@@ -82,7 +83,8 @@ export async function POST(req: Request): Promise<Response> {
       return json(next);
     }
     // Saved from the check's own result on the server (kept 7 days), so what is saved is what was checked.
-    const r = await getResult(b.id);
+    const raw = await getResult(b.id);
+    const r = raw && withLists(raw, await getLists().catch(() => []));
     if (!r) return json({ error: 'This check is too old to save (results are kept 7 days). Check it again first.' }, 404);
     // A name that starts with a number going up with each save: "1-Duke Energy", "2-USPS package text"…
     // Saving the same check again keeps its name.

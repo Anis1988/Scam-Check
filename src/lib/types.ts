@@ -1,8 +1,8 @@
 /** Shared between the app and the server functions (api/). */
 
-export type Kind = 'email' | 'text' | 'bill' | 'screenshot';
+export type Kind = 'email' | 'text' | 'bill' | 'screenshot' | 'qr';
 export type Verdict = 'safe' | 'suspicious' | 'scam';
-export type Source = 'pattern' | 'link' | 'phone' | 'sender' | 'ai';
+export type Source = 'pattern' | 'link' | 'phone' | 'sender' | 'list' | 'ai';
 export type AiState = 'off' | 'pending' | 'done' | 'failed' | 'limit' | 'skipped';
 /**
  * ask (default, saves AI credit): photos and PDFs automatically, text only when you tap "Ask the AI".
@@ -42,6 +42,8 @@ export interface CheckResult {
   aiOffer?: boolean; // the free checks weren't sure: the app offers an "Ask the AI" button
   briefOffer?: boolean; // safe, but no AI yet: the app offers a "Summarize" button (1 AI check)
   brief?: Brief; // safe ones only: what it is, key info, what to do (from the same AI call)
+  bill?: BillFacts; // a safe bill: who, how much, when (from the AI) -> 📅 Bills
+  billCompare?: BillCompare; // the same company's previous bill
   title?: string; // who or what it is, in a few words (from the AI), e.g. "Duke Energy bill": used to name saved checks
   preview: string; // the start of the message, for the history list
   checkedAt: string;
@@ -58,7 +60,18 @@ export const KIND_LABEL: Record<Kind, { icon: string; text: string; hint: string
   text: { icon: '💬', text: 'Text', hint: 'Paste the text message (SMS, WhatsApp, Facebook…) and, if you have it, the number it came from.' },
   bill: { icon: '🧾', text: 'Bill', hint: 'Take a photo of the bill or invoice, or upload the PDF.' },
   screenshot: { icon: '📱', text: 'Screenshot', hint: 'Upload a screenshot of the message, pop-up or website.' },
+  qr: { icon: '🔳', text: 'QR code', hint: 'Take a photo of the QR code (parking meter, letter, flyer). It is read on your phone, for free, and its link is checked without opening it.' },
 };
+
+/** A bill's key numbers (safe bills only). dueDate is YYYY-MM-DD or empty. */
+export interface BillFacts { company: string; amount: number; dueDate: string; account?: string }
+/** One bill in 📅 Bills. key = company + due date, so the same bill checked twice counts once. */
+export interface Bill extends BillFacts { key: string; id: string; checkedAt: string; paid?: boolean }
+export interface BillCompare { prevAmount: number; prevDue: string; prevCheckedAt: string; change: number } // change in %
+
+/** ✅ Trusted / 🚫 Blocked: phone numbers, email addresses and websites you know. */
+export type ListKind = 'phone' | 'email' | 'domain';
+export interface ListEntry { key: string; kind: ListKind; value: string; list: 'trusted' | 'blocked'; addedAt: string }
 
 /** For safe messages and documents: a short, plain summary. Never made for suspicious or scam ones (saves AI credit). */
 export interface Brief {
@@ -129,6 +142,7 @@ export interface AppSettings {
   };
   pictures: { maxSize: number; maxBatch: number }; // picture size sent to the AI (px), pictures at once
   saving: { keepOriginal: boolean }; // "Keep the original" ticked by default
+  bills: { track: boolean }; // safe bills go to 📅 Bills (due dates, compared to last time)
   cleanup: { enabled: boolean; days: number; what: 'files' | 'all' }; // auto clean-up of ⭐ Saved
 }
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -136,5 +150,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   checks: { safeBrowsing: true, websiteAge: true, rememberDays: 7 },
   pictures: { maxSize: 1400, maxBatch: 10 },
   saving: { keepOriginal: true },
+  bills: { track: true },
   cleanup: { enabled: false, days: 90, what: 'files' },
 };
+
+/** "$1,234.50" */
+export const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });

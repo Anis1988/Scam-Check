@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { api, setCode } from '../lib/api';
 import { clearHistory, getPrefs, setPrefs, type DevicePrefs } from '../lib/history';
-import { MODELS, type AiMode, type AppSettings, type Effort } from '../lib/types';
+import { MODELS, type AiMode, type AppSettings, type Effort, type ListEntry } from '../lib/types';
 import { aiLeft, refreshStatus, setStatusSettings, useStatus } from '../lib/useStatus';
 import { Card, Field, Rail, Shell, Toggle, toast } from '../components/ui';
 
@@ -11,14 +11,14 @@ const MODES: { id: AiMode; name: string; hint: string }[] = [
   { id: 'always', name: 'Always', hint: 'Every check gets the AI’s opinion too (uses more AI checks).' },
   { id: 'never', name: 'Never', hint: 'Free checks only. Pictures and PDFs can’t be read without the AI, and no “Ask the AI” button.' },
 ];
-const SECTIONS = [['ai', '🤖 AI'], ['checks', '🔎 Free checks'], ['pictures', '📷 Pictures'], ['saving', '⭐ Saving & clean-up'], ['device', '📱 This device']] as const;
+const SECTIONS = [['ai', '🤖 AI'], ['checks', '🔎 Free checks'], ['pictures', '📷 Pictures'], ['saving', '⭐ Saving, bills & clean-up'], ['lists', '✅ Trusted & 🚫 Blocked'], ['device', '📱 This device']] as const;
 
 /** A row of choices, one picked (like radio buttons). */
 function Segmented<T extends string | number>({ value, options, onChange, label }: { value: T; options: { id: T; name: string }[]; onChange: (v: T) => void; label: string }) {
   return (
     <div className="flex flex-wrap gap-1 rounded-xl border border-stone-200/80 bg-white/50 p-1" role="radiogroup" aria-label={label}>
       {options.map((o) => (
-        <button key={String(o.id)} role="radio" aria-checked={value === o.id} onClick={() => onChange(o.id)}
+        <button key={String(o.id)} type="button" role="radio" aria-checked={value === o.id} onClick={() => onChange(o.id)}
           className={`min-h-[40px] flex-1 rounded-lg px-3 text-sm font-semibold transition ${value === o.id ? 'bg-white text-teal-800 shadow-[0_0_0_1px_rgba(74,146,155,0.35),0_0_12px_-3px_rgba(74,146,155,0.5)]' : 'text-stone-500 hover:text-stone-800'}`}>
           {o.name}
         </button>
@@ -196,9 +196,12 @@ export function Settings() {
             </Field>
           </Section>
 
-          <Section id="saving" title="⭐ Saving & clean-up">
+          <Section id="saving" title="⭐ Saving, bills & clean-up">
             <Field label="Keep the original" hint="Ticked by default when you save: the message and the picture or PDF are kept, to see or download later.">
               <Toggle on={cfg.saving.keepOriginal} label="Keep the original by default" onChange={(v) => set('saving', { keepOriginal: v })} />
+            </Field>
+            <Field label="📅 Keep track of bills" hint="Safe bills the AI reads go to ⭐ Saved → 📅 Bills, with their due date, and are compared with the same company’s last bill. Free (no extra AI check).">
+              <Toggle on={cfg.bills.track} label="Keep track of bills" onChange={(v) => set('bills', { track: v })} />
             </Field>
             <Field label="🧹 Clean up old saved checks" hint="Runs by itself when you open ⭐ Saved (at most once an hour).">
               <Toggle on={cfg.cleanup.enabled} label="Clean up old saved checks" onChange={(v) => set('cleanup', { enabled: v })} />
@@ -222,6 +225,8 @@ export function Settings() {
         </>
       )}
 
+      <ListsCard />
+
       <Section id="device" title="📱 This device" subtitle="Only on this phone or computer">
         <div className="space-y-1.5">
           <Field label="Text size">{null}</Field>
@@ -243,5 +248,65 @@ export function Settings() {
         </Field>
       </Section>
     </Shell>
+  );
+}
+
+/** ✅ Trusted / 🚫 Blocked: phone numbers, email addresses and websites your checks always recognise. */
+function ListsCard() {
+  const [list, setList] = useState<ListEntry[] | null>(null);
+  const [value, setValue] = useState('');
+  const [which, setWhich] = useState<ListEntry['list']>('blocked');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => void api.lists().then(setList, () => setList([])), []);
+  const add = async () => {
+    if (value.trim().length < 3) return;
+    setBusy(true);
+    try {
+      const e = await api.listAdd(value.trim(), which);
+      setList((l) => [e, ...(l ?? []).filter((x) => x.key !== e.key)]);
+      setValue('');
+      toast('success', `${e.value} added.`);
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const remove = async (e: ListEntry) => {
+    try {
+      await api.listRemove(e.key);
+      setList((l) => (l ?? []).filter((x) => x.key !== e.key));
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : String(err));
+    }
+  };
+  const ICON = { phone: '📞', email: '✉️', domain: '🌐' } as const;
+  const group = (w: ListEntry['list']) => (list ?? []).filter((e) => e.list === w);
+  return (
+    <Section id="lists" title="✅ Trusted & 🚫 Blocked" subtitle="Your checks always recognise these. Tip: tap ✓ Trust or 🚫 Block next to a number or website in a result.">
+      <form className="space-y-2" onSubmit={(e) => (e.preventDefault(), void add())}>
+        <input className="input w-full" value={value} onChange={(e) => setValue(e.target.value)} maxLength={200} placeholder="A phone number, email address or website" aria-label="Phone number, email address or website" autoCapitalize="off" spellCheck={false} />
+        <div className="flex gap-2">
+          <div className="flex-1"><Segmented<ListEntry['list']> label="Which list" value={which} onChange={setWhich} options={[{ id: 'trusted', name: '✓ Trusted' }, { id: 'blocked', name: '🚫 Blocked' }]} /></div>
+          <button className="btn-primary" disabled={busy || value.trim().length < 3}>Add</button>
+        </div>
+      </form>
+      {!list ? <p className="text-sm text-stone-500"><span className="spinner" /></p> : (['blocked', 'trusted'] as const).map((w) => (
+        <div key={w} className="space-y-1">
+          <p className="label">{w === 'blocked' ? '🚫 Blocked: always a likely scam' : '✓ Trusted: a little less risk (a strong warning still counts)'}</p>
+          {!group(w).length ? <p className="text-xs text-stone-500">None yet.</p> : (
+            <ul className="divide-y divide-stone-200/70 rounded-xl border border-stone-200/80 bg-white/60">
+              {group(w).map((e) => (
+                <li key={e.key} className="flex items-center gap-2 px-3 py-1.5">
+                  <span aria-hidden="true">{ICON[e.kind]}</span>
+                  <span className="min-w-0 flex-1 break-all font-mono text-sm">{e.value}</span>
+                  <button className="btn min-h-[36px] px-3" onClick={() => void remove(e)} aria-label={`Remove ${e.value}`}>✕</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
+    </Section>
   );
 }

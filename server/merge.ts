@@ -27,6 +27,10 @@ export function mergeAi(base: CheckResult, free: FreeResult, a: AiAnswer, summar
     links: free.links, phones: free.phones, sender: free.sender ?? base.sender,
     impersonating: a.impersonating.trim() || undefined,
     title: a.title.trim().slice(0, 60) || undefined,
+    // A safe bill's key numbers, for 📅 Bills.
+    bill: verdict === 'safe' && a.bill.isBill && a.bill.company.trim() && a.bill.amount > 0
+      ? { company: a.bill.company.trim().slice(0, 60), amount: Math.round(a.bill.amount * 100) / 100, dueDate: /^\d{4}-\d{2}-\d{2}$/.test(a.bill.dueDate) ? a.bill.dueDate : '', account: a.bill.account.replace(/[^A-Za-z0-9]/g, '').slice(-4) || undefined }
+      : undefined,
     whatToDo: steps,
     // The short summary is kept only when the final answer is "safe" (and summaries are on in Settings).
     brief: summaries && verdict === 'safe' && a.brief.whatItIs.trim() ? { whatItIs: a.brief.whatItIs.trim(), keyInfo: a.brief.keyInfo.filter((k) => k.label.trim() && k.value.trim()).slice(0, 5), steps: a.brief.steps.filter((x) => x.trim()).slice(0, 3) } : undefined,

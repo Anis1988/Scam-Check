@@ -1,6 +1,9 @@
 import type { Brief, CheckResult, Signal, Source } from '../lib/types';
 import { KIND_LABEL, VERDICT_LABEL } from '../lib/types';
-import { ScoreRing } from './ui';
+import { useState } from 'react';
+import { api } from '../lib/api';
+import { BillStrip } from './bills';
+import { ScoreRing, toast } from './ui';
 
 const VERDICT_STYLE = {
   safe: 'from-emerald-50/90 text-emerald-900 shadow-[0_0_0_1px_rgba(94,140,110,0.25),0_12px_30px_-14px_rgba(94,140,110,0.5)]',
@@ -12,12 +15,14 @@ const SOURCE: Record<Source, { icon: string; name: string }> = {
   link: { icon: '🌐', name: 'Links & websites' },
   phone: { icon: '📞', name: 'Phone numbers' },
   sender: { icon: '✉️', name: 'Who sent it' },
+  list: { icon: '📒', name: 'Your trusted / blocked lists' },
   ai: { icon: '🤖', name: 'AI analysis' },
 };
 const LEVEL = { bad: { icon: '✗', cls: 'text-red-600' }, warn: { icon: '!', cls: 'text-amber-600' }, good: { icon: '✓', cls: 'text-emerald-600' }, info: { icon: '•', cls: 'text-stone-500' } } as const;
 
 /** One check's answer: the verdict, why, the links and numbers found, and what to do. */
-export function ResultCard({ r }: { r: CheckResult }) {
+export function ResultCard({ r, example = false, onChanged }: { r: CheckResult; example?: boolean; onChanged?: () => void }) {
+  const mark = (value: string) => <MarkButtons value={value} example={example} onChanged={onChanged} />;
   const v = VERDICT_LABEL[r.verdict];
   const groups = (Object.keys(SOURCE) as Source[]).map((s) => [s, r.signals.filter((x) => x.source === s)] as const).filter(([, list]) => list.length);
   return (
@@ -47,6 +52,7 @@ export function ResultCard({ r }: { r: CheckResult }) {
       {r.aiNote && r.ai !== 'pending' && !r.unchecked && <p className="text-xs text-stone-500">{r.aiNote}</p>}
 
       {r.brief && r.verdict === 'safe' && <BriefCard b={r.brief} />}
+      {r.bill && r.verdict === 'safe' && <BillStrip b={r.bill} compare={r.billCompare} />}
 
       {r.whatToDo.length > 0 && !r.unchecked && !(r.brief && r.verdict === 'safe') && (
         <div className="card space-y-1.5">
@@ -76,19 +82,46 @@ export function ResultCard({ r }: { r: CheckResult }) {
         <div className="card space-y-2 text-sm">
           <p className="label">Found in the message</p>
           {r.sender && (
-            <p className="break-words"><span aria-hidden="true">✉️</span> {r.sender.name ? `${r.sender.name} ` : ''}<span className="text-stone-500">&lt;{r.sender.address ?? '?'}&gt;</span>{r.sender.replyTo && <span className="block text-xs text-stone-500">Replies go to {r.sender.replyTo}</span>}{r.sender.auth && <span className="block text-xs text-stone-500">Sender checks: {r.sender.auth}</span>}</p>
+            <div><p className="break-words"><span aria-hidden="true">✉️</span> {r.sender.name ? `${r.sender.name} ` : ''}<span className="text-stone-500">&lt;{r.sender.address ?? '?'}&gt;</span>{r.sender.replyTo && <span className="block text-xs text-stone-500">Replies go to {r.sender.replyTo}</span>}{r.sender.auth && <span className="block text-xs text-stone-500">Sender checks: {r.sender.auth}</span>}</p>{r.sender.address && mark(r.sender.address)}</div>
           )}
           {r.links.map((l) => (
-            <p key={l.url} className="break-all"><span className={`font-bold ${LEVEL[l.level].cls}`} aria-hidden="true">{LEVEL[l.level].icon}</span> 🌐 <b className="font-mono text-xs">{l.domain}</b> <span className="text-xs text-stone-500">— {l.note}{l.age ? ` · ${l.age}` : ''}</span></p>
+            <div key={l.url}><p className="break-all"><span className={`font-bold ${LEVEL[l.level].cls}`} aria-hidden="true">{LEVEL[l.level].icon}</span> 🌐 <b className="font-mono text-xs">{l.domain}</b> <span className="text-xs text-stone-500">— {l.note}{l.age ? ` · ${l.age}` : ''}</span></p>{mark(l.domain)}</div>
           ))}
           {r.phones.map((p) => (
-            <p key={p.number}><span className={`font-bold ${LEVEL[p.level].cls}`} aria-hidden="true">{LEVEL[p.level].icon}</span> 📞 <b className="num">{p.number}</b> <span className="text-xs text-stone-500">— {p.note}</span></p>
+            <div key={p.number}><p><span className={`font-bold ${LEVEL[p.level].cls}`} aria-hidden="true">{LEVEL[p.level].icon}</span> 📞 <b className="num">{p.number}</b> <span className="text-xs text-stone-500">— {p.note}</span></p>{mark(p.number)}</div>
           ))}
           <p className="text-xs text-stone-500">Links are only looked up, never opened.</p>
         </div>
       )}
       <p className="text-xs text-stone-500">{KIND_LABEL[r.kind].icon} {KIND_LABEL[r.kind].text} · checked {new Date(r.checkedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}. A check can be wrong: when in doubt, contact the company yourself.</p>
     </section>
+  );
+}
+
+/** ✓ Trust / 🚫 Block a number, email address or website: your next checks will know it. */
+function MarkButtons({ value, example, onChanged }: { value: string; example: boolean; onChanged?: () => void }) {
+  const [done, setDone] = useState<'' | 'trusted' | 'blocked'>('');
+  const [busy, setBusy] = useState(false);
+  const add = async (list: 'trusted' | 'blocked') => {
+    if (example) return;
+    setBusy(true);
+    try {
+      const e = await api.listAdd(value, list);
+      setDone(list);
+      toast('success', list === 'trusted' ? `✓ ${e.value} is now trusted.` : `🚫 ${e.value} is now blocked: it will always show as a likely scam.`);
+      onChanged?.();
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (done) return <p className="mt-0.5 pl-5 text-xs font-semibold text-stone-500">{done === 'trusted' ? '✓ On your trusted list' : '🚫 On your blocked list'}</p>;
+  return (
+    <div className="mt-1 flex gap-1.5 pl-5">
+      <button className="chip min-h-[32px] border-emerald-200 bg-white/70 px-2.5 text-emerald-800" disabled={busy} onClick={() => void add('trusted')} tabIndex={example ? -1 : 0}>✓ Trust</button>
+      <button className="chip min-h-[32px] border-red-200 bg-white/70 px-2.5 text-red-800" disabled={busy} onClick={() => void add('blocked')} tabIndex={example ? -1 : 0}>🚫 Block</button>
+    </div>
   );
 }
 

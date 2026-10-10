@@ -1,4 +1,4 @@
-import type { AiMode, AppSettings, CheckResult, Kind, SavedItem } from './types';
+import type { AiMode, AppSettings, Bill, CheckResult, Kind, ListEntry, SavedItem } from './types';
 
 const CODE_KEY = 'sc.accessCode';
 export const getCode = (): string => { try { return localStorage.getItem(CODE_KEY) ?? ''; } catch { return ''; } };
@@ -60,6 +60,14 @@ export const api = {
   resetSettings: () => call<AppSettings & { cleaned: number }>('/api/settings', { method: 'POST', body: JSON.stringify({ reset: true }) }),
   saveSettings: (s: AppSettings) => call<AppSettings & { cleaned: number }>('/api/settings', { method: 'POST', body: JSON.stringify(s) }),
   setNote: (id: string, note: string, name?: string) => call<SavedItem>('/api/saved', { method: 'POST', body: JSON.stringify({ action: 'note', id, note, name: name?.trim() || undefined }) }),
+  /** ⚡ Quick look-up: just a link, phone number or email address (free checks only). */
+  lookup: (value: string) => call<CheckResult>('/api/lookup', { method: 'POST', body: JSON.stringify({ value }) }),
+  bills: () => call<Bill[]>('/api/bills'),
+  billPaid: (key: string, paid: boolean) => call<Bill>('/api/bills', { method: 'POST', body: JSON.stringify({ action: 'paid', key, paid }) }),
+  billDelete: (key: string) => call<{ ok: boolean }>('/api/bills', { method: 'POST', body: JSON.stringify({ action: 'delete', key }) }),
+  lists: () => call<ListEntry[]>('/api/lists'),
+  listAdd: (value: string, list: ListEntry['list']) => call<ListEntry>('/api/lists', { method: 'POST', body: JSON.stringify({ action: 'add', value, list }) }),
+  listRemove: (key: string) => call<{ ok: boolean }>('/api/lists', { method: 'POST', body: JSON.stringify({ action: 'remove', key }) }),
   unsave: (id: string) => call<{ ok: boolean }>('/api/saved', { method: 'POST', body: JSON.stringify({ action: 'delete', id }) }),
 };
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { clearHistory, getPrefs, loadHistory } from '../lib/history';
+import { api } from '../lib/api';
+import { clearHistory, getPrefs, loadHistory, saveToHistory } from '../lib/history';
 import { KIND_LABEL, VERDICT_LABEL, type CheckResult, type Verdict } from '../lib/types';
 import { ResultCard } from '../components/ResultCard';
 import { SaveBox } from '../components/SaveBox';
@@ -24,7 +25,7 @@ export function History() {
   if (sel) return (
     <Shell right={stats}>
       <button className="btn" onClick={() => setSel(null)}>← Back to History</button>
-      <ResultCard r={sel} />
+      <ResultCard r={sel} onChanged={() => void api.result(sel.id).then((x) => (setSel(x), setList(saveToHistory(x))), () => undefined)} />
       {sel.ai !== 'pending' && <SaveBox key={sel.id} id={sel.id} />}
     </Shell>
   );

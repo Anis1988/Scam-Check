@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from 'react';
 import { ResultCard } from '../components/ResultCard';
 import { SavedCard } from '../components/SavedCard';
+import { BillRow } from './Bills';
 import { Rail, ScoreRing, Shell, VerdictChip } from '../components/ui';
-import type { CheckResult, SavedItem, Verdict } from '../lib/types';
+import type { Bill, CheckResult, SavedItem, Verdict } from '../lib/types';
 
 const at = '2026-10-10T14:05:00.000Z';
 // Made-up examples, to show what things look like.
@@ -17,8 +18,16 @@ const SAFE: CheckResult = {
     keyInfo: [{ label: 'Amount due', value: '$142.18' }, { label: 'Due date', value: 'Oct 24' }, { label: 'Account', value: '•••• 4821' }],
     steps: ['Pay $142.18 by Oct 24 in the Duke Energy app or at duke-energy.com.', 'Nothing else to do.'],
   },
+  bill: { company: 'Duke Energy', amount: 142.18, dueDate: '2026-10-24', account: '4821' },
+  billCompare: { prevAmount: 98.2, prevDue: '2026-09-24', prevCheckedAt: '2026-09-10T14:05:00.000Z', change: 45 },
   whatToDo: [],
 };
+
+// Made-up bills for the 📅 Bills example.
+const BILLS: Bill[] = [
+  { key: 'a', id: 'a', company: 'Duke Energy', amount: 142.18, dueDate: '2026-10-24', account: '4821', checkedAt: at },
+  { key: 'b', id: 'b', company: 'Spectrum', amount: 79.99, dueDate: '2026-10-02', checkedAt: at, paid: true },
+];
 
 const SAVED: SavedItem = {
   id: 'example3', name: '1-Duke Energy', savedAt: at, checkedAt: at, note: 'Paid in the Duke Energy app on Oct 12.', kind: 'bill', verdict: 'safe', score: 6,
@@ -38,8 +47,8 @@ const BATCH: { icon: string; file: string; verdict: Verdict; score: number; line
 ];
 
 const SECTIONS = [
-  ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
-  ['saving', '⭐ Saving and names'], ['cleanup', '🧹 Automatic clean-up'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
+  ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['lookup', '⚡ Quick look-up'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
+  ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
   ['share', 'Share from your phone'], ['scam', 'If it’s a scam'], ['privacy', 'Privacy and cost'],
 ] as const;
 type Id = (typeof SECTIONS)[number][0];
@@ -118,6 +127,21 @@ export function Guide() {
         </ul>
       </Section>
 
+      <Section id="lookup">
+        <p>At the top of the Check page, paste <b>just</b> a link, a phone number or an email address and tap <b>Look up</b>. You get the same free checks in a second: is the website pretending to be a company, how new it is, Google’s list of dangerous sites, the phone number’s country and type, a free email address pretending to be a company…</p>
+        <p>It never uses the AI, so it’s always free. The link is only looked up, never opened.</p>
+      </Section>
+
+      <Section id="qr">
+        <p>Fake QR codes are stuck on parking meters, restaurant tables, letters and flyers, and lead to fake payment pages.</p>
+        <ol className="list-decimal space-y-1.5 pl-5">
+          <li>Pick <b>🔳 QR code</b>, then take or choose a photo of the code (several at once is fine).</li>
+          <li>The code is read <b>on your phone</b>, for free: you see what’s inside before anything else.</li>
+          <li>Tap <b>Check it</b>: the link inside is checked like any other link, without opening it. No AI is used and the photo isn’t sent anywhere.</li>
+        </ol>
+        <p>Any other picture you check is also looked at for a QR code: if there is one, its link is checked too.</p>
+      </Section>
+
       <Section id="checks">
         <ul className="list-disc space-y-1.5 pl-5">
           <li>🔎 <b>Known scam patterns</b> (free): gift cards, crypto, Zelle/wire requests, "verify your account", threats, prizes, package and toll texts, utility shut-offs, fake subscriptions, tech support, fake jobs, investment promises, "keep it secret"…</li>
@@ -132,7 +156,7 @@ export function Guide() {
           <button className="btn-primary w-full" tabIndex={-1}>🤖 Ask the AI (uses 1 of 4 left today)</button>
         </div>
         <p className="text-xs text-stone-500">Example of a safe one (made up):</p>
-        <ResultCard r={SAFE} />
+        <ResultCard r={SAFE} example />
       </Section>
 
       <Section id="summary">
@@ -150,6 +174,27 @@ export function Guide() {
         <p>In the <b>⭐ Saved</b> tab, tap a check to open it: the key facts, your note, the summary for safe ones, and the original. <b>👁 View</b> shows the picture or PDF, <b>⬇ Download</b> saves it to your phone or computer, and <b>🗑 Delete</b> removes the picture (or the whole check). Search by name, number, website or a word of your note, or show only one kind of answer. Saved checks are the same on your phone and your computer.</p>
         <p className="text-xs text-stone-500">Example (made up):</p>
         <SavedCard s={SAVED} example />
+      </Section>
+
+      <Section id="billtrack">
+        <p>When the AI reads a <b>bill</b> (photo or PDF) and it looks safe, it goes to <b>⭐ Saved → 📅 Bills</b> by itself, with who it’s from, the amount and the due date. No extra AI check is used.</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>Due dates:</b> see what’s due soon (“due in 3 days”) and what’s late. Tap <b>✓ Paid</b> when you’ve paid it.</li>
+          <li><b>Compared to last time:</b> the next bill from the same company shows the difference, e.g. <b>📈 45% more than last time</b>. A much higher bill gets a gentle note to check your account in the company’s own app before paying: it can be a mistake, or a fake bill.</li>
+          <li><b>By company:</b> each company’s amounts over time.</li>
+        </ul>
+        <p>You can turn this off in Settings → Saving, bills & clean-up.</p>
+        <p className="text-xs text-stone-500">Example (made up, the buttons do nothing here):</p>
+        <ul className="space-y-2">{BILLS.map((b) => <BillRow key={b.key} b={b} example />)}</ul>
+      </Section>
+
+      <Section id="lists">
+        <p>Under every result, next to each website, phone number and sender, you’ll see <b>✓ Trust</b> and <b>🚫 Block</b> (see the bill example above).</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>🚫 Block</b> a number or website that scammed you: every future message with it shows as 🚨 Likely scam at once.</li>
+          <li><b>✓ Trust</b> your bank, your doctor, your power company: their messages get a little less risk. A strong warning still counts, because scammers can copy a trusted name.</li>
+        </ul>
+        <p>See and change both lists in <b>Settings → ✅ Trusted & 🚫 Blocked</b>, where you can also type one in. They apply at once, even to checks you did before.</p>
       </Section>
 
       <Section id="cleanup">
