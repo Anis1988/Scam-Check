@@ -46,6 +46,7 @@ export async function saveResult(r: CheckResult, days?: number): Promise<void> {
 export const HISTORY = 'sc:history';
 export const VIDEOS = 'sc:videos';
 export const COMPANIES = 'sc:companies';
+export const DOCS = 'sc:docs';
 type Dated = { checkedAt: string };
 export async function syncedPut<T extends Dated>(key: string, id: string, item: T, max: number): Promise<void> {
   const r = db();

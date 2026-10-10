@@ -257,3 +257,30 @@ export interface CompanyInfo {
   checkedAt: string;
   remembered?: boolean;
 }
+
+/** 📄 Docs: a document read by the AI (summary, key points, red flags, to-dos), or two versions compared. */
+export type DocLevel = 'high' | 'medium' | 'low';
+export interface DocResult {
+  id: string;
+  status: 'pending' | 'done' | 'failed';
+  mode: 'analyze' | 'compare';
+  label: string; // the file name, or "old.pdf → new.pdf"
+  checkedAt: string;
+  title?: string; // what it is, in a few words
+  docType?: string; // e.g. "Lease", "Insurance policy", "Job offer"
+  summary?: string;
+  keyPoints?: string[];
+  redFlags?: { issue: string; why: string; level: DocLevel; quote?: string }[];
+  actions?: { task: string; when?: string }[];
+  dates?: { what: string; when: string }[];
+  changes?: { what: string; before?: string; after?: string; impact: 'better' | 'worse' | 'neutral' }[]; // compare only
+  aiBy?: string;
+  note?: string;
+  error?: string;
+  tried?: string;
+  remembered?: boolean;
+}
+
+/** 📰 Scams going around now (from this week's news, made when asked). */
+export interface ScamNews { items: { name: string; how: string; tell: string; who?: string }[]; sources: { title: string; url: string }[]; aiBy?: string; checkedAt: string }
+

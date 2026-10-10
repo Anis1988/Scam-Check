@@ -15,6 +15,7 @@ export interface Ask {
   instructions: string;
   text: string;
   images?: { mime: string; data: string }[]; // e.g. pictures taken from a video
+  pdf?: string; // a PDF (base64) for the AIs that read PDFs (Claude, Gemini): scanned documents
   geminiParts?: Record<string, unknown>[]; // Gemini only: a whole video (uploaded file or YouTube link)
   search: boolean; // a web search is needed (true for company look-ups)
   video?: boolean;
@@ -26,8 +27,8 @@ export class CannotDo extends Error {}
 
 export async function askWithSearch(p: Provider, cfg: AppSettings['ai'], a: Ask): Promise<Answered> {
   if (p === 'gemini') {
-    const parts = [...(a.geminiParts ?? []), ...(a.images ?? []).map((i) => ({ inline_data: { mime_type: i.mime, data: i.data } })), { text: a.text }];
-    const g = await geminiSearch(parts, a.instructions, cfg, a.video);
+    const parts = [...(a.geminiParts ?? []), ...(a.pdf ? [{ inline_data: { mime_type: 'application/pdf', data: a.pdf } }] : []), ...(a.images ?? []).map((i) => ({ inline_data: { mime_type: i.mime, data: i.data } })), { text: a.text }];
+    const g = await geminiSearch(parts, a.instructions, cfg, a.video, a.search);
     const by = modelName('gemini', g.model);
     return { text: g.text, sources: g.sources, by, note: g.fallback ? `Gemini Pro wasn’t available (${g.fallback}), so ${by} answered.` : undefined };
   }
@@ -50,6 +51,7 @@ async function askClaude(cfg: AppSettings['ai'], a: Ask): Promise<Answered> {
   const model = modelFor(cfg, 'claude');
   const client = new Anthropic({ timeout: 240_000, maxRetries: 1 });
   const content: Anthropic.Beta.Messages.BetaContentBlockParam[] = [
+    ...(a.pdf ? [{ type: 'document' as const, source: { type: 'base64' as const, media_type: 'application/pdf' as const, data: a.pdf } }] : []),
     ...(a.images ?? []).map((i) => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: i.mime as 'image/jpeg', data: i.data } })),
     { type: 'text', text: a.text },
   ];
@@ -90,6 +92,7 @@ const BASE = { groq: 'https://api.groq.com/openai/v1', openrouter: 'https://open
 
 async function askFree(p: 'groq' | 'openrouter', cfg: AppSettings['ai'], a: Ask): Promise<Answered> {
   const pr = providerOf(p);
+  if (a.pdf) throw new CannotDo(`${pr.name} can’t read PDFs that are pictures (scanned): pick Claude or Gemini`);
   const hasImages = !!a.images?.length;
   let model = modelFor(cfg, p);
   let note: string | undefined;
@@ -117,6 +120,7 @@ async function askFree(p: 'groq' | 'openrouter', cfg: AppSettings['ai'], a: Ask)
   };
   if (!res.ok) {
     if (res.status === 401 || res.status === 403) throw new Error(`${pr.name}: the key isn’t valid (${pr.env} in Vercel)`);
+    if (res.status === 413) throw new Error(`This is too long for ${pr.name}’s free plan: pick Gemini or Claude`);
     if (res.status === 429) throw new Error(`${pr.name}’s free allowance is used up for now: pick another AI`);
     if (res.status === 404) throw new Error(`${pr.name} doesn’t offer “${model}” any more: pick another model`);
     throw new Error(`${pr.name}: ${String((typeof j.error === 'string' ? j.error : j.error?.message) ?? `HTTP ${res.status}`).slice(0, 140)}`);

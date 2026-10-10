@@ -54,7 +54,11 @@ export default defineConfig(({ mode }) => {
   process.env.SCAM_LOCAL_STORE ??= '1';
   return {
     plugins: [react(), localApi()],
-    build: { outDir: 'build' },
+    build: {
+      outDir: 'build',
+      // pdf.js's worker is an .mjs file: saved as .js so every server (and the Android app) sends it as JavaScript.
+      rollupOptions: { output: { assetFileNames: (a) => (a.names?.[0] ?? a.name ?? '').endsWith('.mjs') ? 'assets/[name]-[hash].js' : 'assets/[name]-[hash][extname]' } },
+    },
     server: { watch: { ignored: ['**/.local/**'] } },
   };
 });

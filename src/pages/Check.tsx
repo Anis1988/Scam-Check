@@ -10,6 +10,7 @@ import { aiLeft, useStatus } from '../lib/useStatus';
 import { ResultCard } from '../components/ResultCard';
 import { RecheckBar, needOf, stuck } from '../components/Recheck';
 import { ModelMenu } from '../components/ModelMenu';
+import { ScamNewsFold } from '../components/ScamNews';
 import { SaveBox } from '../components/SaveBox';
 import { Rail, ScoreRing, Shell, VerdictChip, toast } from '../components/ui';
 import { dueText } from '../components/bills';
@@ -392,6 +393,8 @@ export function Check() {
           <p className="text-xs text-stone-500">Never open links or call numbers from a message you’re unsure about. This app only looks them up.</p>
           {st?.ai && st.store && <p className="hud xl:hidden">🤖 AI checks left today: <b className="text-stone-800">{left === null ? 'unlimited' : `${left} of ${st.limit}`}</b> · free checks unlimited</p>}
         </section>
+
+        <ScamNewsFold />
 
         <div ref={resultRef} className="scroll-mt-28 space-y-3">
           {!items.length && (

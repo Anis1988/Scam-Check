@@ -1,7 +1,7 @@
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { apiUrl, getServer, isNative } from './native';
-import type { AiMode, AppSettings, Bill, CheckResult, CompanyInfo, Kind, ListEntry, ModelChoice, Provider, SavedItem, VideoResult } from './types';
+import type { AiMode, AppSettings, Bill, CheckResult, CompanyInfo, Kind, ListEntry, ModelChoice, Provider, SavedItem, VideoResult, DocResult, ScamNews } from './types';
 
 const CODE_KEY = 'sc.accessCode';
 export const getCode = (): string => { try { return localStorage.getItem(CODE_KEY) ?? ''; } catch { return ''; } };
@@ -65,6 +65,14 @@ export const api = {
   shareOldVideos: (ids: string[]) => call<{ added: number; synced: boolean }>('/api/video', { method: 'PUT', body: JSON.stringify({ ids: ids.slice(0, 50) }) }),
   companies: () => call<{ synced: boolean; names: string[] }>('/api/company'),
   shareOldCompanies: (names: string[]) => call<{ synced: boolean }>('/api/company', { method: 'PUT', body: JSON.stringify({ names: names.slice(0, 20) }) }),
+  /** 📄 Docs: read one document or compare two versions (1 AI check); the list every device shares. */
+  doc: (b: { id: string; mode: 'analyze' | 'compare'; docs: unknown[]; model?: ModelChoice; fresh?: boolean }) => call<DocResult>('/api/doc', { method: 'POST', body: JSON.stringify(b) }),
+  docResult: (id: string) => call<DocResult>(`/api/doc?id=${encodeURIComponent(id)}`),
+  docs: () => call<{ synced: boolean; docs: DocResult[] }>('/api/doc'),
+  deleteDoc: (id: string) => call<{ deleted: number }>(`/api/doc?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  /** 📰 Scams going around now: the last list, or a new one from this week's news (1 AI check). */
+  news: () => call<{ news: ScamNews | null }>('/api/company?news=1'),
+  makeNews: (model?: ModelChoice) => call<ScamNews>('/api/company', { method: 'POST', body: JSON.stringify({ news: true, model }) }),
   /** 🗑 Forget checks on the server too. */
   deleteChecks: (ids: string[]) => (ids.length ? call<{ deleted: number }>(`/api/check?ids=${ids.slice(0, 200).join(',')}`, { method: 'DELETE' }) : Promise.resolve({ deleted: 0 })),
   deleteVideo: (id: string) => call<{ deleted: number }>(`/api/video?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),

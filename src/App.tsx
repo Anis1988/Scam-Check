@@ -10,15 +10,16 @@ import { Guide } from './pages/Guide';
 import { Settings } from './pages/Settings';
 import { api, getCode, setCode } from './lib/api';
 import { Video } from './pages/Video';
+import { Docs } from './pages/Docs';
 import { Lookup } from './pages/Lookup';
 import { aiLeft, refreshStatus, useStatus } from './lib/useStatus';
 import { sharedFiles, type SharedFile } from './lib/share';
 import { syncHistory } from './lib/batch';
 import { getPrefs, setPrefs } from './lib/history';
 
-const TABS = ['Check', 'Video', 'Lookup', 'Saved', 'History', 'Guide', 'Settings'] as const;
+const TABS = ['Check', 'Docs', 'Video', 'Lookup', 'Saved', 'History', 'Guide', 'Settings'] as const;
 type Tab = (typeof TABS)[number];
-const TAB_ICON: Record<Tab, string> = { Check: '🛡️', Video: '🎬', Lookup: '🏢', Saved: '⭐', History: '🕘', Guide: '📖', Settings: '⚙️' };
+const TAB_ICON: Record<Tab, string> = { Check: '🛡️', Docs: '📄', Video: '🎬', Lookup: '🏢', Saved: '⭐', History: '🕘', Guide: '📖', Settings: '⚙️' };
 const TAB_LABEL: Partial<Record<Tab, string>> = { Lookup: 'Look up' };
 
 /** A YouTube or TikTok link shared to the app (Share → Scam Check) opens the Video tab with it. */
@@ -166,7 +167,7 @@ export default function App() {
           </div>
           <span className="flex items-center gap-2 md:order-last"><AiMeter /><ThemeButton /></span>
           {/* Tabs with icons, at the top. */}
-          <nav className="-mx-2 grid w-[calc(100%+1rem)] grid-cols-7 md:mx-auto md:flex md:w-auto md:gap-1 md:rounded-2xl md:border md:border-white/80 md:bg-white/50 md:p-1 md:shadow-[0_0_0_1px_rgba(31,66,71,0.05)]" aria-label="Main">
+          <nav className="-mx-2 grid w-[calc(100%+1rem)] grid-cols-8 md:mx-auto md:flex md:w-auto md:gap-1 md:rounded-2xl md:border md:border-white/80 md:bg-white/50 md:p-1 md:shadow-[0_0_0_1px_rgba(31,66,71,0.05)]" aria-label="Main">
             {TABS.map((t) => (
               <button key={t} onClick={() => go(t)} aria-current={tab === t ? 'page' : undefined}
                 className={`relative flex min-h-[48px] min-w-0 flex-col items-center justify-center gap-0.5 px-0 py-1.5 text-[10px] font-semibold tracking-tight transition md:min-h-0 md:flex-row md:gap-1.5 md:rounded-xl md:px-3.5 md:py-1.5 md:text-sm ${tab === t ? 'text-teal-800 md:bg-white md:shadow-[0_0_0_1px_rgba(74,146,155,0.25),0_4px_14px_-4px_rgba(74,146,155,0.45)]' : 'text-stone-500 hover:text-stone-800'}`}>
@@ -180,7 +181,7 @@ export default function App() {
       </header>
       <main className="mx-auto max-w-7xl px-4 pb-16 pt-5" style={{ paddingBottom: 'calc(4rem + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))' }}>
         <AppUpdateCheck />
-        {tab === 'Guide' ? <Guide /> : !hasCode ? <AccessGate onDone={() => setHasCode(true)} /> : tab === 'Check' ? <Check /> : tab === 'Video' ? <Video sharedLink={videoLink} sharedFile={videoFile} /> : tab === 'Lookup' ? <Lookup /> : tab === 'Saved' ? <Saved /> : tab === 'History' ? <History /> : <Settings />}
+        {tab === 'Guide' ? <Guide /> : !hasCode ? <AccessGate onDone={() => setHasCode(true)} /> : tab === 'Check' ? <Check /> : tab === 'Docs' ? <Docs /> : tab === 'Video' ? <Video sharedLink={videoLink} sharedFile={videoFile} /> : tab === 'Lookup' ? <Lookup /> : tab === 'Saved' ? <Saved /> : tab === 'History' ? <History /> : <Settings />}
       </main>
     </div>
   );

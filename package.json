@@ -21,6 +21,7 @@
     "@vercel/functions": "^3.3.0",
     "jsqr": "^1.4.0",
     "libphonenumber-js": "^1.13.15",
+    "pdfjs-dist": "6.3.289",
     "postal-mime": "^4.0.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

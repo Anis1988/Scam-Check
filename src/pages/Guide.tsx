@@ -5,7 +5,9 @@ import { BillRow } from './Bills';
 import { UpdateBanner } from '../components/AppUpdate';
 import { RecheckBar } from '../components/Recheck';
 import { Fold, Rail, ScoreRing, Shell, VerdictChip } from '../components/ui';
-import type { Bill, CheckResult, CompanyInfo, SavedItem, Verdict, VideoResult } from '../lib/types';
+import type { Bill, CheckResult, CompanyInfo, DocResult, SavedItem, ScamNews, Verdict, VideoResult } from '../lib/types';
+import { DocCard } from './Docs';
+import { NewsList } from '../components/ScamNews';
 import { VideoCard } from './Video';
 import { CompanyCard } from './Lookup';
 
@@ -37,6 +39,27 @@ const VOICEMAIL: CheckResult = {
   ],
   links: [], phones: [{ number: '(202) 555-0147', level: 'warn', note: 'US internet (VoIP) number' }],
   whatToDo: ['Don’t call back.', 'The IRS writes to you by post first. If unsure, call the number on irs.gov yourself.', 'Block the number.'],
+};
+
+// A made-up document read by 📄 Docs.
+const DOC: DocResult = {
+  id: 'example-doc', status: 'done', mode: 'analyze', label: 'lease-2027.pdf', checkedAt: at, title: 'Apartment lease, 12 months', docType: 'Lease',
+  summary: 'A 12-month lease for 14 Oak St, Apt 3, from Jan 1 to Dec 31, 2027, at $1,450 a month. You pay electricity and internet; the landlord pays water.',
+  keyPoints: ['Rent $1,450, due on the 1st', 'Deposit $1,450, back within 30 days of moving out', 'No pets without written OK'],
+  redFlags: [
+    { issue: 'It renews by itself for 12 months', why: 'If you don’t give notice 60 days before the end, you’re locked in for another year.', level: 'high', quote: 'This lease shall automatically renew for successive twelve-month terms' },
+    { issue: 'Late fee from day 2', why: '$75 plus $10 a day is high: most leases give 5 days.', level: 'medium' },
+  ],
+  actions: [{ task: 'Ask to change the auto-renewal to month-to-month', when: 'before signing' }, { task: 'Put the move-out notice date in your calendar', when: 'Nov 1, 2027' }],
+  dates: [{ what: 'Start', when: 'Jan 1, 2027' }, { what: 'Notice to leave', when: 'Nov 1, 2027' }],
+  aiBy: 'Claude Sonnet 5.5',
+};
+const NEWS: ScamNews = {
+  items: [
+    { name: 'Fake toll texts', how: 'A text says you owe a small toll and links to a payment page.', tell: 'Toll agencies don’t text links: check in your toll account’s app.', who: 'drivers' },
+    { name: 'Package “delivery problem”', how: 'A message asks you to confirm your address and pay a small fee.', tell: 'Track the package on the shipper’s own app instead.' },
+  ],
+  sources: [], aiBy: 'Gemini Flash (free)', checkedAt: at,
 };
 
 // Made-up bills for the 📅 Bills example.
@@ -82,8 +105,8 @@ const COMPANY: CompanyInfo = {
 };
 
 const SECTIONS = [
-  ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['voicemail', '🎙️ Voicemails and calls'], ['video', '🎬 Video: is it true?'], ['company', '🏢 Look up a company'], ['lookup', '⚡ Quick look-up'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
-  ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Which AI'], ['recheck', '↻ Re-check'], ['failed', '⚠️ When an AI fails'], ['look', '🌙 Dark mode'], ['sync', '🔄 Same on phone & computer'], ['tidy', '📂 Fold & 🗑 delete'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
+  ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['voicemail', '🎙️ Voicemails and calls'], ['docs', '📄 Documents'], ['news', '📰 Scams going around'], ['video', '🎬 Video: is it true?'], ['company', '🏢 Look up a company'], ['lookup', '⚡ Quick look-up'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
+  ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Which AI'], ['search', '🔎 Search History'], ['recheck', '↻ Re-check'], ['failed', '⚠️ When an AI fails'], ['look', '🌙 Dark mode'], ['sync', '🔄 Same on phone & computer'], ['tidy', '📂 Fold & 🗑 delete'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
   ['share', 'Share from your phone'], ['android', '📱 Android app'], ['iphone', '🍏 iPhone'], ['scam', 'If it’s a scam'], ['privacy', 'Privacy and cost'],
 ] as const;
 type Id = (typeof SECTIONS)[number][0];
@@ -173,6 +196,25 @@ export function Guide() {
         </ul>
         <p className="text-xs text-stone-500">Example (made up):</p>
         <ResultCard r={VOICEMAIL} example />
+      </Section>
+
+      <Section id="docs">
+        <p>In the <b>📄 Docs</b> tab, add any document: a <b>PDF</b>, a <b>Word</b> file (.docx), a text file, or <b>photos of the pages</b> of a paper (up to 6). The AI picked in Settings explains it in plain words:</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li>A short <b>summary</b> and the <b>key points</b> (amounts, dates, who it’s between).</li>
+          <li><b>Red flags</b> (🔴 serious, 🟠 watch out, ⚪ minor): unfair terms, hidden fees, auto-renewals, penalties, missing cancellation terms, signs of a fake, with the exact words quoted.</li>
+          <li><b>What to do</b> (a to-do list with deadlines) and the important <b>dates</b>.</li>
+          <li><b>🔀 Compare two:</b> add the old and the new version (say, last year’s and this year’s contract) and see <b>what changed</b>, whether each change is 🟢 better or 🔴 worse for you, and any new risk.</li>
+        </ul>
+        <p>The words are taken out of the file <b>on your device</b>, so any AI can read it; a scanned PDF (only pictures) goes to Claude or Gemini as it is. Each one uses 1 AI check, and the same document again is free. About the first 40 pages are read. Old .doc or .xls files: save them as PDF first. Only the answer is kept (on your phone and computer alike), never the document. If it fails, tap <b>⚠️ It failed: try another model</b>.</p>
+        <p className="text-xs text-stone-500">Example (made up):</p>
+        <DocCard r={DOC} example />
+      </Section>
+
+      <Section id="news">
+        <p>On <b>🛡️ Check</b>, open <b>📰 Scams going around now</b> to see the newest scams in the news (from the FTC, FBI, AARP, BBB and the news), each with how to spot it. It’s made only when you tap <b>Get this week’s list</b> (1 AI check, with a live web search), then kept for your phone and computer, and offered again after a week.</p>
+        <p className="text-xs text-stone-500">Example (made up):</p>
+        <div className="card"><NewsList n={NEWS} /></div>
       </Section>
 
       <Section id="video">
@@ -287,6 +329,10 @@ export function Guide() {
         <p>The model you pick does <b>everything</b>: checks, 🎬 Video and 🏢 Look up. Each AI has its own daily limit: with Claude you set the number of paid checks (or Unlimited), with the free ones how many a day. When one is used up, the result shows <b>⏸ Limit reached: continue with another model</b>: tap it and pick another one to carry on.</p>
         <p>The <b>top</b> of every result says which AI checked it, e.g. “🤖 Checked by Claude Opus 5.5” in the bill example above, or “🤖 Checked by Gemini Pro (free)”. When no AI was needed it says “🔎 Free checks only (no AI)”. It stays on the result in History and on your saved checks too.</p>
         <p><b>One-time setup for Gemini:</b> go to <b>aistudio.google.com</b>, sign in, tap <b>Get API key</b> → <b>Create API key</b>, and add it in Vercel as <code>GEMINI_API_KEY</code> (Settings → Environment Variables), then redeploy. Like your other keys, never paste it anywhere else.</p>
+      </Section>
+
+      <Section id="search">
+        <p>At the top of <b>🕘 History</b>, type in the <b>🔎 search</b> box to find a check by a word, a company, a website or a phone number (with or without dashes). Tap <b>🚨 Scam</b>, <b>⚠️ Suspicious</b> or <b>✅ Safe</b> to show only those, or pick a kind (🧾 bills, 🎙️ voicemails…). <b>Show all</b> clears it.</p>
       </Section>
 
       <Section id="recheck">

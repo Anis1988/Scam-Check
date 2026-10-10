@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { HISTORY_MAX, loadHistory, saveToHistory } from '../lib/history';
 import { deleteAllChecks, deleteChecks, syncHistory } from '../lib/batch';
-import { KIND_LABEL, VERDICT_LABEL, type CheckResult, type ModelChoice, type Verdict } from '../lib/types';
+import { KIND_LABEL, VERDICT_LABEL, type CheckResult, type Kind, type ModelChoice, type Verdict } from '../lib/types';
 import { ResultCard } from '../components/ResultCard';
 import { SaveBox } from '../components/SaveBox';
 import { RecheckBar, needOf, stuck } from '../components/Recheck';
@@ -11,6 +11,13 @@ import { refreshStatus } from '../lib/useStatus';
 import { toast } from '../components/ui';
 import type { CheckInput } from '../lib/api';
 import { Rail, ScoreRing, Shell, VerdictChip } from '../components/ui';
+
+const VERDICT_FILTERS: [Verdict | '', string][] = [['', 'All'], ['scam', '🚨 Scam'], ['suspicious', '⚠️ Suspicious'], ['safe', '✅ Safe']];
+/** Everything a check can be found by: its title, words, company, websites, numbers, sender, bill. */
+const searchText = (r: CheckResult) => [
+  r.title, r.preview, r.summary, r.impersonating, r.brief?.whatItIs, r.bill?.company, r.sender?.name, r.sender?.address,
+  ...r.links.map((l) => l.domain), ...r.phones.map((p) => `${p.number} ${p.number.replace(/\D/g, '')}`), KIND_LABEL[r.kind].text,
+].filter(Boolean).join(' ').toLowerCase();
 
 const when = (iso: string) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
@@ -72,6 +79,12 @@ export function History() {
       void refreshStatus();
     }
   };
+  // 🔎 Search and filters (on this screen only).
+  const [q, setQ] = useState('');
+  const [verdict, setVerdict] = useState<Verdict | ''>('');
+  const [kind, setKind] = useState<Kind | ''>('');
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const shown = list.filter((r) => (!verdict || (!r.unchecked && r.verdict === verdict)) && (!kind || r.kind === kind) && (!words.length || words.every((w) => searchText(r).includes(w))));
   const counts = (['safe', 'suspicious', 'scam'] as Verdict[]).map((v) => [v, list.filter((r) => !r.unchecked && r.verdict === v).length] as const);
   const stats = (
     <Rail title="Your checks">
@@ -106,8 +119,25 @@ export function History() {
         {list.length > 0 && <button className="btn" onClick={() => window.confirm(`Delete all ${list.length} checks? They’re removed from all your devices. ⭐ Saved checks stay.`) && void deleteAllChecks().then(() => toast('success', 'All deleted.'), () => undefined)}>🗑 Delete all</button>}
       </div>
       {!list.length && <p className="card text-sm text-stone-600">Nothing checked yet. Your checks will show here.</p>}
+      {list.length > 0 && (
+        <div className="card space-y-2">
+          <input className="input w-full" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔎 Search a word, company or number" aria-label="Search History" />
+          <div className="-mx-1 flex flex-wrap gap-1.5">
+            {VERDICT_FILTERS.map(([id, name]) => (
+              <button key={id} type="button" aria-pressed={verdict === id} onClick={() => setVerdict(id)}
+                className={`chip min-h-[32px] px-2.5 ${verdict === id ? 'border-teal-500/70 bg-white text-teal-900 shadow-[0_0_0_2px_rgba(74,146,155,0.15)]' : 'border-stone-200 bg-white/60 text-stone-600'}`}>{name}</button>
+            ))}
+            <select className="chip min-h-[32px] border-stone-200 bg-white/60 px-2 text-stone-700" value={kind} onChange={(e) => setKind(e.target.value as Kind | '')} aria-label="Kind">
+              <option value="">All kinds</option>
+              {(Object.keys(KIND_LABEL) as Kind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k].icon} {KIND_LABEL[k].text}</option>)}
+            </select>
+          </div>
+          {(q || verdict || kind) && <p className="hud !text-[10px]">{shown.length} of {list.length} · <button className="underline" onClick={() => (setQ(''), setVerdict(''), setKind(''))}>show all</button></p>}
+        </div>
+      )}
+      {list.length > 0 && !shown.length && <p className="card text-sm text-stone-600">Nothing matches. Try another word, or show all.</p>}
       <ul className="space-y-2">
-        {list.map((r) => (
+        {shown.map((r) => (
           <li key={r.id} className="flex items-stretch gap-2">
             <button className="card flex min-w-0 flex-1 items-center gap-3 text-left transition hover:shadow-[0_0_0_1px_rgba(74,146,155,0.35),0_10px_30px_-12px_rgba(74,146,155,0.45)]" onClick={() => open(r)}>
               {r.unchecked ? <span className="flex h-11 w-11 shrink-0 items-center justify-center text-2xl" aria-hidden="true">{KIND_LABEL[r.kind].icon}</span> : <ScoreRing score={r.score} verdict={r.verdict} size={44} muted={r.ai === "pending"} />}
