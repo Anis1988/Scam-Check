@@ -1,4 +1,4 @@
-// Shared request guard for the Netlify functions: same-origin, access token, rate limit.
+// Shared request guard for the server functions (Vercel): same-origin, access token, rate limit.
 
 const hits = new Map<string, number[]>();
 
@@ -17,7 +17,7 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 export function rateLimited(req: Request, name: string, maxPerMinute: number): Response | null {
-  const ip = req.headers.get('x-nf-client-connection-ip') ?? req.headers.get('x-forwarded-for') ?? 'local';
+  const ip = req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'local';
   const key = `${name}:${ip}`;
   const now = Date.now();
   const recent = (hits.get(key) ?? []).filter((t) => now - t < 60_000);
@@ -41,7 +41,7 @@ function sameOrigin(req: Request): boolean {
 export function guard(req: Request, name: string, maxPerMinute = 30): Response | null {
   if (!sameOrigin(req)) return json({ error: 'Cross-origin requests are not allowed.' }, 403);
   const token = process.env.APP_ACCESS_TOKEN;
-  if (!token) return json({ error: 'Set APP_ACCESS_TOKEN in Netlify first.' }, 503);
+  if (!token) return json({ error: 'Set APP_ACCESS_TOKEN in Vercel first (Settings → Environment Variables), then redeploy.' }, 503);
   if (!safeEqual(req.headers.get('x-access-token') ?? '', token)) return json({ error: 'Missing or wrong access code.' }, 401);
   return rateLimited(req, name, maxPerMinute);
 }

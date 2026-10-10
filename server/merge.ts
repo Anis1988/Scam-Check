@@ -1,5 +1,5 @@
-import type { CheckResult, Signal } from '../../src/lib/types';
-import { verdictOf } from '../../src/lib/types';
+import type { CheckResult, Signal } from '../src/lib/types';
+import { verdictOf } from '../src/lib/types';
 import { aiRisk, type AiAnswer } from './ai';
 import { defaultSteps, scoreOf, type FreeResult } from './analyze';
 

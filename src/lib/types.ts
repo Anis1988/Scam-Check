@@ -1,4 +1,4 @@
-/** Shared between the app and the Netlify functions. */
+/** Shared between the app and the server functions (api/). */
 
 export type Kind = 'email' | 'text' | 'bill' | 'screenshot';
 export type Verdict = 'safe' | 'suspicious' | 'scam';

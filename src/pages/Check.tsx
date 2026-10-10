@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, readUpload, waitForAi, type Upload } from '../lib/api';
+import { api, readUpload, type Upload } from '../lib/api';
 import { getAiMode, saveToHistory } from '../lib/history';
 import { KIND_LABEL, type CheckResult, type Kind } from '../lib/types';
 import { ResultCard } from '../components/ResultCard';
@@ -26,10 +26,10 @@ export function Check({ open }: { open?: CheckResult | null }) {
   const resultRef = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   useEffect(() => setResult(open ?? null), [open]);
-  // Opening a check from History that was still waiting for the AI: keep waiting.
+  // A check from History that was still waiting for the AI (the app was closed): see if its answer was saved.
   useEffect(() => {
-    if (result?.ai === 'pending') void waitForAi(result, (r) => (setResult(r), saveToHistory(r)));
-  }, [result?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (open?.ai === 'pending') void api.result(open.id).then((r) => (setResult(r), saveToHistory(r)), () => undefined);
+  }, [open?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pick = async (f: File | undefined) => {
     if (!f) return;
@@ -53,13 +53,16 @@ export function Check({ open }: { open?: CheckResult | null }) {
     if (!text.trim() && !file) return toast('error', 'Paste the message or add a picture first.');
     setBusy(true);
     try {
-      let r = await api.check({ kind, text, from, file: file ?? undefined, aiMode: getAiMode() });
+      const input = { kind, text, from, file: file ?? undefined, aiMode: getAiMode() };
+      const r = await api.check(input);
       setResult(r);
       saveToHistory(r);
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       if (r.ai === 'pending') {
-        r = await waitForAi(r, (x) => setResult(x));
-        saveToHistory(r);
+        // The free result shows at once; the AI's opinion replaces it when it arrives.
+        const done = await api.ai(input).catch((e) => ({ ...r, ai: 'failed' as const, aiNote: `The AI check failed (${e instanceof Error ? e.message : e}). The result above is from the free checks.` }));
+        setResult(done);
+        saveToHistory(done);
       }
     } catch (e) {
       toast('error', e instanceof Error ? e.message : String(e));

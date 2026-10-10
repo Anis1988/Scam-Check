@@ -31,15 +31,15 @@ export function Settings() {
           ))}
         </div>
       </Card>
-      <Card title="What’s set up" subtitle="On the server (Netlify)">
+      <Card title="What’s set up" subtitle="On the server (Vercel)">
         {err && <p className="text-sm text-red-200">{err}</p>}
         {!st && !err && <p className="text-sm text-slate-400"><span className="spinner" /> Loading…</p>}
         {st && (
           <>
-            <Field label="AI analysis" hint={st.ai ? `Used today: ${st.used} of ${st.limit} (AI_DAILY_LIMIT). The same message checked again is free for 7 days.` : 'Add ANTHROPIC_API_KEY in Netlify to read pictures and get the AI’s opinion.'}>
-              <span className={`text-sm ${st.ai ? 'text-emerald-200' : 'text-amber-200'}`}>{st.ai ? '✓ On' : 'Off'}</span>
+            <Field label="AI analysis" hint={!st.ai ? 'Add ANTHROPIC_API_KEY in Vercel to read pictures and get the AI’s opinion.' : !st.store ? 'Also needs the free Upstash Redis storage (Vercel → Storage), which keeps the daily limit.' : `Used today: ${st.used} of ${st.limit} (AI_DAILY_LIMIT). The same message checked again is free for 7 days.`}>
+              <span className={`text-sm ${st.ai && st.store ? 'text-emerald-200' : 'text-amber-200'}`}>{st.ai && st.store ? '✓ On' : 'Off'}</span>
             </Field>
-            <Field label="Google Safe Browsing" hint={st.safeBrowsing ? 'Links are checked against Google’s list of dangerous websites.' : 'Optional, free: add GOOGLE_SAFE_BROWSING_KEY in Netlify to check links against Google’s list of dangerous sites.'}>
+            <Field label="Google Safe Browsing" hint={st.safeBrowsing ? 'Links are checked against Google’s list of dangerous websites.' : 'Optional, free: add GOOGLE_SAFE_BROWSING_KEY in Vercel to check links against Google’s list of dangerous sites.'}>
               <span className={`text-sm ${st.safeBrowsing ? 'text-emerald-200' : 'text-slate-400'}`}>{st.safeBrowsing ? '✓ On' : 'Off'}</span>
             </Field>
             <Field label="Free checks" hint="Known scam patterns, look-alike websites, how new a website is, phone number type and country, email sender checks.">

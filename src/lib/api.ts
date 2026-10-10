@@ -16,32 +16,30 @@ export async function call<T>(path: string, init?: RequestInit): Promise<T> {
   try { data = await res.json(); } catch { /* not JSON */ }
   if (!res.ok || data === null) {
     if (res.status === 401) window.dispatchEvent(new Event('sc-unauthorized'));
-    if (res.status === 413) throw new Error('That file is too big. Use a smaller picture or a PDF under 4 MB.');
-    throw new Error(data?.error ?? (data === null ? 'The server part is not available here (it runs on Netlify).' : `HTTP ${res.status}`));
+    if (res.status === 413) throw new Error('That file is too big. Use a smaller picture or a PDF under 3 MB.');
+    throw new Error(data?.error ?? (data === null ? (res.status === 504 ? 'The check took too long. Try again.' : 'The server part is not available here (it runs on Vercel).') : `HTTP ${res.status}`));
   }
   return data as T;
 }
 
-export interface Status { ai: boolean; model: string; used: number; limit: number; safeBrowsing: boolean }
+export interface Status { ai: boolean; store: boolean; model: string; used: number; limit: number; safeBrowsing: boolean }
 export interface Upload { mime: string; data: string; name: string; preview?: string }
+
+export interface CheckInput { kind: Kind; text?: string; from?: string; file?: Upload; aiMode: AiMode }
+
+/** SHA-256 of the file (the server reuses a result for the same file without receiving it again). */
+const hashOf = async (s: string) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map((x) => x.toString(16).padStart(2, '0')).join('');
 
 export const api = {
   status: () => call<Status>('/api/status'),
-  check: (b: { kind: Kind; text?: string; from?: string; file?: Upload; aiMode: AiMode }) =>
-    call<CheckResult>('/api/check', { method: 'POST', body: JSON.stringify({ kind: b.kind, text: b.text || undefined, from: b.from || undefined, file: b.file ? { mime: b.file.mime, data: b.file.data } : undefined, aiMode: b.aiMode }) }),
+  /** The free checks, at once (the file itself isn't sent here). */
+  check: async (b: CheckInput) =>
+    call<CheckResult>('/api/check', { method: 'POST', body: JSON.stringify({ kind: b.kind, text: b.text || undefined, from: b.from || undefined, fileHash: b.file ? await hashOf(b.file.data) : undefined, aiMode: b.aiMode }) }),
+  /** The AI's opinion (10-40 s): the same message, with the file. */
+  ai: (b: CheckInput) =>
+    call<CheckResult>('/api/ai', { method: 'POST', body: JSON.stringify({ kind: b.kind, text: b.text || undefined, from: b.from || undefined, file: b.file ? { mime: b.file.mime, data: b.file.data } : undefined, aiMode: b.aiMode }) }),
   result: (id: string) => call<CheckResult>(`/api/check?id=${encodeURIComponent(id)}`),
 };
-
-/** Waits for the AI part (asks every 2.5 s, up to about 3 minutes). */
-export async function waitForAi(r: CheckResult, onUpdate: (r: CheckResult) => void): Promise<CheckResult> {
-  let cur = r;
-  for (let i = 0; i < 72 && cur.ai === 'pending'; i++) {
-    await new Promise((ok) => setTimeout(ok, 2500));
-    try { cur = await api.result(r.id); } catch { /* try again */ }
-    if (cur.ai !== 'pending') onUpdate(cur);
-  }
-  return cur;
-}
 
 /**
  * Pictures are made smaller on the phone first (max 1600 px, JPEG), so they upload fast and stay under the limit.
@@ -49,7 +47,7 @@ export async function waitForAi(r: CheckResult, onUpdate: (r: CheckResult) => vo
  */
 export async function readUpload(f: File): Promise<Upload> {
   if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) {
-    if (f.size > 4 * 1024 * 1024) throw new Error('This PDF is over 4 MB. Take a photo or screenshot of the page instead.');
+    if (f.size > 3 * 1024 * 1024) throw new Error('This PDF is over 3 MB. Take a photo or screenshot of the page instead.');
     return { mime: 'application/pdf', data: await toBase64(f), name: f.name };
   }
   if (/\.eml$/i.test(f.name) || f.type === 'message/rfc822') throw new Error('EML');

@@ -1,5 +1,5 @@
 import { findPhoneNumbersInText, parsePhoneNumberFromString } from 'libphonenumber-js/max';
-import type { PhoneInfo, Signal } from '../../src/lib/types';
+import type { PhoneInfo, Signal } from '../src/lib/types';
 
 /**
  * Phone lookup, free (Google's phone number rules, built in): country, type (mobile, landline, internet/VoIP,

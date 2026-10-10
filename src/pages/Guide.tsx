@@ -93,7 +93,7 @@ export function Guide() {
       <Section title="Privacy and cost">
         <ul className="list-disc space-y-1.5 pl-5">
           <li>Your history is saved on <b>this device only</b>. The server keeps only the result for 7 days, so checking the same message again is instant and free; the message itself is deleted after the check.</li>
-          <li>Pictures are made smaller on your phone before upload.</li>
+          <li>Pictures are made smaller on your phone before upload, and they’re only sent for the AI check, never stored.</li>
           <li>The AI has a daily limit (set by <code>AI_DAILY_LIMIT</code>, 20 by default). When it’s used up, you still get the free checks.</li>
           <li>No check is perfect. When in doubt, contact the company yourself using its official app, website or the number on your card.</li>
         </ul>

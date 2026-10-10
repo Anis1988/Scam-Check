@@ -1,6 +1,6 @@
 import PostalMime from 'postal-mime';
 import { parse } from 'tldts';
-import type { SenderInfo, Signal } from '../../src/lib/types';
+import type { SenderInfo, Signal } from '../src/lib/types';
 import { BRANDS, isFreeMail, lookalikeOf, officialBrand } from './domains';
 
 /**

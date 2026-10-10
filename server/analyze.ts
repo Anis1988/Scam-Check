@@ -1,5 +1,5 @@
-import type { CheckResult, Kind, LinkInfo, PhoneInfo, SenderInfo, Signal } from '../../src/lib/types';
-import { verdictOf } from '../../src/lib/types';
+import type { CheckResult, Kind, LinkInfo, PhoneInfo, SenderInfo, Signal } from '../src/lib/types';
+import { verdictOf } from '../src/lib/types';
 import { patternSignals } from './patterns';
 import { checkLinks } from './domains';
 import { checkPhones, findPhones } from './phones';

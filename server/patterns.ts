@@ -1,4 +1,4 @@
-import type { Signal } from '../../src/lib/types';
+import type { Signal } from '../src/lib/types';
 
 /**
  * Known scam patterns: free, instant. Each rule adds risk once per message.

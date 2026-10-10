@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
-import type { Kind, Signal } from '../../src/lib/types';
+import type { Kind, Signal } from '../src/lib/types';
 
 export const MODEL = process.env.AI_MODEL || 'claude-opus-5-5';
 export const aiReady = () => !!process.env.ANTHROPIC_API_KEY?.trim();

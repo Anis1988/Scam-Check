@@ -26,7 +26,7 @@ function AccessGate({ onDone }: { onDone: () => void }) {
   return (
     <div className="card mx-auto max-w-sm space-y-3">
       <h1 className="text-xl font-semibold">Enter your access code</h1>
-      <p className="text-sm text-slate-400">The code you set as <code>APP_ACCESS_TOKEN</code> in Netlify. It keeps strangers from using your AI checks.</p>
+      <p className="text-sm text-slate-400">The code you set as <code>APP_ACCESS_TOKEN</code> in Vercel. It keeps strangers from using your AI checks.</p>
       <input className="input w-full" type="password" value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && v && (setCode(v.trim()), onDone())} placeholder="Access code" autoFocus />
       <button className="btn-primary w-full" disabled={!v} onClick={() => (setCode(v.trim()), onDone())}>Continue</button>
     </div>
