@@ -9,20 +9,15 @@ export const claudeReady = () => !!process.env.ANTHROPIC_API_KEY?.trim();
 export const geminiReady = () => !!process.env.GEMINI_API_KEY?.trim();
 
 /**
- * Which AI checks this message (Settings → AI): Claude, or Gemini (free). With Gemini and "Bills and PDFs always go
- * to Claude" (on by default), private documents still go to Claude: free plans may keep what you send.
- * null = none is set up for it.
+ * Which AI checks this message: the model picked in Settings → AI model (Claude or Gemini) checks everything
+ * (the owner chose not to keep bills for Claude). null = it isn't set up.
  */
-export function pickAi(cfg: AppSettings['ai'], isPrivate: boolean): Provider | null {
-  if (cfg.provider === 'gemini') {
-    if (isPrivate && cfg.privateToClaude) return claudeReady() ? 'claude' : null;
-    return geminiReady() ? 'gemini' : null;
-  }
+export function pickAi(cfg: AppSettings['ai'], _isPrivate?: boolean): Provider | null {
+  if (cfg.provider === 'gemini') return geminiReady() ? 'gemini' : null;
   return claudeReady() ? 'claude' : null;
 }
 /** Why no AI can check it (for the note under the result). */
-export function noAiNote(cfg: AppSettings['ai'], isPrivate: boolean): string {
-  if (cfg.provider === 'gemini' && isPrivate && cfg.privateToClaude) return 'Bills and PDFs go to Claude only (Settings → AI), and Claude is not set up (ANTHROPIC_API_KEY in Vercel).';
+export function noAiNote(cfg: AppSettings['ai'], _isPrivate?: boolean): string {
   if (cfg.provider === 'gemini') return 'Gemini is not set up (GEMINI_API_KEY in Vercel).';
   return 'The AI check is not set up (ANTHROPIC_API_KEY in Vercel).';
 }
