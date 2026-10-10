@@ -17,7 +17,11 @@ export async function call<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok || data === null) {
     if (res.status === 401) window.dispatchEvent(new Event('sc-unauthorized'));
     if (res.status === 413) throw new Error('That file is too big. Use a smaller picture or a PDF under 3 MB.');
-    throw new Error(data?.error ?? (data === null ? (res.status === 504 ? 'The check took too long. Try again.' : 'The server part is not available here (it runs on Vercel).') : `HTTP ${res.status}`));
+    const local = /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
+    const noServer = local
+      ? `The server part didn't answer (HTTP ${res.status}). Get the latest code (git pull, npm install), then restart npm run dev (not npm run preview).`
+      : `The server part didn't answer (HTTP ${res.status}). Check the latest deployment in Vercel.`;
+    throw new Error(data?.error ?? (data === null ? (res.status === 504 ? 'The check took too long. Try again.' : noServer) : `HTTP ${res.status}`));
   }
   return data as T;
 }
