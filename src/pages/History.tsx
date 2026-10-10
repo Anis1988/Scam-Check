@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { clearHistory, getPrefs, loadHistory, saveToHistory } from '../lib/history';
-import { KIND_LABEL, VERDICT_LABEL, type CheckResult, type Verdict } from '../lib/types';
+import { KIND_LABEL, VERDICT_LABEL, type CheckResult, type ModelChoice, type Verdict } from '../lib/types';
 import { ResultCard } from '../components/ResultCard';
 import { SaveBox } from '../components/SaveBox';
 import { RecheckBar } from '../components/Recheck';
@@ -45,13 +45,13 @@ export function History() {
 
   /** ↻ Re-check with the AI picked in Settings (1 AI check). */
   const [rechecking, setRechecking] = useState(false);
-  const recheck = async () => {
+  const recheck = async (model: ModelChoice) => {
     if (!sel || !selInput) return;
     const before = sel;
     setRechecking(true);
     setSel({ ...before, ai: 'pending' });
     try {
-      const done = await api.ai({ ...selInput, aiMode: 'always' }, true);
+      const done = await api.ai({ ...selInput, aiMode: 'always' }, true, model);
       setSel(done);
       setList(saveToHistory(done));
       if (done.remembered && done.aiNote) toast('info', done.aiNote);
@@ -77,7 +77,7 @@ export function History() {
     <Shell right={stats}>
       <button className="btn" onClick={() => setSel(null)}>← Back to History</button>
       <ResultCard r={sel} onChanged={() => void api.result(sel.id).then((x) => (setSel(x), setList(saveToHistory(x))), () => undefined)} />
-      {!rechecking && <RecheckBar r={sel} canRecheck={!!selInput} onRecheck={() => void recheck()} />}
+      {!rechecking && <RecheckBar r={sel} canRecheck={!!selInput} onRecheck={(m) => void recheck(m)} />}
       {sel.ai !== 'pending' && <SaveBox key={sel.id} id={sel.id} />}
     </Shell>
   );

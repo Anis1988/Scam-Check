@@ -221,7 +221,7 @@ export function Guide() {
       </Section>
 
       <Section id="recheck">
-        <p><b>↻ Re-check</b> asks the AI again about the same message, with the model picked in Settings now. Handy after choosing another model (e.g. Gemini Pro instead of Flash). It uses 1 AI check. You find it under a result on the Check screen and when you open one in History.</p>
+        <p><b>↻ Re-check</b> asks an AI again about the same message, under <b>every</b> result, even a good one. Pick the model just for this once: all Claude and Gemini models are in the list (it starts on the one from Settings, and Settings stay as they are; models not set up are greyed out). It uses 1 AI check of that kind. You find it under a result on the Check screen and when you open one in History.</p>
         <p>Checking the <b>same</b> message again normally gives the answer remembered from last time, for free, even if you picked another model since. The result then says so (📌) and offers Re-check.</p>
         <p>Re-check needs the original, so your device keeps each History check’s words and picture (on this device only, removed with History).</p>
         <p className="text-xs text-stone-500">Example (made up, does nothing here):</p>

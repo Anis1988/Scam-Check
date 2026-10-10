@@ -11,7 +11,9 @@ import { Body, idOf, out } from './check.js';
 
 const AiBody = Body.extend({
   file: z.object({ mime: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']), data: z.string().max(4_300_000).regex(/^[A-Za-z0-9+/=]+$/) }).optional(),
-  fresh: z.boolean().optional(), // ↻ Re-check: ask the AI picked in Settings again, even if an answer is remembered
+  fresh: z.boolean().optional(), // ↻ Re-check: ask the AI again, even if an answer is remembered
+  // ↻ Re-check with a model picked just for this once (Settings stay as they are).
+  model: z.object({ provider: z.enum(['claude', 'gemini']), id: z.string().regex(/^(claude|gemini)-[a-z0-9.-]{2,60}$/) }).optional(),
 });
 
 /**
@@ -45,7 +47,9 @@ export async function POST(req: Request): Promise<Response> {
 
 async function work(b: z.infer<typeof AiBody>, id: string, text: string, cached: CheckResult | null): Promise<CheckResult> {
   {
-    const cfg = await getSettings();
+    const saved = await getSettings();
+    const pick = b.fresh ? b.model : undefined;
+    const cfg = !pick ? saved : { ...saved, ai: { ...saved.ai, provider: pick.provider, ...(pick.provider === 'claude' ? { model: pick.id } : { geminiModel: pick.id }) } };
     const free = text ? await freeChecks(text, { from: b.from, check: cfg.checks }) : { text: '', signals: [], links: [], phones: [] };
     const base = buildResult(id, b.kind, text || (b.kind === 'bill' ? 'Bill (picture or PDF)' : 'Screenshot'), free, 'pending');
     // Claude or Gemini (Settings → AI); bills and PDFs may be kept for Claude only.

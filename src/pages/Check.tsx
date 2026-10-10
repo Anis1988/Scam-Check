@@ -5,7 +5,7 @@ import { Directory, Filesystem } from '@capacitor/filesystem';
 import { getInput } from '../lib/inputs';
 import { loadHistory, saveToHistory } from '../lib/history';
 import { askAgain, newKey, patchItem, runBatch, setBatch, showOne, useBatch, type Item } from '../lib/batch';
-import { KIND_LABEL, MODELS, money, type Bill, type CheckResult, type Kind, type Verdict } from '../lib/types';
+import { KIND_LABEL, MODELS, money, type Bill, type CheckResult, type ModelChoice, type Kind, type Verdict } from '../lib/types';
 import { aiLeft, useStatus } from '../lib/useStatus';
 import { ResultCard } from '../components/ResultCard';
 import { RecheckBar } from '../components/Recheck';
@@ -160,8 +160,8 @@ export function Check() {
   };
 
   /** "Ask the AI" / "Summarize" (only when you tap it), or ↻ Re-check with the AI picked in Settings: 1 AI check. */
-  const askAi = async (it: Item, fresh = false) => {
-    const note = await askAgain(it.key, fresh);
+  const askAi = async (it: Item, fresh = false, model?: ModelChoice) => {
+    const note = await askAgain(it.key, fresh, model);
     if (note) toast('info', note);
   };
 
@@ -250,7 +250,7 @@ export function Check() {
     <div className="space-y-3">
       {it.result && <ResultCard r={it.result} onChanged={() => reload(it)} />}
       {offers(it)}
-      {it.result && !it.result.aiOffer && !it.result.briefOffer && <RecheckBar r={it.result} canRecheck={!!it.input} onRecheck={() => void askAi(it, true)} />}
+      {it.result && <RecheckBar r={it.result} canRecheck={!!it.input} onRecheck={(m) => void askAi(it, true, m)} />}
       {it.result && it.result.ai !== 'pending' && <SaveBox key={`${it.result.id}${it.savedName ?? ''}`} id={it.result.id} text={it.input?.text} file={it.input?.file} savedName={it.savedName} />}
     </div>
   );

@@ -128,6 +128,8 @@ export const MODELS: { id: string; name: string; hint: string }[] = [
 ];
 export type Effort = 'low' | 'medium' | 'high';
 export type Provider = 'claude' | 'gemini';
+/** A model picked for one ↻ Re-check. */
+export interface ModelChoice { provider: Provider; id: string }
 /** Google's Gemini models (free with a key from Google AI Studio, within Google's own daily limits). */
 export const GEMINI_MODELS: { id: string; name: string; hint: string }[] = [
   { id: 'gemini-pro-latest', name: 'Gemini Pro', hint: 'Google’s biggest and most careful model. Its free allowance is small: when it runs out, Gemini Flash takes over by itself.' },
