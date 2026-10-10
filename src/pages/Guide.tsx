@@ -211,7 +211,7 @@ export function Guide() {
         <p>In <b>Settings → AI → Which AI</b>, choose who reads your pictures and answers “Ask the AI”:</p>
         <ul className="list-disc space-y-1.5 pl-5">
           <li><b>Claude (paid):</b> the best at spotting tricky scams, a few cents a check. What you send is not used to train it.</li>
-          <li><b>Gemini (free):</b> Google’s AI, free within Google’s daily allowance (the app stops at 50 a day to start, you can change it). On the free plan <b>Google may keep and use what you send</b>.</li>
+          <li><b>Gemini (free):</b> Google’s AI, free within Google’s daily allowance. Pick <b>Gemini Pro</b> (the biggest and most careful), <b>Flash</b> or <b>Flash-Lite</b>. Pro’s free allowance is small: when it runs out, Flash takes over by itself and the result says so. The app stops at 50 Gemini checks a day to start (you can change it). On the free plan <b>Google may keep and use what you send</b>.</li>
         </ul>
         <p>That’s why, with Gemini, the switch <b>🔒 Bills and PDFs always go to Claude</b> is on: texts, emails, screenshots and QR codes go to Gemini for free, while bills and PDFs (account numbers, amounts) stay with Claude. Each AI has its own daily limit.</p>
         <p>The last line of every result says which AI checked it, e.g. “🤖 Claude Opus 5.5” in the bill example above, or “🤖 Gemini Flash (free)”.</p>

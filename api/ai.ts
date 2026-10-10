@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { CheckResult } from '../src/lib/types.js';
 import { guard, json } from '../server/guard.js';
-import { aiName, askAi, isPrivate, noAiNote, pickAi } from '../server/ai.js';
+import { askAi, isPrivate, noAiNote, pickAi } from '../server/ai.js';
 import { buildResult, freeChecks } from '../server/analyze.js';
 import { mergeAi } from '../server/merge.js';
 import { getResult, getSettings, recordBill, saveResult, takeAi } from '../server/store.js';
@@ -45,7 +45,7 @@ export async function POST(req: Request): Promise<Response> {
       const a = await askAi({ kind: b.kind, text: text || undefined, file: b.file, from: b.from, signals: free.signals }, cfg.ai, prov);
       // A picture or PDF: the free checks also run on what the AI read in it (its links and phone numbers too).
       const all = text ? free : await freeChecks(a.readText, { from: b.from, links: a.links, phones: a.phones, check: cfg.checks });
-      result = { ...mergeAi(base, all, a, cfg.ai.summaries), aiBy: aiName(prov, cfg.ai) };
+      result = { ...mergeAi(base, all, a, cfg.ai.summaries), aiBy: a.by };
       // 📅 Bills: a safe bill is listed, and compared with the same company's last one.
       if (result.bill && cfg.bills.track) result.billCompare = await recordBill(result).catch(() => undefined);
     } catch (e) {

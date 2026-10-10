@@ -128,6 +128,7 @@ export type Effort = 'low' | 'medium' | 'high';
 export type Provider = 'claude' | 'gemini';
 /** Google's Gemini models (free with a key from Google AI Studio, within Google's own daily limits). */
 export const GEMINI_MODELS: { id: string; name: string; hint: string }[] = [
+  { id: 'gemini-pro-latest', name: 'Gemini Pro', hint: 'Google’s biggest and most careful model. Its free allowance is small: when it runs out, Gemini Flash takes over by itself.' },
   { id: 'gemini-flash-latest', name: 'Gemini Flash', hint: 'Good at reading screenshots and texts. Free within Google’s daily limit.' },
   { id: 'gemini-flash-lite-latest', name: 'Gemini Flash-Lite', hint: 'Faster, with a bigger free allowance, but less careful.' },
 ];
