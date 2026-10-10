@@ -33,7 +33,7 @@ export function ResultCard({ r }: { r: CheckResult }) {
           <div className="flex items-center gap-3.5">
             <ScoreRing score={r.score} verdict={r.verdict} muted={r.ai === 'pending'} />
             <div className="min-w-0">
-              <p className="label !text-current opacity-70">{r.ai === 'pending' ? 'Free checks · AI coming' : 'Risk score'}</p>
+              <p className="label !text-current opacity-70">{r.ai === 'pending' ? 'Free checks · AI coming' : 'Safety score'}</p>
               <p className="font-display text-2xl font-bold leading-tight"><span aria-hidden="true">{v.icon}</span> {v.text}</p>
               {r.title && <p className="truncate text-xs font-semibold opacity-80">{r.title}</p>}
             </div>

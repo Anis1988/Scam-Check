@@ -67,6 +67,16 @@ export interface Brief {
   steps: string[];
 }
 
+/**
+ * What you see: a safety score from 1 (extremely bad) to 10 (pretty safe), from the risk score (0-100) used inside.
+ * It always agrees with the answer: looks safe = 8-10, suspicious = 4-7, likely scam = 1-3.
+ */
+export function safetyOf(risk: number): number {
+  if (risk < 30) return risk < 10 ? 10 : risk < 20 ? 9 : 8;
+  if (risk < 65) return risk < 39 ? 7 : risk < 48 ? 6 : risk < 57 ? 5 : 4;
+  return risk < 77 ? 3 : risk < 89 ? 2 : 1;
+}
+
 /** 0-29 safe, 30-64 suspicious, 65+ likely scam. */
 export const verdictOf = (score: number): Verdict => (score >= 65 ? 'scam' : score >= 30 ? 'suspicious' : 'safe');
 

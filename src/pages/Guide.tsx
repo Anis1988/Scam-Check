@@ -87,15 +87,20 @@ export function Guide() {
         <ol className="list-decimal space-y-1.5 pl-5">
           <li><b>Pick what you got:</b> ✉️ Email, 💬 Text, 🧾 Bill or 📱 Screenshot.</li>
           <li><b>Paste it, or add pictures.</b> On a computer you can also drag & drop them. For a text, you can also type the number it came from.</li>
-          <li>Tap <b>🛡️ Check it</b>. The free checks answer at once; photos and PDFs also go to the AI (it’s the only way to read them). Each one gets an answer with a <b>risk score</b> from 0 (no risk) to 100, the reasons and what to do.</li>
+          <li>Tap <b>🛡️ Check it</b>. The free checks answer at once; photos and PDFs also go to the AI (it’s the only way to read them). Each one gets an answer with a <b>safety score from 1 to 10</b>, the reasons and what to do.</li>
         </ol>
-        <p className="text-xs text-stone-500">The score ring (made up):</p>
-        <div className="flex items-center gap-3"><ScoreRing score={6} verdict="safe" /><span>Low number, green ring: no warning signs found.</span></div>
+        <p><b>The safety score:</b> 10 is pretty safe, 1 is extremely bad. The fuller the ring, the safer. It always matches the answer:</p>
+        <ul className="space-y-1.5">
+          <li className="flex items-center gap-3"><ScoreRing score={6} verdict="safe" size={44} /><span><b>8 to 10</b>: ✅ Looks safe, no warning signs found.</span></li>
+          <li className="flex items-center gap-3"><ScoreRing score={48} verdict="suspicious" size={44} /><span><b>4 to 7</b>: ⚠️ Suspicious, check it another way first.</span></li>
+          <li className="flex items-center gap-3"><ScoreRing score={92} verdict="scam" size={44} /><span><b>1 to 3</b>: 🚨 Likely scam, don’t click, call or pay.</span></li>
+        </ul>
+        <p className="text-xs text-stone-500">(Made-up examples.)</p>
       </Section>
 
       <Section id="many">
         <p><b>Drag & drop:</b> on a computer, drag pictures, PDFs or an email file (.eml) anywhere onto the Check page and let go. You can also paste a screenshot into the message box (Ctrl+V).</p>
-        <p><b>Several at once:</b> choose or drop up to 10 pictures (you can change the number in Settings). Each picture is checked <b>on its own</b> and gets its own score and, if it looks safe, its own short summary. Each picture uses 1 AI check.</p>
+        <p><b>Several at once:</b> choose or drop up to 10 pictures (you can change the number in Settings). Each picture is checked <b>on its own</b> and gets its own safety score (1 to 10) and, if it looks safe, its own short summary. Each picture uses 1 AI check.</p>
         <p>Tap a result to see why and what to do, or tap <b>⭐ Save all</b> to save them all in one go.</p>
         <p className="text-xs text-stone-500">Example of three pictures checked together (made up, does nothing here):</p>
         <ul className="space-y-2">

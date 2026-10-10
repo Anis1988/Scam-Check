@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { VERDICT_LABEL, type Verdict } from '../lib/types';
+import { VERDICT_LABEL, safetyOf, type Verdict } from '../lib/types';
 
 export function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
@@ -80,18 +80,19 @@ export function Shell({ left, right, children }: { left?: ReactNode; right?: Rea
 }
 
 const RING = { safe: '#5E8C6E', suspicious: '#A3844B', scam: '#A3685F' } as const;
-/** The risk score as a glowing ring (0 = no risk, 100 = scam). */
+/** The safety score as a glowing ring, 1 (extremely bad) to 10 (pretty safe): the fuller the ring, the safer. score = the risk (0-100). */
 export function ScoreRing({ score, verdict, size = 64, muted = false }: { score: number; verdict: Verdict; size?: number; muted?: boolean }) {
+  const safe = safetyOf(score);
   const r = 26;
   const full = 2 * Math.PI * r;
   const c = muted ? '#97A3AB' : RING[verdict];
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" role="img" aria-label={`Risk ${score} out of 100`} className="shrink-0">
+    <svg width={size} height={size} viewBox="0 0 64 64" role="img" aria-label={`Safety ${safe} out of 10`} className="shrink-0">
       <circle cx="32" cy="32" r={r} fill="rgba(255,255,255,0.7)" stroke="rgba(31,66,71,0.08)" strokeWidth="6" />
       <circle cx="32" cy="32" r={r} fill="none" stroke={c} strokeWidth="6" strokeLinecap="round" className="ring-fill"
-        strokeDasharray={full} strokeDashoffset={full * (1 - Math.max(3, score) / 100)} transform="rotate(-90 32 32)"
+        strokeDasharray={full} strokeDashoffset={full * (1 - safe / 10)} transform="rotate(-90 32 32)"
         style={{ ['--full' as string]: full, filter: `drop-shadow(0 0 3px ${c}88)` }} />
-      <text x="32" y="36.5" textAnchor="middle" fontFamily="JetBrains Mono, monospace" fontSize="14" fontWeight="600" fill="#2B333A">{score}</text>
+      <text x="32" y="36.5" textAnchor="middle" fontFamily="JetBrains Mono, monospace" fontWeight="600" fill="#2B333A"><tspan fontSize="17">{safe}</tspan><tspan fontSize="9" fill="#6B7882">/10</tspan></text>
     </svg>
   );
 }
