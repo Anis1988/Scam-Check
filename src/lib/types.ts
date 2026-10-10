@@ -145,7 +145,7 @@ export interface AppSettings {
     provider: Provider; // which AI checks things: Claude (paid) or Gemini (free)
     geminiModel: string;
     geminiDailyLimit: number; // Gemini checks a day (kept under Google's free allowance)
-    privateToClaude: boolean; // with Gemini: bills and PDFs still go to Claude (free plans may keep what you send)
+    privateToClaude: boolean; // no longer used (the owner removed the switch): the picked model checks everything
   };
   checks: {
     safeBrowsing: boolean; // Google's list of dangerous sites (needs GOOGLE_SAFE_BROWSING_KEY)
@@ -158,7 +158,7 @@ export interface AppSettings {
   cleanup: { enabled: boolean; days: number; what: 'files' | 'all' }; // auto clean-up of ⭐ Saved
 }
 export const DEFAULT_SETTINGS: AppSettings = {
-  ai: { mode: 'ask', model: 'claude-opus-5-5', dailyLimit: 5, unlimited: false, effort: 'low', summaries: true, provider: 'claude', geminiModel: 'gemini-flash-latest', geminiDailyLimit: 50, privateToClaude: true },
+  ai: { mode: 'ask', model: 'claude-opus-5-5', dailyLimit: 5, unlimited: false, effort: 'low', summaries: true, provider: 'claude', geminiModel: 'gemini-flash-latest', geminiDailyLimit: 50, privateToClaude: false },
   checks: { safeBrowsing: true, websiteAge: true, rememberDays: 7 },
   pictures: { maxSize: 1400, maxBatch: 10 },
   saving: { keepOriginal: true },

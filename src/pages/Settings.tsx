@@ -40,7 +40,6 @@ export function Settings() {
   const [limitText, setLimitText] = useState('');
   useEffect(() => { if (cfg) setLimitText(String(cfg.ai.dailyLimit)); }, [cfg?.ai.dailyLimit]); // eslint-disable-line react-hooks/exhaustive-deps
   const [otherModel, setOtherModel] = useState('');
-  const [otherGemini, setOtherGemini] = useState('');
 
   const save = async (next: AppSettings) => {
     const before = cfg;
@@ -123,37 +122,38 @@ export function Settings() {
       <div className="lg:hidden">{setupRail}</div>
       {!cfg ? <p className="card text-sm text-stone-500">{stErr ? 'Settings can’t be loaded until the server answers (see above).' : <><span className="spinner" /> Loading…</>}</p> : (
         <>
-          <Section id="ai" title="🤖 AI" subtitle={st ? `Used today: Claude ${st.claude?.used ?? st.used}${st.claude?.limit != null ? ` of ${st.claude.limit}` : ''}${st.gemini?.ready ? ` · Gemini ${st.gemini.used} of ${st.gemini.limit}` : ''}` : ''}>
+          <Section id="ai" title="🤖 AI" subtitle={st ? `Used today: ${st.used}${st.limit !== null ? ` of ${st.limit}` : ''} (${st.model})` : ''}>
             <div className="space-y-1.5">
-              <p className="label">Which AI</p>
-              <Segmented<'claude' | 'gemini'> label="Which AI" value={cfg.ai.provider} onChange={(v) => set('ai', { provider: v })} options={[{ id: 'claude', name: 'Claude (paid)' }, { id: 'gemini', name: 'Gemini (free)' }]} />
-              <p className="text-xs text-stone-500">{cfg.ai.provider === 'claude' ? 'Claude by Anthropic: the best at spotting tricky scams, a few cents a check. What you send is not used to train it.' : 'Gemini by Google: free within Google’s daily allowance. On the free plan Google may keep and use what you send, so keep private documents for Claude (switch below).'}</p>
-              {cfg.ai.provider === 'gemini' && !st?.gemini?.ready && <p className="panel text-sm text-amber-800">Gemini isn’t set up yet: get a free key at <b>aistudio.google.com</b> → Get API key, and add it in Vercel as <code>GEMINI_API_KEY</code>, then redeploy. Until then, nothing goes to the AI.</p>}
-            </div>
-            {cfg.ai.provider === 'gemini' && (
-              <div className="space-y-2 rounded-xl border border-stone-200/80 bg-white/50 p-3">
-                <Field label="🔒 Bills and PDFs always go to Claude" hint={cfg.ai.privateToClaude ? 'Texts, emails, screenshots and QR codes go to Gemini (free). Bills and PDFs (account numbers, amounts) go to Claude.' : 'Everything goes to Gemini, bills and PDFs too. Google may keep what you send on the free plan.'}>
-                  <Toggle on={cfg.ai.privateToClaude} label="Bills and PDFs always go to Claude" onChange={(v) => (v || window.confirm('Send your bills and PDFs to Gemini too? On the free plan Google may keep and use them.')) && set('ai', { privateToClaude: v })} />
-                </Field>
-                <div className="space-y-1.5">
-                  <p className="label">Gemini model</p>
-                  <Segmented<string> label="Gemini model" value={cfg.ai.geminiModel} onChange={(v) => set('ai', { geminiModel: v })} options={GEMINI_MODELS.some((m) => m.id === cfg.ai.geminiModel) ? GEMINI_MODELS.map((m) => ({ id: m.id, name: m.name })) : [...GEMINI_MODELS.map((m) => ({ id: m.id, name: m.name })), { id: cfg.ai.geminiModel, name: cfg.ai.geminiModel }]} />
-                  <p className="text-xs text-stone-500">{GEMINI_MODELS.find((m) => m.id === cfg.ai.geminiModel)?.hint ?? 'Your own choice.'}</p>
-                  <details className="text-sm">
-                    <summary className="cursor-pointer text-xs font-semibold text-stone-500">Another Gemini model…</summary>
-                    <div className="mt-2 flex gap-2">
-                      <input className="input min-w-0 flex-1 font-mono text-sm" value={otherGemini} onChange={(e) => setOtherGemini(e.target.value)} placeholder="e.g. gemini-2.5-flash" aria-label="Gemini model name" />
-                      <button className="btn" disabled={!/^gemini-[a-z0-9.-]{2,60}$/.test(otherGemini.trim())} onClick={() => (set('ai', { geminiModel: otherGemini.trim() }), setOtherGemini(''))}>Use it</button>
-                    </div>
-                  </details>
+              <p className="label">AI model</p>
+              <p className="text-xs text-stone-500">Tap the one you want. It checks everything that goes to the AI.</p>
+              {([['claude', 'Claude · paid', 'By Anthropic: the best at tricky scams, a few cents a check. What you send is not used to train it.', [...MODELS, ...(MODELS.some((m) => m.id === cfg.ai.model) ? [] : [{ id: cfg.ai.model, name: cfg.ai.model, hint: 'Your own choice.' }])]],
+                 ['gemini', 'Gemini · free', 'By Google: free within Google’s daily allowance. On the free plan Google may keep and use what you send.', [...GEMINI_MODELS, ...(GEMINI_MODELS.some((m) => m.id === cfg.ai.geminiModel) ? [] : [{ id: cfg.ai.geminiModel, name: cfg.ai.geminiModel, hint: 'Your own choice.' }])]]] as const).map(([prov, title, about, list]) => (
+                <div key={prov} className="space-y-1.5 pt-1">
+                  <p className="text-sm font-semibold text-stone-800">{title}</p>
+                  <p className="text-xs text-stone-500">{about}</p>
+                  {prov === 'gemini' && !st?.gemini?.ready && <p className="text-xs text-amber-800">Needs a free key first: <b>aistudio.google.com</b> → Get API key, then add it in Vercel as <code>GEMINI_API_KEY</code> and redeploy.</p>}
+                  <div className="grid gap-2" role="radiogroup" aria-label={title}>
+                    {list.map((m) => {
+                      const on = cfg.ai.provider === prov && (prov === 'claude' ? cfg.ai.model : cfg.ai.geminiModel) === m.id;
+                      return (
+                        <button key={m.id} role="radio" aria-checked={on} onClick={() => set('ai', prov === 'claude' ? { provider: 'claude', model: m.id } : { provider: 'gemini', geminiModel: m.id, privateToClaude: false })}
+                          className={`flex items-center gap-3 rounded-xl border p-3 text-left transition ${on ? 'border-teal-500/70 bg-white shadow-[0_0_0_3px_rgba(74,146,155,0.12)]' : 'border-stone-200/80 bg-white/50'}`}>
+                          <span className="text-sm">{on ? '◉' : '○'}</span>
+                          <span className="min-w-0"><span className="block text-sm font-semibold">{m.name}</span><span className="block text-xs text-stone-500">{m.hint}</span></span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <Field label="Gemini checks a day" hint="Stays under Google’s free allowance. When they’re used up, you still get the free checks.">
-                  <select className="input" value={cfg.ai.geminiDailyLimit} onChange={(e) => set('ai', { geminiDailyLimit: Number(e.target.value) })} aria-label="Gemini checks a day">
-                    {[10, 25, 50, 100, 200].map((n) => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                </Field>
-              </div>
-            )}
+              ))}
+              <details className="text-sm">
+                <summary className="cursor-pointer text-xs font-semibold text-stone-500">A model that isn’t listed…</summary>
+                <div className="mt-2 flex gap-2">
+                  <input className="input min-w-0 flex-1 font-mono text-sm" value={otherModel} onChange={(e) => setOtherModel(e.target.value)} placeholder="e.g. claude-sonnet-5-5 or gemini-2.5-pro" aria-label="Model name" />
+                  <button className="btn" disabled={!/^(claude|gemini)-[a-z0-9.-]{2,60}$/.test(otherModel.trim())} onClick={() => { const v = otherModel.trim(); set('ai', v.startsWith('gemini') ? { provider: 'gemini', geminiModel: v, privateToClaude: false } : { provider: 'claude', model: v }); setOtherModel(''); }}>Use it</button>
+                </div>
+              </details>
+            </div>
             <div className="space-y-1.5">
               <p className="label">When to use it</p>
               <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="When to use the AI">
@@ -166,43 +166,34 @@ export function Settings() {
                 ))}
               </div>
             </div>
-            <div className="space-y-1.5">
-              <p className="label">{cfg.ai.provider === 'gemini' ? 'Claude model (for bills and PDFs)' : 'AI model'}</p>
-              <div className="grid gap-2" role="radiogroup" aria-label="AI model">
-                {[...MODELS, ...(MODELS.some((m) => m.id === cfg.ai.model) ? [] : [{ id: cfg.ai.model, name: cfg.ai.model, hint: 'Your own choice (AI_MODEL or typed below).' }])].map((m) => (
-                  <button key={m.id} role="radio" aria-checked={cfg.ai.model === m.id} onClick={() => set('ai', { model: m.id })}
-                    className={`flex items-center gap-3 rounded-xl border p-3 text-left transition ${cfg.ai.model === m.id ? 'border-teal-500/70 bg-white shadow-[0_0_0_3px_rgba(74,146,155,0.12)]' : 'border-stone-200/80 bg-white/50'}`}>
-                    <span className="text-sm">{cfg.ai.model === m.id ? '◉' : '○'}</span>
-                    <span className="min-w-0"><span className="block text-sm font-semibold">{m.name}</span><span className="block text-xs text-stone-500">{m.hint}</span></span>
-                  </button>
-                ))}
-              </div>
-              <details className="text-sm">
-                <summary className="cursor-pointer text-xs font-semibold text-stone-500">Another model…</summary>
-                <div className="mt-2 flex gap-2">
-                  <input className="input min-w-0 flex-1 font-mono text-sm" value={otherModel} onChange={(e) => setOtherModel(e.target.value)} placeholder="e.g. claude-sonnet-5-5" aria-label="Model name" />
-                  <button className="btn" disabled={!/^claude-[a-z0-9.-]{2,60}$/.test(otherModel.trim())} onClick={() => (set('ai', { model: otherModel.trim() }), setOtherModel(''))}>Use it</button>
+            {cfg.ai.provider === 'gemini' ? (
+              <Field label="AI checks a day (Gemini)" hint="Stays under Google’s free allowance. When they’re used up, you still get the free checks.">
+                <select className="input" value={cfg.ai.geminiDailyLimit} onChange={(e) => set('ai', { geminiDailyLimit: Number(e.target.value) })} aria-label="Gemini checks a day">
+                  {[10, 25, 50, 100, 200].map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </Field>
+            ) : (
+              <>
+                <Field label="AI checks a day" hint={cfg.ai.unlimited ? 'Unlimited: every AI check is paid, with no daily stop.' : 'When they’re used up, you still get the free checks. They come back the next day.'}>
+                  <div className="flex items-center gap-2">
+                    {!cfg.ai.unlimited && (
+                      <>
+                        <button className="btn w-11 px-0" onClick={() => set('ai', { dailyLimit: Math.max(0, cfg.ai.dailyLimit - 1) })} aria-label="One less">−</button>
+                        <input className="input w-20 text-center font-mono" inputMode="numeric" value={limitText} onChange={(e) => setLimitText(e.target.value.replace(/\D/g, ''))} onBlur={commitLimit} onKeyDown={(e) => e.key === 'Enter' && commitLimit()} aria-label="AI checks a day" />
+                        <button className="btn w-11 px-0" onClick={() => set('ai', { dailyLimit: Math.min(1000, cfg.ai.dailyLimit + 1) })} aria-label="One more">+</button>
+                      </>
+                    )}
+                  </div>
+                </Field>
+                <Field label="Unlimited" hint="No daily limit. Careful: every AI check costs a few cents.">
+                  <Toggle on={cfg.ai.unlimited} label="Unlimited AI checks" onChange={(v) => (!v || window.confirm('Turn off the daily limit? Every AI check costs money.')) && set('ai', { unlimited: v })} />
+                </Field>
+                <div className="space-y-1.5">
+                  <Field label="How hard it thinks" hint="Low is fast and cheapest, and enough for most messages. Higher can catch more, but is slower and costs more. (Haiku ignores this.)">{null}</Field>
+                  <Segmented<Effort> label="How hard it thinks" value={cfg.ai.effort} onChange={(v) => set('ai', { effort: v })} options={[{ id: 'low', name: 'Low' }, { id: 'medium', name: 'Medium' }, { id: 'high', name: 'High' }]} />
                 </div>
-              </details>
-            </div>
-            <Field label={cfg.ai.provider === "gemini" ? "Claude checks a day" : "AI checks a day"} hint={cfg.ai.unlimited ? 'Unlimited: every AI check is paid, with no daily stop.' : 'When they’re used up, you still get the free checks. They come back the next day.'}>
-              <div className="flex items-center gap-2">
-                {!cfg.ai.unlimited && (
-                  <>
-                    <button className="btn w-11 px-0" onClick={() => set('ai', { dailyLimit: Math.max(0, cfg.ai.dailyLimit - 1) })} aria-label="One less">−</button>
-                    <input className="input w-20 text-center font-mono" inputMode="numeric" value={limitText} onChange={(e) => setLimitText(e.target.value.replace(/\D/g, ''))} onBlur={commitLimit} onKeyDown={(e) => e.key === 'Enter' && commitLimit()} aria-label="AI checks a day" />
-                    <button className="btn w-11 px-0" onClick={() => set('ai', { dailyLimit: Math.min(1000, cfg.ai.dailyLimit + 1) })} aria-label="One more">+</button>
-                  </>
-                )}
-              </div>
-            </Field>
-            <Field label="Unlimited" hint="No daily limit. Careful: every AI check costs a few cents.">
-              <Toggle on={cfg.ai.unlimited} label="Unlimited AI checks" onChange={(v) => (!v || window.confirm('Turn off the daily limit? Every AI check costs money.')) && set('ai', { unlimited: v })} />
-            </Field>
-            <div className="space-y-1.5">
-              <Field label="How hard it thinks" hint="Low is fast and cheapest, and enough for most messages. Higher can catch more, but is slower and costs more. (Haiku ignores this.)">{null}</Field>
-              <Segmented<Effort> label="How hard it thinks" value={cfg.ai.effort} onChange={(v) => set('ai', { effort: v })} options={[{ id: 'low', name: 'Low' }, { id: 'medium', name: 'Medium' }, { id: 'high', name: 'High' }]} />
-            </div>
+              </>
+            )}
             <Field label="📋 Summary of safe ones" hint="What it is, the key info and what to do, for messages that look safe (comes with the AI check, or the Summarize button).">
               <Toggle on={cfg.ai.summaries} label="Summary of safe ones" onChange={(v) => set('ai', { summaries: v })} />
             </Field>
