@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../lib/api';
 import { saveToHistory } from '../lib/history';
+import { deleteChecks } from '../lib/batch';
 import { providerOf, type CheckResult, type CompanyInfo, type ModelChoice } from '../lib/types';
 import { ModelMenu, needsSearch } from '../components/ModelMenu';
 import { refreshStatus, useStatus } from '../lib/useStatus';
@@ -12,7 +13,7 @@ const RECENT = 'sc.companies';
 const loadRecent = (): string[] => { try { return JSON.parse(localStorage.getItem(RECENT) ?? '[]') as string[]; } catch { return []; } };
 
 /** A company's real contact details: what they do, website, customer service phone and email, with sources. */
-export function CompanyCard({ c, example = false, onRefresh }: { c: CompanyInfo; example?: boolean; onRefresh?: (m: ModelChoice) => void }) {
+export function CompanyCard({ c, example = false, onRefresh, onForget }: { c: CompanyInfo; example?: boolean; onRefresh?: (m: ModelChoice) => void; onForget?: () => void }) {
   const when = new Date(c.checkedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const t = example ? -1 : 0;
   return (
@@ -66,6 +67,7 @@ export function CompanyCard({ c, example = false, onRefresh }: { c: CompanyInfo;
       )}
       <p className="text-xs text-stone-500">Found by a live search: best is to also check the number on your card, bill or the company’s app.</p>
       {onRefresh && !example && <ModelMenu label="↻ Search again with another model" cannot={needsSearch} onPick={onRefresh} />}
+      {onForget && !example && <button className="btn w-full" onClick={onForget}>🗑 Delete this look-up</button>}
     </article>
   );
 }
@@ -100,6 +102,22 @@ export function Lookup() {
     }
   };
 
+  /** 🗑 A company: off the recent list and out of the server's memory (the next search starts fresh). */
+  const saveRecent = (next: string[]) => { setRecent(next); try { localStorage.setItem(RECENT, JSON.stringify(next)); } catch { /* full */ } };
+  const forget = (n: string) => {
+    if (!window.confirm(`Delete the look-up for ${n}?`)) return;
+    saveRecent(recent.filter((x) => x.toLowerCase() !== n.toLowerCase()));
+    if (company?.name.toLowerCase() === n.toLowerCase()) setCompany(null);
+    void api.forgetCompany(n).then(() => toast('success', 'Deleted.'), () => toast('success', 'Deleted from this device.'));
+  };
+  const forgetAll = () => {
+    if (!window.confirm(`Delete all ${recent.length} company look-ups?`)) return;
+    const all = recent;
+    saveRecent([]);
+    setCompany(null);
+    void Promise.all(all.map((n) => api.forgetCompany(n).catch(() => undefined))).then(() => toast('success', 'All deleted.'));
+  };
+
   // ⚡ Quick look-up (moved here from Check): free checks only, never the AI.
   const [look, setLook] = useState('');
   const [looking, setLooking] = useState(false);
@@ -122,7 +140,10 @@ export function Lookup() {
     <Shell right={
       <Rail title="Recent companies">
         {!recent.length ? <p className="text-sm text-stone-500">None yet.</p> : (
-          <ul className="space-y-1">{recent.map((n) => <li key={n}><button className="w-full rounded-lg px-1.5 py-1.5 text-left text-sm font-semibold text-stone-700 hover:bg-white/80" onClick={() => (setName(n), void findCompany(n))}>{n}</button></li>)}</ul>
+          <>
+            <ul className="space-y-1">{recent.map((n) => <li key={n} className="flex gap-1"><button className="min-w-0 flex-1 truncate rounded-lg px-1.5 py-1.5 text-left text-sm font-semibold text-stone-700 hover:bg-white/80" onClick={() => (setName(n), void findCompany(n))}>{n}</button><button className="rounded-lg px-1.5 text-xs text-stone-400 hover:text-red-700" onClick={() => forget(n)} aria-label={`Delete ${n}`}>🗑</button></li>)}</ul>
+            <button className="btn-ghost text-xs" onClick={forgetAll}>🗑 Delete all</button>
+          </>
         )}
       </Rail>
     }>
@@ -138,7 +159,12 @@ export function Lookup() {
           <input className="input min-w-0 flex-1" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} placeholder="e.g. Duke Energy, Chase, Amazon" aria-label="Company name" />
           <button className="btn-primary" disabled={busy || name.trim().length < 2}>{busy ? <span className="spinner" /> : 'Find'}</button>
         </div>
-        {recent.length > 0 && <div className="-mx-1 flex flex-wrap gap-1.5 lg:hidden">{recent.slice(0, 5).map((n) => <button type="button" key={n} className="chip border-stone-200 bg-white/70 text-stone-700" onClick={() => (setName(n), void findCompany(n))}>{n}</button>)}</div>}
+        {recent.length > 0 && <div className="-mx-1 flex flex-wrap gap-1.5 lg:hidden">{recent.slice(0, 5).map((n) => (
+          <span key={n} className="chip gap-0 border-stone-200 bg-white/70 p-0 text-stone-700">
+            <button type="button" className="min-h-[32px] px-2.5" onClick={() => (setName(n), void findCompany(n))}>{n}</button>
+            <button type="button" className="min-h-[32px] border-l border-stone-200 px-2 text-stone-400" onClick={() => forget(n)} aria-label={`Delete ${n}`}>✕</button>
+          </span>
+        ))}</div>}
       </form>
       {busy && <p className="card scan text-sm text-teal-800"><span className="spinner" /> Searching the web…</p>}
       {failed && !busy && (
@@ -147,7 +173,7 @@ export function Lookup() {
           <ModelMenu label="Continue with another model" primary cannot={needsSearch} onPick={(m) => void findCompany(failed.name, true, m)} />
         </div>
       )}
-      {company && !busy && !failed && <CompanyCard key={company.checkedAt} c={company} onRefresh={(m) => void findCompany(company.name, true, m)} />}
+      {company && !busy && !failed && <CompanyCard key={company.checkedAt} c={company} onRefresh={(m) => void findCompany(company.name, true, m)} onForget={() => forget(company.name)} />}
 
       <form className="card space-y-2" onSubmit={(e) => (e.preventDefault(), void lookup())}>
         <div>
@@ -160,6 +186,7 @@ export function Lookup() {
         </div>
       </form>
       {found && <ResultCard r={found} onChanged={() => void api.result(found.id).then(setFound, () => undefined)} />}
+      {found && <button className="btn w-full" onClick={() => window.confirm('Delete this look-up?') && void deleteChecks([found.id]).then(() => (setFound(null), toast('success', 'Deleted.')), () => setFound(null))}>🗑 Delete this look-up</button>}
     </Shell>
   );
 }

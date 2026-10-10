@@ -58,6 +58,10 @@ export const api = {
   ai: (b: CheckInput, fresh = false, model?: ModelChoice) =>
     call<CheckResult>('/api/ai', { method: 'POST', body: JSON.stringify({ kind: b.kind, text: b.text || undefined, from: b.from || undefined, file: b.file ? { mime: b.file.mime, data: b.file.data } : undefined, pdf: b.file?.mime === 'application/pdf' || undefined, aiMode: b.aiMode, fresh: fresh || undefined, model }) }),
   result: (id: string) => call<CheckResult>(`/api/check?id=${encodeURIComponent(id)}`),
+  /** 🗑 Forget checks on the server too. */
+  deleteChecks: (ids: string[]) => (ids.length ? call<{ deleted: number }>(`/api/check?ids=${ids.slice(0, 200).join(',')}`, { method: 'DELETE' }) : Promise.resolve({ deleted: 0 })),
+  deleteVideo: (id: string) => call<{ deleted: number }>(`/api/video?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  forgetCompany: (name: string) => call<{ deleted: number }>(`/api/company?name=${encodeURIComponent(name)}`, { method: 'DELETE' }),
   saved: () => call<SavedItem[]>('/api/saved'),
   save: (id: string, note: string, keep?: { text?: string; file?: Upload }) =>
     call<SavedItem>('/api/saved', { method: 'POST', body: JSON.stringify({ action: 'save', id, note, text: keep?.text?.trim() || undefined, file: keep?.file ? { mime: keep.file.mime, name: keep.file.name, data: keep.file.data } : undefined }) }),

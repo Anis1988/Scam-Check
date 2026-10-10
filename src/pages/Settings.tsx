@@ -1,9 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { api, setCode } from '../lib/api';
-import { clearHistory, getPrefs, setPrefs, type DevicePrefs } from '../lib/history';
+import { getPrefs, setPrefs, type DevicePrefs } from '../lib/history';
+import { deleteAllChecks } from '../lib/batch';
 import { PROVIDERS, modelFor, pickModel, providerOf, type AiMode, type AppSettings, type Effort, type ListEntry } from '../lib/types';
 import { refreshStatus, setStatusSettings, useStatus, useStatusError } from '../lib/useStatus';
-import { Card, Field, Rail, Shell, Toggle, toast } from '../components/ui';
+import { Field, Fold, Rail, Shell, Toggle, openFold, toast } from '../components/ui';
 import { APP_BUILD, downloadApp, latestApp } from '../components/AppUpdate';
 import { getServer, isNative, setServer } from '../lib/native';
 
@@ -29,8 +30,9 @@ function Segmented<T extends string | number>({ value, options, onChange, label 
   );
 }
 
+/** Every section folds, and starts closed (owner's choice): tap its title to open it. */
 function Section({ id, title, subtitle, children }: { id: string; title: string; subtitle?: string; children: ReactNode }) {
-  return <div id={id} className="scroll-mt-28"><Card title={title} subtitle={subtitle}>{children}</Card></div>;
+  return <Fold id={id} title={title} subtitle={subtitle}>{children}</Fold>;
 }
 
 export function Settings() {
@@ -108,7 +110,7 @@ export function Settings() {
   const nav = (
     <Rail title="Sections">
       <nav className="flex flex-col">
-        {SECTIONS.map(([id, name]) => <a key={id} href={`#${id}`} onClick={(e) => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); }} className="rounded-lg px-2 py-1.5 text-sm font-semibold text-stone-600 hover:bg-white/80 hover:text-teal-800">{name}</a>)}
+        {SECTIONS.map(([id, name]) => <a key={id} href={`#${id}`} onClick={(e) => { e.preventDefault(); openFold({ id }); setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30); }} className="rounded-lg px-2 py-1.5 text-sm font-semibold text-stone-600 hover:bg-white/80 hover:text-teal-800">{name}</a>)}
       </nav>
     </Rail>
   );
@@ -123,7 +125,11 @@ export function Settings() {
         </div>
         {cfg && <button className="btn" onClick={() => void reset()}>↺ Starting values</button>}
       </div>
-      <div className="lg:hidden">{setupRail}</div>
+      <div className="flex gap-2">
+        <button className="btn flex-1" onClick={() => openFold({ all: true })}>▾ Open all</button>
+        <button className="btn flex-1" onClick={() => openFold({ all: false })}>▴ Close all</button>
+      </div>
+      <div className="lg:hidden"><Fold id="setup" title="🔌 What’s set up" subtitle="Your keys and storage">{setupRail}</Fold></div>
       {!cfg ? <p className="card text-sm text-stone-500">{stErr ? 'Settings can’t be loaded until the server answers (see above).' : <><span className="spinner" /> Loading…</>}</p> : (
         <>
           <Section id="ai" title="🤖 AI" subtitle={st ? `Used today: ${st.used}${st.limit !== null ? ` of ${st.limit}` : ''} (${st.model})` : ''}>
@@ -294,7 +300,7 @@ export function Settings() {
           </select>
         </Field>
         <Field label="Clear History">
-          <button className="btn" onClick={() => window.confirm('Delete your check history on this device?') && (clearHistory(), toast('success', 'History cleared.'))}>Clear</button>
+          <button className="btn" onClick={() => window.confirm('Delete all your checks? They’re removed from this device and the server. ⭐ Saved checks stay.') && void deleteAllChecks().then(() => toast('success', 'History cleared.'), () => undefined)}>🗑 Delete all</button>
         </Field>
         <Field label="Access code" hint="Saved on this device only.">
           <button className="btn" onClick={() => (setCode(''), window.location.reload())}>Forget it</button>

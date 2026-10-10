@@ -1,4 +1,4 @@
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core';
 
 /** True inside the Android (later iPhone) app, false on the website. */
 export const isNative = (): boolean => Capacitor.isNativePlatform();
@@ -27,3 +27,11 @@ export function setServer(url: string): void {
   } catch { /* private mode */ }
 }
 export const apiUrl = (path: string): string => (isNative() && path.startsWith('/') ? getServer() + path : path);
+
+/** ☀️/🌙: the phone's clock, battery and signal icons follow the app's look (dark icons when light, light when dark). */
+export function followThemeInBars(): void {
+  if (!isNative()) return;
+  const sync = () => void SystemBars.setStyle({ style: document.documentElement.classList.contains('dark') ? SystemBarsStyle.Dark : SystemBarsStyle.Light }).catch(() => undefined);
+  sync();
+  window.addEventListener('sc-prefs', sync);
+}

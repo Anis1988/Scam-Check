@@ -36,6 +36,16 @@ Answer with ONE JSON object only:
 
 const str = (v: unknown, n = 300) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
 
+/** DELETE /api/company?name=… -> 🗑 forgets a company look-up (the next search starts fresh). */
+export async function DELETE(req: Request): Promise<Response> {
+  const blocked = guard(req, 'company', 30);
+  if (blocked) return blocked;
+  const name = (new URL(req.url).searchParams.get('name') ?? '').trim().slice(0, 120);
+  if (name.length < 2) return json({ error: 'Bad name.' }, 400);
+  await db()?.del(KEY(name)).catch(() => undefined);
+  return json({ deleted: 1 });
+}
+
 export async function POST(req: Request): Promise<Response> {
   const blocked = guard(req, 'company', 20);
   if (blocked) return blocked;

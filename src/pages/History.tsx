@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { clearHistory, getPrefs, loadHistory, saveToHistory } from '../lib/history';
+import { getPrefs, loadHistory, saveToHistory } from '../lib/history';
+import { deleteAllChecks, deleteChecks } from '../lib/batch';
 import { KIND_LABEL, VERDICT_LABEL, type CheckResult, type ModelChoice, type Verdict } from '../lib/types';
 import { ResultCard } from '../components/ResultCard';
 import { SaveBox } from '../components/SaveBox';
@@ -19,6 +20,13 @@ export function History() {
   const [sel, setSel] = useState<CheckResult | null>(null);
   const [selInput, setSelInput] = useState<CheckInput | null>(null);
   const open = (r: CheckResult) => { setSel(r); setSelInput(null); void getInput(r.id).then(setSelInput); };
+  useEffect(() => { const upd = () => setList(loadHistory()); window.addEventListener('sc-history', upd); return () => window.removeEventListener('sc-history', upd); }, []);
+  /** 🗑 One check: gone from this device and the server (saved ⭐ copies stay). */
+  const remove = (r: CheckResult) => {
+    if (!window.confirm(`Delete this check (${r.title || KIND_LABEL[r.kind].text})? It’s removed from this device and the server. A ⭐ saved copy stays.`)) return;
+    if (sel?.id === r.id) setSel(null);
+    void deleteChecks([r.id]).then(() => toast('success', 'Deleted.'), (e) => toast('error', e instanceof Error ? e.message : String(e)));
+  };
 
   // Checks still running on the server (e.g. you switched tabs or closed the app): their answers are picked up here.
   useEffect(() => {
@@ -75,7 +83,10 @@ export function History() {
   // One check, opened right here (Back returns to the list).
   if (sel) return (
     <Shell right={stats}>
-      <button className="btn" onClick={() => setSel(null)}>← Back to History</button>
+      <div className="flex gap-2">
+        <button className="btn flex-1" onClick={() => setSel(null)}>← Back to History</button>
+        <button className="btn" onClick={() => remove(sel)}>🗑 Delete</button>
+      </div>
       {/* It failed or hit today's limit: the other models come first. */}
       {!rechecking && stuck(sel) && <RecheckBar r={sel} canRecheck={!!selInput} need={needOf(selInput?.file)} onRecheck={(m) => void recheck(m)} />}
       <ResultCard r={sel} onChanged={() => void api.result(sel.id).then((x) => (setSel(x), setList(saveToHistory(x))), () => undefined)} />
@@ -91,13 +102,13 @@ export function History() {
           <h1 className="text-2xl font-bold">History</h1>
           <p className="text-sm text-stone-500">Your last checks, saved on this device only.</p>
         </div>
-        {list.length > 0 && <button className="btn" onClick={() => window.confirm('Delete your check history on this device?') && (clearHistory(), setList([]))}>Clear</button>}
+        {list.length > 0 && <button className="btn" onClick={() => window.confirm(`Delete all ${list.length} checks? They’re removed from this device and the server. ⭐ Saved checks stay.`) && void deleteAllChecks().then(() => toast('success', 'All deleted.'), () => undefined)}>🗑 Delete all</button>}
       </div>
       {!list.length && <p className="card text-sm text-stone-600">Nothing checked yet. Your checks will show here.</p>}
       <ul className="space-y-2">
         {list.map((r) => (
-          <li key={r.id}>
-            <button className="card flex w-full items-center gap-3 text-left transition hover:shadow-[0_0_0_1px_rgba(74,146,155,0.35),0_10px_30px_-12px_rgba(74,146,155,0.45)]" onClick={() => open(r)}>
+          <li key={r.id} className="flex items-stretch gap-2">
+            <button className="card flex min-w-0 flex-1 items-center gap-3 text-left transition hover:shadow-[0_0_0_1px_rgba(74,146,155,0.35),0_10px_30px_-12px_rgba(74,146,155,0.45)]" onClick={() => open(r)}>
               {r.unchecked ? <span className="flex h-11 w-11 shrink-0 items-center justify-center text-2xl" aria-hidden="true">{KIND_LABEL[r.kind].icon}</span> : <ScoreRing score={r.score} verdict={r.verdict} size={44} muted={r.ai === "pending"} />}
               <span className="min-w-0 flex-1">
                 {r.ai === 'pending' ? <span className="chip border-teal-200 bg-teal-50 text-teal-800"><span className="spinner" /> AI checking…</span> : <VerdictChip verdict={r.verdict} unchecked={r.unchecked} />}
@@ -105,6 +116,7 @@ export function History() {
                 <span className="hud block !text-[10px]">{KIND_LABEL[r.kind].icon} {KIND_LABEL[r.kind].text} · {when(r.checkedAt)}</span>
               </span>
             </button>
+            <button className="card flex w-12 shrink-0 items-center justify-center !p-0 text-lg text-stone-500 hover:text-red-700" onClick={() => remove(r)} aria-label={`Delete ${r.title || KIND_LABEL[r.kind].text}`}>🗑</button>
           </li>
         ))}
       </ul>

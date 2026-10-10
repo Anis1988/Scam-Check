@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { api, type CheckInput } from './api';
-import { saveToHistory } from './history';
-import { keepInput } from './inputs';
+import { clearHistory, dropFromHistory, loadHistory, saveToHistory } from './history';
+import { deleteInputs, keepInput } from './inputs';
 import type { CheckResult, ModelChoice } from './types';
 import { refreshStatus } from './useStatus';
 
@@ -81,6 +81,26 @@ export async function askAgain(key: string, fresh: boolean, model?: ModelChoice)
   } finally {
     void refreshStatus();
   }
+}
+
+/**
+ * 🗑 Deletes checks everywhere: History and the kept originals on this device, the Check screen, and the server's copy
+ * (so checking the same message again starts fresh). Saved checks (⭐) stay until deleted in Saved.
+ */
+export async function deleteChecks(ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  const gone = new Set(ids);
+  dropFromHistory(ids);
+  void deleteInputs(ids);
+  setBatch({ items: state.items.filter((x) => !x.result || !gone.has(x.result.id)) });
+  await api.deleteChecks(ids);
+}
+/** 🗑 Everything in History (and on the server). */
+export async function deleteAllChecks(): Promise<void> {
+  const ids = loadHistory().map((r) => r.id);
+  clearHistory();
+  setBatch({ items: [] });
+  await api.deleteChecks(ids);
 }
 
 /** One result shown on its own (from Recent, History, a look-up). Still-running ones are fetched from the server. */

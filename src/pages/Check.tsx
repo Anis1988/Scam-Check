@@ -4,7 +4,7 @@ import { readQr } from '../lib/qr';
 import { openShared, sharedFiles, type SharedFile } from '../lib/share';
 import { getInput } from '../lib/inputs';
 import { loadHistory, saveToHistory } from '../lib/history';
-import { askAgain, newKey, patchItem, runBatch, setBatch, showOne, useBatch, type Item } from '../lib/batch';
+import { askAgain, deleteChecks, newKey, patchItem, runBatch, setBatch, showOne, useBatch, type Item } from '../lib/batch';
 import { KIND_LABEL, MODELS, money, type Bill, type CheckResult, type ModelChoice, type Kind, type Verdict } from '../lib/types';
 import { aiLeft, useStatus } from '../lib/useStatus';
 import { ResultCard } from '../components/ResultCard';
@@ -251,6 +251,11 @@ export function Check() {
     );
   };
 
+  /** 🗑 Gone from the screen, History and the server (a ⭐ saved copy stays). */
+  const removeCheck = (r: CheckResult) => {
+    if (!window.confirm(`Delete this check (${r.title || KIND_LABEL[r.kind].text})? It’s removed from this device and the server. A ⭐ saved copy stays.`)) return;
+    void deleteChecks([r.id]).then(() => toast('success', 'Deleted.'), (e) => toast('error', e instanceof Error ? e.message : String(e)));
+  };
   const recheckBar = (it: Item) => it.result && <RecheckBar r={it.result} canRecheck={!!it.input} need={needOf(it.input?.file)} onRecheck={(m) => void askAi(it, true, m)} />;
   // The AI failed or hit today's limit on these: they can all go to another model at once.
   const stuckOnes = items.filter((x) => x.result && x.input && stuck(x.result));
@@ -261,6 +266,7 @@ export function Check() {
       {offers(it)}
       {it.result && !stuck(it.result) && recheckBar(it)}
       {it.result && it.result.ai !== 'pending' && <SaveBox key={`${it.result.id}${it.savedName ?? ''}`} id={it.result.id} text={it.input?.text} file={it.input?.file} savedName={it.savedName} />}
+      {it.result && it.result.ai !== 'pending' && <button className="btn w-full" onClick={() => removeCheck(it.result!)}>🗑 Delete this check</button>}
     </div>
   );
 
@@ -299,11 +305,12 @@ export function Check() {
         {!recent.length ? <p className="text-sm text-stone-500">Nothing checked yet.</p> : (
           <ul className="space-y-1">
             {recent.map((r) => (
-              <li key={r.id}>
-                <button className="w-full rounded-lg px-1.5 py-1.5 text-left transition hover:bg-white/80" onClick={() => reopen(r)}>
+              <li key={r.id} className="flex items-start gap-1">
+                <button className="min-w-0 flex-1 rounded-lg px-1.5 py-1.5 text-left transition hover:bg-white/80" onClick={() => reopen(r)}>
                   <VerdictChip verdict={r.verdict} unchecked={r.unchecked} />
                   <span className="mt-0.5 block truncate text-xs text-stone-700">{r.title || r.preview || KIND_LABEL[r.kind].text}</span>
                 </button>
+                <button className="rounded-lg px-1.5 py-1.5 text-xs text-stone-400 hover:text-red-700" onClick={() => removeCheck(r)} aria-label={`Delete ${r.title || KIND_LABEL[r.kind].text}`}>🗑</button>
               </li>
             ))}
           </ul>

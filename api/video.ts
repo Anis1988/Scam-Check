@@ -51,6 +51,16 @@ function youtubeId(u: URL): string | null {
   return u.searchParams.get('v') ?? u.pathname.match(/^\/(?:shorts|live|embed)\/([\w-]{6,})/)?.[1] ?? null;
 }
 
+/** DELETE /api/video?id=… -> 🗑 forgets a video check on the server. */
+export async function DELETE(req: Request): Promise<Response> {
+  const blocked = guard(req, 'video', 30);
+  if (blocked) return blocked;
+  const id = new URL(req.url).searchParams.get('id') ?? '';
+  if (!/^[a-z0-9-]{8,64}$/.test(id)) return json({ error: 'Bad id.' }, 400);
+  await db()?.del(KEY(id)).catch(() => undefined);
+  return json({ deleted: 1 });
+}
+
 /** GET /api/video?id=… -> a check (pending, done or failed). */
 export async function GET(req: Request): Promise<Response> {
   const blocked = guard(req, 'video', 60);
