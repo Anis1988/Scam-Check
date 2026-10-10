@@ -4,6 +4,12 @@ const CODE_KEY = 'sc.accessCode';
 export const getCode = (): string => { try { return localStorage.getItem(CODE_KEY) ?? ''; } catch { return ''; } };
 export const setCode = (c: string): void => { try { if (c) localStorage.setItem(CODE_KEY, c); else localStorage.removeItem(CODE_KEY); } catch { /* private mode */ } };
 
+/** Vercel's error pages carry a code like FUNCTION_INVOCATION_FAILED or NOT_FOUND: shown to find the cause fast. */
+const vercelCode = (raw: string) => {
+  const code = raw.match(/\b([A-Z]+(?:_[A-Z]+)+)\b/)?.[1];
+  return code ? `, ${code}` : raw.trim() ? `: ${raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80)}` : '';
+};
+
 export async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const code = getCode();
   let res: Response;
@@ -13,14 +19,15 @@ export async function call<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error('Could not reach the server. Check your internet connection.');
   }
   let data: any = null;
-  try { data = await res.json(); } catch { /* not JSON */ }
+  const raw = await res.text().catch(() => '');
+  try { data = JSON.parse(raw); } catch { /* not JSON: e.g. Vercel's own error page */ }
   if (!res.ok || data === null) {
     if (res.status === 401) window.dispatchEvent(new Event('sc-unauthorized'));
     if (res.status === 413) throw new Error('That file is too big. Use a smaller picture or a PDF under 3 MB.');
     const local = /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
     const noServer = local
       ? `The server part didn't answer (HTTP ${res.status}). Get the latest code (git pull, npm install), then restart npm run dev (not npm run preview).`
-      : `The server part didn't answer (HTTP ${res.status}). Check the latest deployment in Vercel.`;
+      : `The server part didn't answer (HTTP ${res.status}${vercelCode(raw)}). Check Vercel → Logs.`;
     throw new Error(data?.error ?? (data === null ? (res.status === 504 ? 'The check took too long. Try again.' : noServer) : `HTTP ${res.status}`));
   }
   return data as T;
