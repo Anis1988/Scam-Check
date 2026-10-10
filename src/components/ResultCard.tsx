@@ -3,7 +3,7 @@ import { KIND_LABEL, VERDICT_LABEL } from '../lib/types';
 import { useState } from 'react';
 import { api } from '../lib/api';
 import { BillStrip } from './bills';
-import { ScoreRing, toast } from './ui';
+import { Fold, ScoreRing, toast } from './ui';
 
 const VERDICT_STYLE = {
   safe: 'from-emerald-50/90 text-emerald-900 shadow-[0_0_0_1px_rgba(94,140,110,0.25),0_12px_30px_-14px_rgba(94,140,110,0.5)]',
@@ -62,15 +62,14 @@ export function ResultCard({ r, example = false, onChanged }: { r: CheckResult; 
       {r.bill && r.verdict === 'safe' && <BillStrip b={r.bill} compare={r.billCompare} />}
 
       {r.whatToDo.length > 0 && !r.unchecked && !(r.brief && r.verdict === 'safe') && (
-        <div className="card space-y-1.5">
-          <p className="label">What to do</p>
+        <Fold label="What to do" defaultOpen>
           <ol className="list-decimal space-y-1 pl-5 text-sm text-stone-800">{r.whatToDo.map((s, i) => <li key={i}>{s}</li>)}</ol>
-        </div>
+        </Fold>
       )}
 
       {groups.length > 0 && (
-        <div className="card space-y-3">
-          <p className="label">Why</p>
+        // The details fold, closed at first (tap to open); open in the Guide's examples.
+        <Fold label="Why" subtitle={`${r.signals.length} thing${r.signals.length === 1 ? '' : 's'} checked · tap to see`} defaultOpen={example}>
           {groups.map(([s, list]) => (
             <div key={s} className="space-y-1">
               <p className="text-sm font-medium"><span aria-hidden="true">{SOURCE[s].icon}</span> {SOURCE[s].name}</p>
@@ -82,12 +81,11 @@ export function ResultCard({ r, example = false, onChanged }: { r: CheckResult; 
               ))}</ul>
             </div>
           ))}
-        </div>
+        </Fold>
       )}
 
       {(r.links.length > 0 || r.phones.length > 0 || r.sender) && (
-        <div className="card space-y-2 text-sm">
-          <p className="label">Found in the message</p>
+        <Fold label="Found in the message" subtitle={[r.sender && 'sender', r.links.length && `${r.links.length} website${r.links.length === 1 ? '' : 's'}`, r.phones.length && `${r.phones.length} phone number${r.phones.length === 1 ? '' : 's'}`].filter(Boolean).join(' · ') + ' · ✓ Trust / 🚫 Block'} defaultOpen={example} className="text-sm">
           {r.sender && (
             <div><p className="break-words"><span aria-hidden="true">✉️</span> {r.sender.name ? `${r.sender.name} ` : ''}<span className="text-stone-500">&lt;{r.sender.address ?? '?'}&gt;</span>{r.sender.replyTo && <span className="block text-xs text-stone-500">Replies go to {r.sender.replyTo}</span>}{r.sender.auth && <span className="block text-xs text-stone-500">Sender checks: {r.sender.auth}</span>}</p>{r.sender.address && mark(r.sender.address)}</div>
           )}
@@ -98,7 +96,7 @@ export function ResultCard({ r, example = false, onChanged }: { r: CheckResult; 
             <div key={p.number}><p><span className={`font-bold ${LEVEL[p.level].cls}`} aria-hidden="true">{LEVEL[p.level].icon}</span> 📞 <b className="num">{p.number}</b> <span className="text-xs text-stone-500">— {p.note}</span></p>{mark(p.number)}</div>
           ))}
           <p className="text-xs text-stone-500">Links are only looked up, never opened.</p>
-        </div>
+        </Fold>
       )}
       <p className="text-xs text-stone-500">{KIND_LABEL[r.kind].icon} {KIND_LABEL[r.kind].text} · checked {new Date(r.checkedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}. A check can be wrong: when in doubt, contact the company yourself.</p>
     </section>

@@ -21,6 +21,25 @@ function put(r: VideoResult) {
   try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* full */ }
   subs.forEach((f) => f());
 }
+/** 🗑 A video check: gone from this device and the server. */
+async function removeVideo(r: VideoResult) {
+  if (!window.confirm(`Delete this video check (${r.title || r.label})?`)) return;
+  list = list.filter((x) => x.id !== r.id);
+  try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* ignore */ }
+  retries.delete(r.id);
+  subs.forEach((f) => f());
+  await api.deleteVideo(r.id).then(() => toast('success', 'Deleted.'), () => toast('success', 'Deleted from this device.'));
+}
+async function removeAllVideos() {
+  if (!window.confirm(`Delete all ${list.length} video checks?`)) return;
+  const ids = list.map((x) => x.id);
+  list = [];
+  try { localStorage.removeItem(KEY); } catch { /* ignore */ }
+  retries.clear();
+  subs.forEach((f) => f());
+  await Promise.all(ids.map((id) => api.deleteVideo(id).catch(() => undefined)));
+  toast('success', 'All deleted.');
+}
 const useVideos = () => useSyncExternalStore((f) => (subs.add(f), () => void subs.delete(f)), () => list);
 const newId = () => `v${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 const isVideoLink = (s: string) => /^https?:\/\/([a-z0-9-]+\.)*(youtube\.com|youtu\.be|tiktok\.com)\//i.test(s.trim());
@@ -99,6 +118,7 @@ export function VideoCard({ r, example = false }: { r: VideoResult; example?: bo
           {retries.has(r.id) && !example && <ModelMenu label="↻ Re-check with another model" need="pictures" onPick={(m) => retries.get(r.id)?.(m)} />}
         </div>
       )}
+      {open && !example && r.status !== 'pending' && <button className="btn w-full" onClick={() => void removeVideo(r)}>🗑 Delete this video check</button>}
     </article>
   );
 }
@@ -192,7 +212,12 @@ export function Video({ sharedLink = '' }: { sharedLink?: string }) {
         </form>
         <p className="text-xs text-stone-500">TikTok links: no AI can watch them, so only the caption and cover are checked. For the whole video, save it (Share → Save video) and upload it. {left !== null && ready ? `Uses 1 of ${left} ${providerOf(p).name} checks left today.` : ''}</p>
       </section>
-      {videos.length > 0 && <p className="label">Your video checks (on this device)</p>}
+      {videos.length > 0 && (
+        <div className="flex items-center justify-between gap-2">
+          <p className="label">Your video checks (on this device)</p>
+          <button className="btn-ghost text-xs" onClick={() => void removeAllVideos()}>🗑 Delete all</button>
+        </div>
+      )}
       <div className="space-y-2">{videos.map((r) => <VideoCard key={`${r.id}${r.status}`} r={r} />)}</div>
     </Shell>
   );

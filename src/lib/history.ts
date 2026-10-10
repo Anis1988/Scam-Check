@@ -37,6 +37,14 @@ export function saveToHistory(r: CheckResult): CheckResult[] {
   void pruneInputs(list.map((x) => x.id));
   return list;
 }
+/** Takes checks out of History on this device (see deleteChecks in lib/batch for everywhere). */
+export function dropFromHistory(ids: string[]): CheckResult[] {
+  const gone = new Set(ids);
+  const list = loadHistory().filter((x) => !gone.has(x.id));
+  try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* ignore */ }
+  window.dispatchEvent(new Event('sc-history'));
+  return list;
+}
 export function clearHistory(): void {
   try { localStorage.removeItem(KEY); } catch { /* ignore */ }
   void clearInputs();

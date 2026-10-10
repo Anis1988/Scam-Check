@@ -5,7 +5,7 @@ import { providerOf } from '../src/lib/types.js';
 import { guard, json } from '../server/guard.js';
 import { buildResult, freeChecks } from '../server/analyze.js';
 import { isPrivate, noAiNote, pickAi } from '../server/ai.js';
-import { getLists, getResult, getSettings, overLimit, saveResult, storeReady } from '../server/store.js';
+import { deleteResult, getLists, getResult, getSettings, overLimit, saveResult, storeReady } from '../server/store.js';
 import { withLists } from '../server/lists.js';
 
 export const Body = z.object({
@@ -34,6 +34,16 @@ export async function GET(req: Request): Promise<Response> {
   if (!/^[a-f0-9]{32}$/.test(id)) return json({ error: 'Bad id.' }, 400);
   const r = await getResult(id).catch(() => null);
   return r ? out(r) : json({ error: 'Not found (this result is too old: check it again).' }, 404);
+}
+
+/** DELETE /api/check?ids=a,b -> 🗑 forgets these checks on the server too (up to 200 at once). */
+export async function DELETE(req: Request): Promise<Response> {
+  const blocked = guard(req, 'check', 30);
+  if (blocked) return blocked;
+  const ids = (new URL(req.url).searchParams.get('ids') ?? '').split(',').filter((x) => /^[a-f0-9]{32}$/.test(x)).slice(0, 200);
+  if (!ids.length) return json({ error: 'Bad id.' }, 400);
+  await Promise.all(ids.map((id) => deleteResult(id).catch(() => undefined)));
+  return json({ deleted: ids.length });
 }
 
 /**

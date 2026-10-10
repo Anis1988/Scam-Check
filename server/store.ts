@@ -23,6 +23,11 @@ export async function getResult(id: string): Promise<CheckResult | null> {
   return (await db()?.get<CheckResult>(`sc:result:${id}`)) ?? null;
 }
 /** Kept for "Results remembered" days (Settings, 7 by default): the same message is answered again for free. */
+/** 🗑 A check deleted by you: its answer isn't kept on the server any more (checking it again starts fresh). */
+export async function deleteResult(id: string): Promise<void> {
+  await db()?.del(`sc:result:${id}`);
+}
+
 export async function saveResult(r: CheckResult, days?: number): Promise<void> {
   const d = days ?? (await getSettings()).checks.rememberDays;
   await db()?.set(`sc:result:${r.id}`, r, { ex: Math.max(1, d) * 86400 });

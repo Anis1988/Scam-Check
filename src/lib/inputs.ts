@@ -49,6 +49,9 @@ export async function pruneInputs(keepIds: string[]): Promise<void> {
     }
   } catch { /* ignore */ }
 }
+export async function deleteInputs(ids: string[]): Promise<void> {
+  try { for (const id of ids) await tx('readwrite', (s) => s.delete(id)); } catch { /* ignore */ }
+}
 export async function clearInputs(): Promise<void> {
   try { await tx('readwrite', (s) => s.clear()); } catch { /* ignore */ }
 }

@@ -3,7 +3,7 @@ import { ResultCard } from '../components/ResultCard';
 import { SavedCard } from '../components/SavedCard';
 import { BillRow } from './Bills';
 import { RecheckBar } from '../components/Recheck';
-import { Rail, ScoreRing, Shell, VerdictChip } from '../components/ui';
+import { Fold, Rail, ScoreRing, Shell, VerdictChip } from '../components/ui';
 import type { Bill, CheckResult, CompanyInfo, SavedItem, Verdict, VideoResult } from '../lib/types';
 import { VideoCard } from './Video';
 import { CompanyCard } from './Lookup';
@@ -82,7 +82,7 @@ const COMPANY: CompanyInfo = {
 
 const SECTIONS = [
   ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['voicemail', '🎙️ Voicemails and calls'], ['video', '🎬 Video: is it true?'], ['company', '🏢 Look up a company'], ['lookup', '⚡ Quick look-up'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
-  ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Which AI'], ['recheck', '↻ Re-check'], ['failed', '⚠️ When an AI fails'], ['look', '🌙 Dark mode'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
+  ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Which AI'], ['recheck', '↻ Re-check'], ['failed', '⚠️ When an AI fails'], ['look', '🌙 Dark mode'], ['tidy', '📂 Fold & 🗑 delete'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
   ['share', 'Share from your phone'], ['iphone', '🍏 iPhone'], ['scam', 'If it’s a scam'], ['privacy', 'Privacy and cost'],
 ] as const;
 type Id = (typeof SECTIONS)[number][0];
@@ -325,8 +325,28 @@ export function Guide() {
         </div>
       </Section>
 
+      <Section id="tidy">
+        <p><b>Fold:</b> anything with a <b>▾</b> opens and closes when you tap its title. In <b>⚙️ Settings</b> every section starts <b>closed</b>, so the page stays short: tap the one you need, or <b>▾ Open all</b> / <b>▴ Close all</b>. In a result, <b>Why</b> and <b>Found in the message</b> start closed too (What to do stays open).</p>
+        <p><b>Delete:</b> tap <b>🗑</b> to delete any check, everywhere it shows:</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>🛡️ Check</b> and <b>🕘 History:</b> 🗑 next to each check, or <b>🗑 Delete all</b> in History (also in Settings → This device). It’s removed from this device <b>and the server</b>, so checking the same message again starts fresh.</li>
+          <li><b>🎬 Video:</b> open a video check → <b>🗑 Delete this video check</b>, or <b>🗑 Delete all</b> above the list.</li>
+          <li><b>🏢 Look up:</b> ✕ / 🗑 next to a recent company, <b>🗑 Delete this look-up</b> under a result, or <b>🗑 Delete all</b>.</li>
+          <li><b>⭐ Saved</b> and <b>📅 Bills</b> have their own 🗑. Deleting a check in History doesn’t touch its ⭐ saved copy.</li>
+        </ul>
+        <p className="text-xs text-stone-500">Example (made up; tap the title to open and close it):</p>
+        <Fold label="Why" subtitle="2 things checked · tap to see">
+          <p className="text-sm text-stone-700">✗ Pretends to be USPS but the website is usps-help.top</p>
+          <p className="text-sm text-stone-700">! The website is 3 days old</p>
+        </Fold>
+        <div className="flex items-stretch gap-2">
+          <div className="card flex min-w-0 flex-1 items-center gap-3"><ScoreRing score={92} verdict="scam" size={40} /><span className="min-w-0"><VerdictChip verdict="scam" /><span className="mt-0.5 block truncate text-sm">USPS package text</span></span></div>
+          <span className="card flex w-12 shrink-0 items-center justify-center !p-0 text-lg text-stone-500" aria-hidden="true">🗑</span>
+        </div>
+      </Section>
+
       <Section id="settings">
-        <p>Everything is set in the <b>⚙️ Settings</b> tab, and it’s the same on your phone and computer:</p>
+        <p>Everything is set in the <b>⚙️ Settings</b> tab, and it’s the same on your phone and computer. Each section starts closed: tap its title to open it.</p>
         <ul className="list-disc space-y-1.5 pl-5">
           <li><b>🤖 AI:</b> which AI (Claude or Gemini, free), when to use it (Save credits, Smart, Always, Never), which AI model (Opus = best, Sonnet = cheaper, Haiku = cheapest), how many AI checks a day or <b>Unlimited</b>, how hard it thinks (Low is cheapest), and the summary of safe ones.</li>
           <li><b>🔎 Free checks:</b> Google’s list of dangerous sites, how new a website is, and how many days a result is remembered (checking it again is then free).</li>

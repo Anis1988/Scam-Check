@@ -21,6 +21,43 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
   );
 }
 
+/**
+ * A card that folds: tap its title to open or close it (closed unless `defaultOpen`). Opened from elsewhere with the
+ * `sc-fold` event: detail {id} opens that one, {all: true|false} opens or closes every fold.
+ */
+export function Fold({ id, title, label, subtitle, right, defaultOpen = false, className = '', children }: {
+  id?: string; title?: ReactNode; label?: ReactNode; subtitle?: ReactNode; right?: ReactNode; defaultOpen?: boolean; className?: string; children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  useEffect(() => {
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<{ id?: string; all?: boolean }>).detail ?? {};
+      if (typeof d.all === 'boolean') setOpen(d.all);
+      else if (id && d.id === id) setOpen(true);
+    };
+    window.addEventListener('sc-fold', on);
+    return () => window.removeEventListener('sc-fold', on);
+  }, [id]);
+  return (
+    <section id={id} className={`card scroll-mt-28 ${className}`}>
+      <div className="flex items-start gap-2">
+        <button type="button" className="flex min-h-[32px] min-w-0 flex-1 items-start justify-between gap-2 text-left" onClick={() => setOpen(!open)} aria-expanded={open}>
+          <span className="min-w-0">
+            {label && <span className="label block">{label}</span>}
+            {title && <span className="block font-display text-lg font-semibold tracking-tight text-stone-900">{title}</span>}
+            {subtitle && <span className="block text-xs text-stone-500">{subtitle}</span>}
+          </span>
+          <span className={`mt-0.5 shrink-0 text-stone-400 transition ${open ? 'rotate-180' : ''}`} aria-hidden="true">▾</span>
+        </button>
+        {right}
+      </div>
+      {open && <div className="mt-3 space-y-3">{children}</div>}
+    </section>
+  );
+}
+/** Opens one fold by its id (or all of them with all: true / false). */
+export const openFold = (d: { id?: string; all?: boolean }) => window.dispatchEvent(new CustomEvent('sc-fold', { detail: d }));
+
 export function Card({ title, subtitle, children, right }: { title?: string; subtitle?: string; children: ReactNode; right?: ReactNode }) {
   return (
     <section className="card space-y-3">
