@@ -8,7 +8,7 @@ import { History } from './pages/History';
 import { Saved } from './pages/Saved';
 import { Guide } from './pages/Guide';
 import { Settings } from './pages/Settings';
-import { getCode, setCode } from './lib/api';
+import { api, getCode, setCode } from './lib/api';
 import { aiLeft, refreshStatus, useStatus } from './lib/useStatus';
 
 const TABS = ['Check', 'Saved', 'History', 'Guide', 'Settings'] as const;
@@ -45,12 +45,29 @@ function AiMeter() {
 function AccessGate({ onDone }: { onDone: () => void }) {
   const [v, setV] = useState('');
   const [server, setSrv] = useState(getServer);
-  const done = () => { if (isNative()) setServer(server); setCode(v.trim()); onDone(); };
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  // In the app: the address and code are tested first, so a wrong address is said at once, not later.
+  const done = async () => {
+    if (!isNative()) return (setCode(v.trim()), onDone());
+    setServer(server);
+    setCode(v.trim());
+    setBusy(true);
+    setErr('');
+    try {
+      await api.status();
+      onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <div className="card mx-auto max-w-sm space-y-3">
       <h1 className="text-xl font-semibold">Enter your access code</h1>
       <p className="text-sm text-stone-500">The code you set as <code>APP_ACCESS_TOKEN</code> in Vercel. It keeps strangers from using your AI checks.</p>
-      <input className="input w-full" type="password" value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && v && done()} placeholder="Access code" autoFocus />
+      <input className="input w-full" type="password" value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && v && void done()} placeholder="Access code" autoFocus />
       {isNative() && (
         <label className="block space-y-1">
           <span className="label">Your site’s address</span>
@@ -58,7 +75,8 @@ function AccessGate({ onDone }: { onDone: () => void }) {
           <span className="block text-xs text-stone-500">The address you open Scam Check at (Vercel → your project → Domains). Leave it if it already works.</span>
         </label>
       )}
-      <button className="btn-primary w-full" disabled={!v} onClick={done}>Continue</button>
+      {err && <p className="panel text-sm text-red-700">{err}</p>}
+      <button className="btn-primary w-full" disabled={!v || busy} onClick={() => void done()}>{busy ? <><span className="spinner" /> Checking…</> : 'Continue'}</button>
     </div>
   );
 }

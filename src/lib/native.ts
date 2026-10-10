@@ -9,8 +9,16 @@ export const isNative = (): boolean => Capacitor.isNativePlatform();
  * On the website the paths stay relative ("/api/…"), exactly as before.
  */
 const SERVER_KEY = 'sc.server';
-export const DEFAULT_SERVER = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, '') || 'https://scamcheck.vercel.app';
-export const getServer = (): string => { try { return localStorage.getItem(SERVER_KEY) || DEFAULT_SERVER; } catch { return DEFAULT_SERVER; } };
+export const DEFAULT_SERVER = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, '') || 'https://scamcheck-anis.vercel.app';
+export const getServer = (): string => {
+  try {
+    const saved = localStorage.getItem(SERVER_KEY);
+    // The first app version guessed a wrong address: it is ignored.
+    return saved && !/^https:\/\/scamcheck\.vercel\.app$/i.test(saved) ? saved : DEFAULT_SERVER;
+  } catch {
+    return DEFAULT_SERVER;
+  }
+};
 export function setServer(url: string): void {
   const clean = url.trim().replace(/\/+$/, '');
   try {

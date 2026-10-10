@@ -1,6 +1,6 @@
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
-import { apiUrl, isNative } from './native';
+import { apiUrl, getServer, isNative } from './native';
 import type { AiMode, AppSettings, Bill, CheckResult, Kind, ListEntry, SavedItem } from './types';
 
 const CODE_KEY = 'sc.accessCode';
@@ -19,7 +19,7 @@ export async function call<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     res = await fetch(apiUrl(path), { ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}), ...(code ? { 'X-Access-Token': code } : {}) } });
   } catch {
-    throw new Error('Could not reach the server. Check your internet connection.');
+    throw new Error(isNative() ? `Could not reach ${getServer()}. Check your internet connection, and that this is your site’s address (Settings → This device).` : 'Could not reach the server. Check your internet connection.');
   }
   let data: any = null;
   const raw = await res.text().catch(() => '');
@@ -28,7 +28,9 @@ export async function call<T>(path: string, init?: RequestInit): Promise<T> {
     if (res.status === 401) window.dispatchEvent(new Event('sc-unauthorized'));
     if (res.status === 413) throw new Error('That file is too big. Use a smaller picture or a PDF under 3 MB.');
     const local = !isNative() && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
-    const noServer = local
+    const noServer = isNative()
+      ? `Your site wasn't found at ${getServer()} (HTTP ${res.status}). Use the address you open Scam Check at in the browser: Settings → This device → Your site’s address.`
+      : local
       ? `The server part didn't answer (HTTP ${res.status}). Get the latest code (git pull, npm install), then restart npm run dev (not npm run preview).`
       : `The server part didn't answer (HTTP ${res.status}${vercelCode(raw)}). Check Vercel → Logs.`;
     throw new Error(data?.error ?? (data === null ? (res.status === 504 ? 'The check took too long. Try again.' : noServer) : `HTTP ${res.status}`));

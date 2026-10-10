@@ -83,6 +83,7 @@ export function Settings() {
         <div className="space-y-2">
           <p className="text-sm text-red-700">{stErr}</p>
           <button className="btn w-full" onClick={() => void refreshStatus()}>↻ Try again</button>
+          {isNative() && <button className="btn w-full" onClick={() => { const v = window.prompt('The address you open Scam Check at in the browser (Vercel → Domains):', getServer()); if (v) { setServer(v); window.location.reload(); } }}>Change your site’s address</button>}
         </div>
       ) : !st ? <p className="text-sm text-stone-500"><span className="spinner" /> Loading…</p> : (
         <ul className="space-y-2 text-sm">

@@ -29,7 +29,7 @@ jobs:
         env:
           # Your site's address. To change it without editing this file: GitHub → Settings → Secrets and variables
           # → Actions → Variables → SCAMCHECK_URL. It can also be changed on the app's first screen.
-          VITE_API_BASE: ${{ vars.SCAMCHECK_URL || 'https://scamcheck.vercel.app' }}
+          VITE_API_BASE: ${{ vars.SCAMCHECK_URL || 'https://scamcheck-anis.vercel.app' }}
           VITE_APP_BUILD: ${{ github.run_number }} # the app compares this with the release page to offer updates
       - name: Copy them into the Android project
         run: npx cap sync android
