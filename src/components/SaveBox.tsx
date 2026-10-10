@@ -21,11 +21,11 @@ export function SaveBox({ id, example = false }: { id: string; example?: boolean
       setBusy(false);
     }
   };
-  if (saved) return <p className="panel text-sm text-emerald-200">⭐ Saved{note ? ` with your note: “${note}”` : ''}.</p>;
+  if (saved) return <p className="panel text-sm text-emerald-700">⭐ Saved{note ? ` with your note: “${note}”` : ''}.</p>;
   if (!open) return <button className="btn w-full" onClick={() => setOpen(true)}>⭐ Save this check</button>;
   return (
     <div className="card space-y-2">
-      <p className="text-sm text-slate-300">Saves the key facts (verdict, sender, numbers, websites, reasons), not the whole message or picture.</p>
+      <p className="text-sm text-stone-600">Saves the key facts (verdict, sender, numbers, websites, reasons), not the whole message or picture.</p>
       <input className="input w-full" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="Note (optional), e.g. Called my bank, all fine" aria-label="Note" />
       <div className="flex gap-2">
         <button className="btn-primary flex-1" disabled={busy} onClick={() => void save()}>{busy ? <><span className="spinner" /> Saving…</> : '⭐ Save'}</button>

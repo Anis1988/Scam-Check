@@ -12,8 +12,8 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 py-1.5">
       <div className="min-w-0 flex-1 basis-48">
-        <p className="text-sm text-slate-200">{label}</p>
-        {hint && <p className="text-xs text-slate-500">{hint}</p>}
+        <p className="text-sm font-semibold text-stone-800">{label}</p>
+        {hint && <p className="text-xs text-stone-500">{hint}</p>}
       </div>
       {children}
     </div>
@@ -27,7 +27,7 @@ export function Card({ title, subtitle, children, right }: { title?: string; sub
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             {title && <h2 className="text-lg font-semibold">{title}</h2>}
-            {subtitle && <p className="text-xs text-slate-400">{subtitle}</p>}
+            {subtitle && <p className="text-xs text-stone-500">{subtitle}</p>}
           </div>
           {right}
         </div>
@@ -53,7 +53,7 @@ export function Toasts() {
   return (
     <div className="pointer-events-none fixed inset-x-0 top-2 z-50 flex flex-col items-center gap-2 px-3" aria-live="polite">
       {items.map((t) => (
-        <div key={t.id} className={`toast-in pointer-events-auto max-w-md rounded-xl border px-3 py-2 text-sm shadow-lg backdrop-blur ${t.kind === 'error' ? 'border-red-300/40 bg-red-950/90 text-red-100' : t.kind === 'success' ? 'border-emerald-300/40 bg-emerald-950/90 text-emerald-100' : 'border-white/15 bg-slate-900/90 text-slate-100'}`}>
+        <div key={t.id} className={`toast-in pointer-events-auto max-w-md rounded-2xl border px-4 py-2.5 text-sm font-semibold shadow-lg ${t.kind === 'error' ? 'border-red-200 bg-red-50 text-red-800' : t.kind === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-stone-200 bg-white text-stone-800'}`}>
           {t.msg}
         </div>
       ))}

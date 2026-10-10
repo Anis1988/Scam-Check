@@ -9,9 +9,9 @@ function Section({ title, children, open: start = false }: { title: string; chil
     <section className="card">
       <button className="flex w-full items-center justify-between gap-2 text-left" onClick={() => setOpen(!open)} aria-expanded={open}>
         <h2 className="text-lg font-semibold">{title}</h2>
-        <span className="text-slate-400" aria-hidden="true">{open ? '−' : '+'}</span>
+        <span className="text-stone-500" aria-hidden="true">{open ? '−' : '+'}</span>
       </button>
-      {open && <div className="mt-3 space-y-3 text-sm text-slate-300">{children}</div>}
+      {open && <div className="mt-3 space-y-3 text-sm text-stone-600">{children}</div>}
     </section>
   );
 }
@@ -34,12 +34,17 @@ const SCAM: CheckResult = {
   whatToDo: ['Don’t tap the link or pay.', 'Check your toll balance yourself at your E-ZPass account’s real website or app.', 'Forward the text to 7726 (SPAM), then delete it.'],
 };
 const SAFE: CheckResult = {
-  id: 'example2', kind: 'email', verdict: 'safe', score: 4, ai: 'skipped', checkedAt: at, preview: 'Your Chase statement is ready',
-  summary: 'No known scam signs found.', aiNote: undefined,
-  signals: [{ source: 'sender', level: 'good', weight: -12, title: 'Really sent by Chase', detail: 'Sender checks passed (SPF pass, DKIM pass, DMARC pass).' }],
-  links: [{ url: 'https://chase.com', domain: 'chase.com', level: 'good', note: 'Real Chase website' }],
-  phones: [], sender: { name: 'Chase', address: 'no.reply.alerts@chase.com', auth: 'SPF pass, DKIM pass, DMARC pass' },
-  whatToDo: ['No warning signs found, but stay careful: scams change all the time.', 'Never share passwords or one-time codes, even when a message looks real.'],
+  id: 'example2', kind: 'bill', verdict: 'safe', score: 6, ai: 'done', checkedAt: at, preview: 'Bill (picture or PDF)',
+  summary: 'This is a normal Duke Energy bill. Nothing suspicious.',
+  signals: [{ source: 'link', level: 'good', weight: -8, title: 'duke-energy.com is Duke Energy’s real website' }],
+  links: [{ url: 'https://duke-energy.com', domain: 'duke-energy.com', level: 'good', note: 'Real Duke Energy website' }],
+  phones: [],
+  brief: {
+    whatItIs: 'Your Duke Energy electric bill for September.',
+    keyInfo: [{ label: 'Amount due', value: '$142.18' }, { label: 'Due date', value: 'Oct 24' }, { label: 'Account', value: '•••• 4821' }],
+    steps: ['Pay $142.18 by Oct 24 in the Duke Energy app or at duke-energy.com.', 'Nothing else to do.'],
+  },
+  whatToDo: [],
 };
 
 const SAVED: SavedItem = {
@@ -55,8 +60,8 @@ export function Guide() {
   return (
     <div className="mx-auto max-w-2xl space-y-3">
       <div>
-        <h1 className="text-2xl font-semibold">Guide</h1>
-        <p className="text-sm text-slate-400">How Scam Check works, in plain words.</p>
+        <h1 className="text-2xl font-extrabold">Guide</h1>
+        <p className="text-sm text-stone-500">How Scam Check works, in plain words.</p>
       </div>
 
       <Section title="How it works" open>
@@ -67,7 +72,7 @@ export function Guide() {
             <span className="mt-1 block">✅ <b>Looks safe</b> · ⚠️ <b>Suspicious</b> (check it another way) · 🚨 <b>Likely scam</b></span>
           </li>
         </ol>
-        <p className="text-xs text-slate-500">Example (made up):</p>
+        <p className="text-xs text-stone-500">Example (made up):</p>
         <ResultCard r={SCAM} />
       </Section>
 
@@ -79,19 +84,28 @@ export function Guide() {
           <li>✉️ <b>Who sent the email</b> (free): the real sender address, a different reply address, a link that shows one website but opens another, and whether the email passed the sender checks. Best with the .eml file (in Gmail: ⋮ → Download message; in Outlook: Save as).</li>
           <li>🤖 <b>AI analysis</b> (paid, 5 a day by default): reads photos and PDFs by itself. For texts and emails it only runs when <b>you</b> tap the button below a result where the free checks weren’t sure, so most checks cost nothing. The Check screen shows how many AI checks are left today. You can change this in Settings.</li>
         </ul>
-        <p className="text-xs text-slate-500">The button you see when the free checks aren’t sure (example, does nothing here):</p>
+        <p className="text-xs text-stone-500">The button you see when the free checks aren’t sure (example, does nothing here):</p>
         <div className="card space-y-2">
-          <p className="text-sm text-slate-300">The free checks aren’t sure about this one. Want a second opinion?</p>
+          <p className="text-sm text-stone-600">The free checks aren’t sure about this one. Want a second opinion?</p>
           <button className="btn-primary w-full" tabIndex={-1}>🤖 Ask the AI (uses 1 of 4 left today)</button>
         </div>
-        <p className="text-xs text-slate-500">Example of a safe one (made up):</p>
+        <p className="text-xs text-stone-500">Example of a safe one (made up):</p>
         <ResultCard r={SAFE} />
       </Section>
 
+      <Section title="📋 Summary of safe ones">
+        <p>When something <b>looks safe</b>, you also get a tiny summary in simple words: <b>what it is</b>, the <b>key info</b> (amount, due date, account number…) and <b>what to do</b>, step by step. See the bill example above.</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>Photos and PDFs</b> (bills, letters): the summary comes with the AI’s check, at no extra cost.</li>
+          <li><b>Texts and emails</b> that the free checks find safe: tap <b>📋 Summarize</b> if you want one. It uses 1 AI check, only when you tap.</li>
+          <li>Never for suspicious or scam ones: there is nothing to do with those except not answering, so no AI credit is spent on them.</li>
+        </ul>
+      </Section>
+
       <Section title="⭐ Saving important checks">
-        <p>Below any result, tap <b>⭐ Save this check</b> and add a note if you like ("Called my bank, all fine"). It keeps only the key facts: the verdict, who it pretended to be, the sender, phone numbers and websites, the main reasons, what to do, the date and the first words of the message. Never the whole message or the picture.</p>
+        <p>Below any result, tap <b>⭐ Save this check</b> and add a note if you like ("Called my bank, all fine"). It keeps only the key facts: the verdict, who it pretended to be, the sender, phone numbers and websites, the main reasons, what to do (and the summary, for safe ones), the date and the first words of the message. Never the whole message or the picture.</p>
         <p>Find them in the <b>⭐ Saved</b> tab, on your phone and your computer alike. Search by name, number, website or a word of your note. They stay until you delete them (History only keeps your last 50 checks, on this device).</p>
-        <p className="text-xs text-slate-500">Example (made up):</p>
+        <p className="text-xs text-stone-500">Example (made up):</p>
         <SavedCard s={SAVED} example />
       </Section>
 

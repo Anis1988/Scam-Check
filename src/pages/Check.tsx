@@ -85,13 +85,13 @@ export function Check({ open }: { open?: CheckResult | null }) {
     if (!last || !result) return;
     setBusy(true);
     const before = result;
-    setResult({ ...before, ai: 'pending', aiOffer: false });
+    setResult({ ...before, ai: 'pending', aiOffer: false, briefOffer: false });
     try {
       const done = await api.ai({ ...last, aiMode: 'always' });
       setResult(done);
       saveToHistory(done);
     } catch (e) {
-      setResult({ ...before, aiOffer: true });
+      setResult(before);
       toast('error', e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
@@ -106,22 +106,22 @@ export function Check({ open }: { open?: CheckResult | null }) {
     <div className="mx-auto max-w-2xl space-y-4">
       <section className="card space-y-3">
         <div>
-          <h1 className="text-2xl font-semibold">Is it a scam?</h1>
-          <p className="text-sm text-slate-400">Paste it or add a picture. You get ✅ Looks safe, ⚠️ Suspicious or 🚨 Likely scam, with the reasons.</p>
+          <h1 className="text-2xl font-extrabold">Is it a scam?</h1>
+          <p className="text-sm text-stone-500">Paste it or add a picture. You get ✅ Looks safe, ⚠️ Suspicious or 🚨 Likely scam, with the reasons.</p>
         </div>
         <div className="grid grid-cols-4 gap-1.5" role="tablist" aria-label="What are you checking?">
           {KINDS.map((k) => (
             <button key={k} role="tab" aria-selected={kind === k} onClick={() => setKind(k)}
-              className={`flex flex-col items-center gap-0.5 rounded-xl border px-1 py-2 text-xs transition ${kind === k ? 'border-emerald-300/60 bg-emerald-400/15 text-white' : 'border-white/10 bg-white/[0.03] text-slate-300'}`}>
+              className={`flex min-w-0 flex-col items-center gap-1 rounded-2xl border-2 px-0.5 py-2.5 text-[11px] font-bold transition sm:text-xs ${kind === k ? 'border-teal-600 bg-teal-50 text-teal-900 shadow-sm' : 'border-stone-200 bg-white text-stone-600'}`}>
               <span className="text-lg" aria-hidden="true">{KIND_LABEL[k].icon}</span>{KIND_LABEL[k].text}
             </button>
           ))}
         </div>
-        <p className="text-xs text-slate-400">{KIND_LABEL[kind].hint}</p>
+        <p className="text-xs text-stone-500">{KIND_LABEL[kind].hint}</p>
 
         {wantsFile && (
           <div className="flex flex-wrap gap-2">
-            <button className="btn-primary flex-1" onClick={() => fileInput.current?.click()}>📷 {kind === 'bill' ? 'Photo or PDF of the bill' : 'Choose a screenshot'}</button>
+            <button className="btn-coral flex-1" onClick={() => fileInput.current?.click()}>📷 {kind === 'bill' ? 'Photo or PDF of the bill' : 'Choose a screenshot'}</button>
           </div>
         )}
         <input ref={fileInput} type="file" className="hidden" accept={kind === 'email' ? '.eml,message/rfc822' : 'image/*,application/pdf,.eml'} onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ''; }} />
@@ -149,18 +149,27 @@ export function Check({ open }: { open?: CheckResult | null }) {
           <button className="btn-primary flex-1" disabled={busy || (!text.trim() && !file)} onClick={() => void run()}>{busy ? <><span className="spinner" /> Checking…</> : '🛡️ Check it'}</button>
           {(text || file || result) && <button className="btn" disabled={busy} onClick={reset}>Clear</button>}
         </div>
-        <p className="text-xs text-slate-500">Never open links or call numbers from a message you’re unsure about. This app only looks them up.</p>
-        {st?.ai && st.store && <p className="text-xs text-slate-400">🤖 AI checks left today: <b className="num">{left}</b> of {st.limit}. Free checks are unlimited.</p>}
+        <p className="text-xs text-stone-500">Never open links or call numbers from a message you’re unsure about. This app only looks them up.</p>
+        {st?.ai && st.store && <p className="text-xs text-stone-500">🤖 AI checks left today: <b className="num">{left}</b> of {st.limit}. Free checks are unlimited.</p>}
       </section>
       <div ref={resultRef} className="space-y-3">
         {result && <ResultCard r={result} />}
         {result?.aiOffer && result.ai !== 'pending' && last && (
           <div className="card space-y-2">
-            <p className="text-sm text-slate-300">The free checks aren’t sure about this one. Want a second opinion?</p>
+            <p className="text-sm text-stone-600">The free checks aren’t sure about this one. Want a second opinion?</p>
             <button className="btn-primary w-full" disabled={busy || left === 0} onClick={() => void askAi()}>
               🤖 Ask the AI {left !== null ? `(uses 1 of ${left} left today)` : ''}
             </button>
-            {left === 0 && <p className="text-xs text-amber-200">No AI checks left today. They come back tomorrow.</p>}
+            {left === 0 && <p className="text-xs text-amber-700">No AI checks left today. They come back tomorrow.</p>}
+          </div>
+        )}
+        {result?.briefOffer && result.ai !== 'pending' && last && (
+          <div className="card space-y-2">
+            <p className="text-sm text-stone-600">Looks safe. Want a short summary: what it is, the key info and what to do?</p>
+            <button className="btn w-full border-teal-600 text-teal-800" disabled={busy || left === 0} onClick={() => void askAi()}>
+              📋 Summarize {left !== null ? `(uses 1 of ${left} AI checks left today)` : '(uses 1 AI check)'}
+            </button>
+            {left === 0 && <p className="text-xs text-amber-700">No AI checks left today. They come back tomorrow.</p>}
           </div>
         )}
         {result && result.ai !== 'pending' && <SaveBox key={result.id} id={result.id} />}

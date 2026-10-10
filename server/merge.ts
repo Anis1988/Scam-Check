@@ -27,7 +27,9 @@ export function mergeAi(base: CheckResult, free: FreeResult, a: AiAnswer): Check
     links: free.links, phones: free.phones, sender: free.sender ?? base.sender,
     impersonating: a.impersonating.trim() || undefined,
     whatToDo: steps,
-    ai: 'done', aiNote: undefined, unchecked: undefined,
+    // The short summary is kept only when the final answer is "safe".
+    brief: verdict === 'safe' && a.brief.whatItIs.trim() ? { whatItIs: a.brief.whatItIs.trim(), keyInfo: a.brief.keyInfo.filter((k) => k.label.trim() && k.value.trim()).slice(0, 5), steps: a.brief.steps.filter((x) => x.trim()).slice(0, 3) } : undefined,
+    ai: 'done', aiNote: undefined, unchecked: undefined, aiOffer: undefined, briefOffer: undefined,
     preview: base.preview || a.readText.replace(/\s+/g, ' ').trim().slice(0, 140),
   };
 }

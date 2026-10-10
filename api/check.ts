@@ -61,7 +61,11 @@ export async function POST(req: Request): Promise<Response> {
     //    or "smart" when the free checks aren't already sure. With "ask" (the default), text only gets an
     //    "Ask the AI" button when the free checks aren't sure.
     const wantAi = b.aiMode === 'always' || (b.aiMode !== 'never' && !!b.fileHash) || (b.aiMode === 'smart' && base.score < 65);
-    if (b.aiMode === 'ask' && !wantAi && base.score < 65 && aiReady() && storeReady()) Object.assign(base, { aiOffer: true });
+    // With "ask": unsure -> an "Ask the AI" button; safe -> a "Summarize" button (both: 1 AI check, only if tapped).
+    if (b.aiMode === 'ask' && !wantAi && aiReady() && storeReady()) {
+      if (base.score >= 30 && base.score < 65) Object.assign(base, { aiOffer: true });
+      else if (base.score < 30) Object.assign(base, { briefOffer: true });
+    }
     let result: CheckResult = base;
     if (wantAi && !aiReady()) result = { ...base, aiNote: 'The AI check is not set up (ANTHROPIC_API_KEY in Vercel).' };
     else if (wantAi && !storeReady()) result = { ...base, aiNote: 'The AI check needs the free Upstash Redis storage (Vercel → Storage) to keep its daily limit.' };

@@ -21,6 +21,7 @@ function keyFacts(r: CheckResult, note: string): SavedItem {
     reasons: reasons.map((x) => x.slice(0, 120)),
     whatToDo: r.whatToDo.slice(0, 4).map((x) => x.slice(0, 240)),
     excerpt: r.preview.slice(0, 140),
+    brief: r.brief,
   };
 }
 

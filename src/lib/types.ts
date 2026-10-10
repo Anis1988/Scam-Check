@@ -40,6 +40,8 @@ export interface CheckResult {
   aiNote?: string;
   unchecked?: boolean; // a picture or PDF that couldn't be read (no AI): no verdict
   aiOffer?: boolean; // the free checks weren't sure: the app offers an "Ask the AI" button
+  briefOffer?: boolean; // safe, but no AI yet: the app offers a "Summarize" button (1 AI check)
+  brief?: Brief; // safe ones only: what it is, key info, what to do (from the same AI call)
   preview: string; // the start of the message, for the history list
   checkedAt: string;
 }
@@ -56,6 +58,13 @@ export const KIND_LABEL: Record<Kind, { icon: string; text: string; hint: string
   bill: { icon: '🧾', text: 'Bill', hint: 'Take a photo of the bill or invoice, or upload the PDF.' },
   screenshot: { icon: '📱', text: 'Screenshot', hint: 'Upload a screenshot of the message, pop-up or website.' },
 };
+
+/** For safe messages and documents: a short, plain summary. Never made for suspicious or scam ones (saves AI credit). */
+export interface Brief {
+  whatItIs: string;
+  keyInfo: { label: string; value: string }[];
+  steps: string[];
+}
 
 /** 0-29 safe, 30-64 suspicious, 65+ likely scam. */
 export const verdictOf = (score: number): Verdict => (score >= 65 ? 'scam' : score >= 30 ? 'suspicious' : 'safe');
@@ -78,4 +87,5 @@ export interface SavedItem {
   reasons: string[];
   whatToDo: string[];
   excerpt: string;
+  brief?: Brief;
 }
