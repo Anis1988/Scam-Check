@@ -15,4 +15,16 @@ Checks: known scam patterns, links (look-alike brands, domain age via RDAP, shor
    - `GOOGLE_SAFE_BROWSING_KEY` (optional, free): Google Cloud → enable "Safe Browsing API" → create an API key.
 4. Deployments → ⋯ → Redeploy (so the new variables are used), open the site, enter the access code.
 
-Local: `npx vercel dev`.
+## Run it on your computer
+
+Needs Node.js 22.
+
+```bash
+git clone https://github.com/Anis1988/Scam-Check.git
+cd Scam-Check
+npm install
+cp .env.example .env.local   # then open .env.local and fill in your keys
+npm run dev                  # http://localhost:5173
+```
+
+`npm run dev` runs the screens and the server functions (`api/`) together, no Vercel needed. Without Upstash keys in `.env.local`, the AI counter and ⭐ Saved are kept in a local file (`.local/store.json`).

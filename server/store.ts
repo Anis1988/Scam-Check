@@ -1,5 +1,6 @@
 import { Redis } from '@upstash/redis';
 import type { CheckResult, SavedItem } from '../src/lib/types';
+import { LocalStore } from './localStore';
 
 /**
  * Upstash Redis (Vercel → Storage → Upstash for Redis, free): check results for 7 days (the same message is
@@ -10,7 +11,8 @@ function db(): Redis | null {
   if (redis !== undefined) return redis;
   const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
-  redis = url && token ? new Redis({ url, token }) : null;
+  // npm run dev without Upstash keys: a small local file instead (set by vite.config.ts, never on Vercel).
+  redis = url && token ? new Redis({ url, token }) : process.env.SCAM_LOCAL_STORE === '1' ? (new LocalStore() as unknown as Redis) : null;
   return redis;
 }
 export const storeReady = () => !!db();
