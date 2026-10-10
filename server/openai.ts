@@ -78,3 +78,27 @@ export async function askOpenAI(p: FreeProvider, input: AiInput, cfg: AppSetting
   }
   return { ...loose(raw), by: modelName(p, model), note };
 }
+
+/** 🎙️ A recording turned into words by Groq's free Whisper (for the AIs that can't listen). */
+export async function transcribe(file: { mime: string; data: string }): Promise<string> {
+  const ext = ({ 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/ogg': 'ogg', 'audio/webm': 'webm', 'audio/flac': 'flac' } as Record<string, string>)[file.mime] ?? 'wav';
+  const form = new FormData();
+  form.append('file', new Blob([Buffer.from(file.data, 'base64')], { type: file.mime }), `recording.${ext}`);
+  form.append('model', 'whisper-large-v3-turbo');
+  form.append('response_format', 'json');
+  const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY!.trim()}` },
+    body: form,
+    signal: AbortSignal.timeout(90_000),
+  }).catch(() => { throw new Error('Groq (which turns the recording into words) couldn’t be reached: try again, or pick Gemini'); });
+  const j = (await res.json().catch(() => ({}))) as { text?: string; error?: { message?: string } };
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) throw new Error('Groq: the key isn’t valid (GROQ_API_KEY in Vercel), so the recording couldn’t be turned into words');
+    if (res.status === 429) throw new Error('Groq’s free allowance is used up for now, so the recording couldn’t be turned into words: pick Gemini');
+    throw new Error(`Groq couldn’t turn the recording into words: ${String(j.error?.message ?? `HTTP ${res.status}`).slice(0, 140)}`);
+  }
+  const text = (j.text ?? '').trim();
+  if (!text) throw new Error('No speech was heard in the recording');
+  return text.slice(0, 20_000);
+}

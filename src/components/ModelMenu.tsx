@@ -8,11 +8,14 @@ import { useStatus } from '../lib/useStatus';
  * tapping one uses it right away, just for this once (Settings stay as they are). Models not set up, with no checks
  * left today, or unable to do the job (e.g. search the web) are greyed out with the reason.
  */
+/** What a model must be able to take: pictures, a PDF, or a recording. */
+export type Need = 'pictures' | 'pdf' | 'audio';
+
 export function ModelMenu({ label, onPick, cannot, need, tried, example = false, primary = false }: {
   label: string;
   onPick?: (m: ModelChoice) => void;
   cannot?: (p: Provider) => string | null; // why this AI can't do the job, or null
-  need?: 'pictures' | 'pdf'; // what the model must be able to read
+  need?: Need; // what the model must be able to read (or hear)
   tried?: string; // the model that just failed (its name, as in "Checked by"): marked in the list
   example?: boolean;
   primary?: boolean;
@@ -63,7 +66,9 @@ export function ModelMenu({ label, onPick, cannot, need, tried, example = false,
               const u = st?.providers?.[o.provider];
               const ok = st ? !!u?.ready : true;
               const n = u && u.limit !== null ? Math.max(0, u.limit - u.used) : null;
-              const why = cannot?.(o.provider) ?? (need === 'pdf' && !o.reads.pdf ? 'can’t read PDFs' : need === 'pictures' && !o.reads.pictures ? 'can’t read pictures' : null);
+              // A recording: Gemini listens; the others need Groq (turns it into words) or Gemini to be set up.
+              const hears = o.provider === 'gemini' || !st || !!st.providers?.groq?.ready || !!st.providers?.gemini?.ready;
+              const why = cannot?.(o.provider) ?? (need === 'pdf' && !o.reads.pdf ? 'can’t read PDFs' : need === 'pictures' && !o.reads.pictures ? 'can’t read pictures' : need === 'audio' && !hears ? 'can’t listen' : null);
               const failed = !!tried && modelName(o.provider, o.id) === tried;
               const can = ok && n !== 0 && !why;
               return (

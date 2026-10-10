@@ -1,6 +1,6 @@
 /** Shared between the app and the server functions (api/). */
 
-export type Kind = 'email' | 'text' | 'bill' | 'screenshot' | 'qr';
+export type Kind = 'email' | 'text' | 'bill' | 'screenshot' | 'qr' | 'voicemail';
 export type Verdict = 'safe' | 'suspicious' | 'scam';
 export type Source = 'pattern' | 'link' | 'phone' | 'sender' | 'list' | 'ai';
 export type AiState = 'off' | 'pending' | 'done' | 'failed' | 'limit' | 'skipped';
@@ -63,6 +63,7 @@ export const KIND_LABEL: Record<Kind, { icon: string; text: string; hint: string
   text: { icon: '💬', text: 'Text', hint: 'Paste the text message (SMS, WhatsApp, Facebook…) and, if you have it, the number it came from.' },
   bill: { icon: '🧾', text: 'Bill', hint: 'Take a photo of the bill or invoice, or upload the PDF.' },
   screenshot: { icon: '📱', text: 'Screenshot', hint: 'Upload a screenshot of the message, pop-up or website.' },
+  voicemail: { icon: '🎙️', text: 'Voicemail', hint: 'A voicemail or a recorded call (MP3, M4A, WAV…). The AI listens to what the caller says and asks for: Gemini directly, the others after Groq turns it into words (free). Up to 3 minutes.' },
   qr: { icon: '🔳', text: 'QR code', hint: 'Take a photo of the QR code (parking meter, letter, flyer). It is read on your phone, for free, and its link is checked without opening it.' },
 };
 

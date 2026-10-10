@@ -26,6 +26,18 @@ const SAFE: CheckResult = {
   whatToDo: [],
 };
 
+// A made-up voicemail for the 🎙️ example.
+const VOICEMAIL: CheckResult = {
+  id: 'example-vm', kind: 'voicemail', verdict: 'scam', score: 94, ai: 'done', aiBy: 'Gemini Flash (free)', checkedAt: at, preview: 'Voicemail', title: 'Fake IRS call',
+  summary: 'A recorded voice says it is the IRS and asks you to call back today about a lawsuit, or be arrested. The IRS never calls like this.',
+  signals: [
+    { source: 'ai', level: 'bad', weight: 30, title: 'Pretends to be the IRS and threatens arrest' },
+    { source: 'phone', level: 'warn', weight: 10, title: '(202) 555-0147 is an internet (VoIP) number' },
+  ],
+  links: [], phones: [{ number: '(202) 555-0147', level: 'warn', note: 'US internet (VoIP) number' }],
+  whatToDo: ['Don’t call back.', 'The IRS writes to you by post first. If unsure, call the number on irs.gov yourself.', 'Block the number.'],
+};
+
 // Made-up bills for the 📅 Bills example.
 const BILLS: Bill[] = [
   { key: 'a', id: 'a', company: 'Duke Energy', amount: 142.18, dueDate: '2026-10-24', account: '4821', checkedAt: at },
@@ -69,9 +81,9 @@ const COMPANY: CompanyInfo = {
 };
 
 const SECTIONS = [
-  ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['video', '🎬 Video: is it true?'], ['company', '🏢 Look up a company'], ['lookup', '⚡ Quick look-up'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
+  ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['voicemail', '🎙️ Voicemails and calls'], ['video', '🎬 Video: is it true?'], ['company', '🏢 Look up a company'], ['lookup', '⚡ Quick look-up'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
   ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Which AI'], ['recheck', '↻ Re-check'], ['failed', '⚠️ When an AI fails'], ['look', '🌙 Dark mode'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
-  ['share', 'Share from your phone'], ['scam', 'If it’s a scam'], ['privacy', 'Privacy and cost'],
+  ['share', 'Share from your phone'], ['iphone', '🍏 iPhone'], ['scam', 'If it’s a scam'], ['privacy', 'Privacy and cost'],
 ] as const;
 type Id = (typeof SECTIONS)[number][0];
 
@@ -148,6 +160,18 @@ export function Guide() {
             </li>
           ))}
         </ul>
+      </Section>
+
+      <Section id="voicemail">
+        <p>Got a strange voicemail or a call you recorded (“IRS”, “your bank”, “your grandson is in jail”, “Medicare”)? Pick <b>🎙️ Voicemail</b> on Check and add the recording (MP3, M4A, WAV, OGG…). On a phone: open the voicemail and tap <b>Share</b> or <b>Save</b> first. On a computer you can drag it in.</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>Gemini</b> listens to it directly. <b>Claude, Groq, OpenRouter</b> can’t hear, so <b>Groq</b> first turns what is said into words for free (needs the free <code>GROQ_API_KEY</code>), then your model checks them.</li>
+          <li>Phone numbers and websites the caller says are checked too (free), like in a text.</li>
+          <li>Up to <b>3 minutes</b> each: the recording is made small on your phone first (phone quality), and a longer one keeps its start. Each recording uses 1 AI check.</li>
+          <li>Tick <b>Keep the original</b> when saving to play it again later from ⭐ Saved.</li>
+        </ul>
+        <p className="text-xs text-stone-500">Example (made up):</p>
+        <ResultCard r={VOICEMAIL} example />
       </Section>
 
       <Section id="video">
@@ -321,6 +345,16 @@ export function Guide() {
       <Section id="share">
         <p>Add the app to your home screen (in Chrome: ⋮ → Install app). Then, in Messages or WhatsApp, long-press a message → <b>Share</b> → <b>Scam Check</b>: it opens on Check with the message shown in a card, ready to check.</p>
         <p>Share a <b>YouTube or TikTok</b> video to the app and it opens the <b>🎬 Video</b> tab and checks it.</p>
+      </Section>
+
+      <Section id="iphone">
+        <p>There is no App Store app (Apple needs a paid developer account and a Mac for that), but on an iPhone the website works like an app:</p>
+        <ol className="list-decimal space-y-1.5 pl-5">
+          <li>Open <b>scamcheck-anis.vercel.app</b> in <b>Safari</b>.</li>
+          <li>Tap the <b>Share</b> button (the square with an arrow) → <b>Add to Home Screen</b> → <b>Add</b>.</li>
+          <li>Open <b>Scam Check</b> from its new icon: it opens full screen, without Safari’s bars. Enter your access code once.</li>
+        </ol>
+        <p>Everything works the same (Check, Video, Look up, Saved, dark mode…) and it shares your saved checks, settings and AI limit. The one thing an iPhone doesn’t allow for websites is <b>Share → Scam Check</b> from other apps: save the screenshot or recording first, then add it in Scam Check.</p>
       </Section>
 
       <Section id="scam">

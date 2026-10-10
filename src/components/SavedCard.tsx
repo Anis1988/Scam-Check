@@ -21,7 +21,7 @@ export function SavedCard({ s, onNote, onDelete, onChange, example = false }: { 
         <span className="min-w-0 flex-1">
           {s.name && <span className="block truncate font-display text-base font-semibold text-stone-900">{s.name}</span>}
           {s.aiBy && <span className="mt-0.5 block"><CheckedBy ai="done" aiBy={s.aiBy} /></span>}
-          <span className="mt-0.5 flex flex-wrap items-center gap-1.5"><VerdictChip verdict={s.verdict} unchecked={s.unchecked} />{s.file && <span className="chip border-stone-200 bg-white/70 text-stone-600">{s.file.mime === 'application/pdf' ? '📄 PDF' : '🖼️ Picture'}</span>}</span>
+          <span className="mt-0.5 flex flex-wrap items-center gap-1.5"><VerdictChip verdict={s.verdict} unchecked={s.unchecked} />{s.file && <span className="chip border-stone-200 bg-white/70 text-stone-600">{s.file.mime === 'application/pdf' ? '📄 PDF' : s.file.mime.startsWith('audio/') ? '🎙️ Recording' : '🖼️ Picture'}</span>}</span>
           <span className="mt-1 block text-sm text-stone-700">{s.impersonating ? `Pretended to be ${s.impersonating}` : s.brief?.whatItIs || s.excerpt || KIND_LABEL[s.kind].text}</span>
           {s.note && <span className="block text-sm text-teal-800">📝 {s.note}</span>}
           <span className="block text-xs text-stone-500">Checked {when(s.checkedAt)}</span>
@@ -77,6 +77,8 @@ function Original({ s, example, onRemoved }: { s: SavedItem; example: boolean; o
   const [busy, setBusy] = useState('');
   useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
   const isPdf = s.file!.mime === 'application/pdf';
+  const isRec = s.file!.mime.startsWith('audio/');
+  const what = isPdf ? 'PDF' : isRec ? 'recording' : 'picture';
   const load = async () => {
     if (file) return file;
     const f = await api.file(s.id);
@@ -91,14 +93,14 @@ function Original({ s, example, onRemoved }: { s: SavedItem; example: boolean; o
   const kb = Math.max(1, Math.round(s.file!.size / 1024));
   return (
     <div className="panel space-y-2">
-      <p className="break-all text-sm font-semibold text-stone-700">{isPdf ? '📄' : '🖼️'} {s.file!.name} <span className="font-normal text-stone-500">· {kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`}</span></p>
-      {url && (isPdf
+      <p className="break-all text-sm font-semibold text-stone-700">{isPdf ? '📄' : isRec ? '🎙️' : '🖼️'} {s.file!.name} <span className="font-normal text-stone-500">· {kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`}</span></p>
+      {url && (isRec ? <audio controls src={url} className="w-full" /> : isPdf
         ? <a className="btn-ghost" href={url} target="_blank" rel="noopener noreferrer">Open the PDF ↗</a>
         : <img src={url} alt="The saved picture" className="rise max-h-[70vh] w-full rounded-xl border border-white bg-white object-contain shadow-[0_0_0_1px_rgba(31,66,71,0.08)]" />)}
       <div className="flex flex-wrap gap-2">
-        {!url && <button className="btn" disabled={!!busy} onClick={() => void run('show', async () => setUrl(fileLink(await load())))}>{busy === 'show' ? <><span className="spinner" /> Loading…</> : isPdf ? '👁 View the PDF' : '👁 View the picture'}</button>}
+        {!url && <button className="btn" disabled={!!busy} onClick={() => void run('show', async () => setUrl(fileLink(await load())))}>{busy === 'show' ? <><span className="spinner" /> Loading…</> : isPdf ? '👁 View the PDF' : isRec ? '▶ Play the recording' : '👁 View the picture'}</button>}
         <button className="btn" disabled={!!busy} onClick={() => void run('dl', async () => { const f = await load(); downloadFile(s.name ? { ...f, name: s.name } : f); })}>{busy === 'dl' ? <><span className="spinner" /> …</> : '⬇ Download'}</button>
-        <button className="btn" disabled={!!busy} onClick={() => !example && window.confirm(`Delete the ${isPdf ? 'PDF' : 'picture'}? The key facts and your note stay.`) && void run('rm', async () => { onRemoved?.(await api.removeFile(s.id)); toast('success', 'Deleted.'); })}>🗑 Delete {isPdf ? 'PDF' : 'picture'}</button>
+        <button className="btn" disabled={!!busy} onClick={() => !example && window.confirm(`Delete the ${what}? The key facts and your note stay.`) && void run('rm', async () => { onRemoved?.(await api.removeFile(s.id)); toast('success', 'Deleted.'); })}>🗑 Delete {what}</button>
       </div>
     </div>
   );
