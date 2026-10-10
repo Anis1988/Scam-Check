@@ -1,4 +1,4 @@
-import type { AiMode, CheckResult, Kind } from './types';
+import type { AiMode, CheckResult, Kind, SavedItem } from './types';
 
 const CODE_KEY = 'sc.accessCode';
 export const getCode = (): string => { try { return localStorage.getItem(CODE_KEY) ?? ''; } catch { return ''; } };
@@ -39,10 +39,15 @@ export const api = {
   ai: (b: CheckInput) =>
     call<CheckResult>('/api/ai', { method: 'POST', body: JSON.stringify({ kind: b.kind, text: b.text || undefined, from: b.from || undefined, file: b.file ? { mime: b.file.mime, data: b.file.data } : undefined, aiMode: b.aiMode }) }),
   result: (id: string) => call<CheckResult>(`/api/check?id=${encodeURIComponent(id)}`),
+  saved: () => call<SavedItem[]>('/api/saved'),
+  save: (id: string, note: string) => call<SavedItem>('/api/saved', { method: 'POST', body: JSON.stringify({ action: 'save', id, note }) }),
+  setNote: (id: string, note: string) => call<SavedItem>('/api/saved', { method: 'POST', body: JSON.stringify({ action: 'note', id, note }) }),
+  unsave: (id: string) => call<{ ok: boolean }>('/api/saved', { method: 'POST', body: JSON.stringify({ action: 'delete', id }) }),
 };
 
 /**
- * Pictures are made smaller on the phone first (max 1600 px, JPEG), so they upload fast and stay under the limit.
+ * Pictures are made smaller on the phone first (max 1400 px, JPEG): fast to upload and fewer AI credits (a picture's
+ * cost grows with its size), while text in screenshots stays readable.
  * PDFs are sent as they are (4 MB max).
  */
 export async function readUpload(f: File): Promise<Upload> {
@@ -53,12 +58,12 @@ export async function readUpload(f: File): Promise<Upload> {
   if (/\.eml$/i.test(f.name) || f.type === 'message/rfc822') throw new Error('EML');
   if (!f.type.startsWith('image/') && !/\.(heic|heif|jpe?g|png|webp|gif)$/i.test(f.name)) throw new Error('Choose a picture (photo or screenshot) or a PDF.');
   const img = await loadImage(f);
-  const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+  const k = Math.min(1, 1400 / Math.max(img.width, img.height));
   const c = document.createElement('canvas');
   c.width = Math.round(img.width * k);
   c.height = Math.round(img.height * k);
   c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
-  const url = c.toDataURL('image/jpeg', 0.85);
+  const url = c.toDataURL('image/jpeg', 0.8);
   return { mime: 'image/jpeg', data: url.split(',')[1], name: f.name, preview: url };
 }
 

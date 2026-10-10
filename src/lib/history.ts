@@ -15,5 +15,5 @@ export function clearHistory(): void {
 }
 
 const MODE_KEY = 'sc.aiMode';
-export const getAiMode = (): AiMode => { try { const m = localStorage.getItem(MODE_KEY); return m === 'always' || m === 'never' ? m : 'smart'; } catch { return 'smart'; } };
+export const getAiMode = (): AiMode => { try { const m = localStorage.getItem(MODE_KEY); return m === 'smart' || m === 'always' || m === 'never' ? m : 'ask'; } catch { return 'ask'; } };
 export const setAiMode = (m: AiMode) => { try { localStorage.setItem(MODE_KEY, m); } catch { /* ignore */ } };

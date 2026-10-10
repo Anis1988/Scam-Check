@@ -4,8 +4,11 @@ export type Kind = 'email' | 'text' | 'bill' | 'screenshot';
 export type Verdict = 'safe' | 'suspicious' | 'scam';
 export type Source = 'pattern' | 'link' | 'phone' | 'sender' | 'ai';
 export type AiState = 'off' | 'pending' | 'done' | 'failed' | 'limit' | 'skipped';
-/** Smart: AI only when the free checks aren't already sure. Always / never: per device, in Settings. */
-export type AiMode = 'smart' | 'always' | 'never';
+/**
+ * ask (default, saves AI credit): photos and PDFs automatically, text only when you tap "Ask the AI".
+ * smart: also text when the free checks aren't sure. always / never. Per device, in Settings.
+ */
+export type AiMode = 'ask' | 'smart' | 'always' | 'never';
 
 /** One reason for (or against) the verdict. weight > 0 adds risk, < 0 is a good sign. */
 export interface Signal {
@@ -36,6 +39,7 @@ export interface CheckResult {
   ai: AiState;
   aiNote?: string;
   unchecked?: boolean; // a picture or PDF that couldn't be read (no AI): no verdict
+  aiOffer?: boolean; // the free checks weren't sure: the app offers an "Ask the AI" button
   preview: string; // the start of the message, for the history list
   checkedAt: string;
 }
@@ -55,3 +59,23 @@ export const KIND_LABEL: Record<Kind, { icon: string; text: string; hint: string
 
 /** 0-29 safe, 30-64 suspicious, 65+ likely scam. */
 export const verdictOf = (score: number): Verdict => (score >= 65 ? 'scam' : score >= 30 ? 'suspicious' : 'safe');
+
+/** A check you saved (⭐): only the key facts, kept on the server until you delete it. Never the full message or picture. */
+export interface SavedItem {
+  id: string;
+  savedAt: string;
+  checkedAt: string;
+  note: string;
+  kind: Kind;
+  verdict: Verdict;
+  unchecked?: boolean;
+  score: number;
+  summary: string;
+  impersonating?: string;
+  sender?: { name?: string; address?: string };
+  links: { domain: string; note: string; level: Signal['level'] }[];
+  phones: { number: string; note: string; level: Signal['level'] }[];
+  reasons: string[];
+  whatToDo: string[];
+  excerpt: string;
+}

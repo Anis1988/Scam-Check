@@ -5,9 +5,10 @@ import type { AiMode } from '../lib/types';
 import { Card, Field } from '../components/ui';
 
 const MODES: { id: AiMode; name: string; hint: string }[] = [
-  { id: 'smart', name: 'Smart (recommended)', hint: 'The AI looks only when the free checks aren’t already sure it’s a scam, and always for pictures and PDFs.' },
+  { id: 'ask', name: 'Save credits (recommended)', hint: 'Photos and PDFs go to the AI automatically (it’s the only way to read them). Texts and emails only when you tap “Ask the AI”.' },
+  { id: 'smart', name: 'Smart', hint: 'Also asks the AI by itself about texts and emails when the free checks aren’t sure.' },
   { id: 'always', name: 'Always', hint: 'Every check gets the AI’s opinion too (uses more of the daily AI limit).' },
-  { id: 'never', name: 'Never', hint: 'Free checks only. Pictures and PDFs can’t be read without the AI.' },
+  { id: 'never', name: 'Never', hint: 'Free checks only. Pictures and PDFs can’t be read without the AI, and no “Ask the AI” button.' },
 ];
 
 export function Settings() {

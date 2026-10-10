@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { Toasts } from './components/ui';
 import { Check } from './pages/Check';
 import { History } from './pages/History';
+import { Saved } from './pages/Saved';
 import { Guide } from './pages/Guide';
 import { Settings } from './pages/Settings';
 import { getCode, setCode } from './lib/api';
 import type { CheckResult } from './lib/types';
 
-const TABS = ['Check', 'History', 'Guide', 'Settings'] as const;
+const TABS = ['Check', 'Saved', 'History', 'Guide', 'Settings'] as const;
 type Tab = (typeof TABS)[number];
 
 function Logo() {
@@ -35,7 +36,7 @@ function AccessGate({ onDone }: { onDone: () => void }) {
 
 export default function App() {
   const path = window.location.pathname;
-  const [tab, setTab] = useState<Tab>(path.startsWith('/history') ? 'History' : path.startsWith('/guide') ? 'Guide' : path.startsWith('/settings') ? 'Settings' : 'Check');
+  const [tab, setTab] = useState<Tab>(path.startsWith('/history') ? 'History' : path.startsWith('/saved') ? 'Saved' : path.startsWith('/guide') ? 'Guide' : path.startsWith('/settings') ? 'Settings' : 'Check');
   const [hasCode, setHasCode] = useState(!!getCode());
   const [open, setOpen] = useState<CheckResult | null>(null);
   useEffect(() => {
@@ -54,16 +55,16 @@ export default function App() {
       <header className="sticky top-0 z-40 border-b border-white/10 bg-ink-950/75 backdrop-blur-xl" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="mx-auto flex h-14 max-w-3xl items-center gap-2 px-3 sm:px-4">
           <Logo />
-          <span className="hidden font-display text-lg font-semibold tracking-tight min-[420px]:inline">Scam Check</span>
+          <span className="hidden font-display text-lg font-semibold tracking-tight sm:inline">Scam Check</span>
           <nav className="ml-auto flex gap-0.5" aria-label="Main">
             {TABS.map((t) => (
-              <button key={t} onClick={() => go(t)} aria-current={tab === t ? 'page' : undefined} className={`rounded-lg px-2.5 py-1.5 text-sm transition ${tab === t ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-slate-100'}`}>{t}</button>
+              <button key={t} onClick={() => go(t)} aria-current={tab === t ? 'page' : undefined} className={`rounded-lg px-2 py-1.5 text-sm transition sm:px-2.5 ${tab === t ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-slate-100'}`}>{t}</button>
             ))}
           </nav>
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-3 pb-12 pt-4 sm:px-4">
-        {tab === 'Guide' ? <Guide /> : !hasCode ? <AccessGate onDone={() => setHasCode(true)} /> : tab === 'Check' ? <Check open={open} /> : tab === 'History' ? <History onOpen={(r) => (setOpen(r), go('Check'))} /> : <Settings />}
+        {tab === 'Guide' ? <Guide /> : !hasCode ? <AccessGate onDone={() => setHasCode(true)} /> : tab === 'Check' ? <Check open={open} /> : tab === 'Saved' ? <Saved /> : tab === 'History' ? <History onOpen={(r) => (setOpen(r), go('Check'))} /> : <Settings />}
       </main>
     </div>
   );

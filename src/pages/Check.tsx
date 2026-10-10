@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, readUpload, type Upload } from '../lib/api';
+import { api, readUpload, type CheckInput, type Status, type Upload } from '../lib/api';
 import { getAiMode, saveToHistory } from '../lib/history';
 import { KIND_LABEL, type CheckResult, type Kind } from '../lib/types';
 import { ResultCard } from '../components/ResultCard';
+import { SaveBox } from '../components/SaveBox';
 import { toast } from '../components/ui';
 
 const KINDS = Object.keys(KIND_LABEL) as Kind[];
@@ -25,6 +26,12 @@ export function Check({ open }: { open?: CheckResult | null }) {
   const [result, setResult] = useState<CheckResult | null>(open ?? null);
   const resultRef = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  // What was checked last (to ask the AI about it with one tap), and today's AI credits.
+  const [last, setLast] = useState<CheckInput | null>(null);
+  const [st, setSt] = useState<Status | null>(null);
+  const refreshCredits = () => void api.status().then(setSt, () => undefined);
+  useEffect(refreshCredits, []);
+  const left = st ? Math.max(0, st.limit - st.used) : null;
   useEffect(() => setResult(open ?? null), [open]);
   // A check from History that was still waiting for the AI (the app was closed): see if its answer was saved.
   useEffect(() => {
@@ -55,6 +62,7 @@ export function Check({ open }: { open?: CheckResult | null }) {
     try {
       const input = { kind, text, from, file: file ?? undefined, aiMode: getAiMode() };
       const r = await api.check(input);
+      setLast(input);
       setResult(r);
       saveToHistory(r);
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
@@ -63,6 +71,7 @@ export function Check({ open }: { open?: CheckResult | null }) {
         const done = await api.ai(input).catch((e) => ({ ...r, ai: 'failed' as const, aiNote: `The AI check failed (${e instanceof Error ? e.message : e}). The result above is from the free checks.` }));
         setResult(done);
         saveToHistory(done);
+        refreshCredits();
       }
     } catch (e) {
       toast('error', e instanceof Error ? e.message : String(e));
@@ -71,7 +80,26 @@ export function Check({ open }: { open?: CheckResult | null }) {
     }
   };
 
-  const reset = () => (setText(''), setFrom(''), setFile(null), setResult(null));
+  /** The "Ask the AI" button: uses 1 of today's AI checks, only when you tap it. */
+  const askAi = async () => {
+    if (!last || !result) return;
+    setBusy(true);
+    const before = result;
+    setResult({ ...before, ai: 'pending', aiOffer: false });
+    try {
+      const done = await api.ai({ ...last, aiMode: 'always' });
+      setResult(done);
+      saveToHistory(done);
+    } catch (e) {
+      setResult({ ...before, aiOffer: true });
+      toast('error', e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+      refreshCredits();
+    }
+  };
+
+  const reset = () => (setText(''), setFrom(''), setFile(null), setResult(null), setLast(null));
   const wantsFile = kind === 'bill' || kind === 'screenshot';
 
   return (
@@ -122,8 +150,21 @@ export function Check({ open }: { open?: CheckResult | null }) {
           {(text || file || result) && <button className="btn" disabled={busy} onClick={reset}>Clear</button>}
         </div>
         <p className="text-xs text-slate-500">Never open links or call numbers from a message you’re unsure about. This app only looks them up.</p>
+        {st?.ai && st.store && <p className="text-xs text-slate-400">🤖 AI checks left today: <b className="num">{left}</b> of {st.limit}. Free checks are unlimited.</p>}
       </section>
-      <div ref={resultRef}>{result && <ResultCard r={result} />}</div>
+      <div ref={resultRef} className="space-y-3">
+        {result && <ResultCard r={result} />}
+        {result?.aiOffer && result.ai !== 'pending' && last && (
+          <div className="card space-y-2">
+            <p className="text-sm text-slate-300">The free checks aren’t sure about this one. Want a second opinion?</p>
+            <button className="btn-primary w-full" disabled={busy || left === 0} onClick={() => void askAi()}>
+              🤖 Ask the AI {left !== null ? `(uses 1 of ${left} left today)` : ''}
+            </button>
+            {left === 0 && <p className="text-xs text-amber-200">No AI checks left today. They come back tomorrow.</p>}
+          </div>
+        )}
+        {result && result.ai !== 'pending' && <SaveBox key={result.id} id={result.id} />}
+      </div>
     </div>
   );
 }

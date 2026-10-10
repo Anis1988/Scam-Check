@@ -11,7 +11,7 @@ export const Body = z.object({
   text: z.string().max(100_000).optional(),
   from: z.string().trim().max(60).optional(),
   fileHash: z.string().regex(/^[a-f0-9]{64}$/).optional(), // SHA-256 of the picture/PDF (the file itself only goes to /api/ai)
-  aiMode: z.enum(['smart', 'always', 'never']).default('smart'),
+  aiMode: z.enum(['ask', 'smart', 'always', 'never']).default('ask'),
 });
 export type CheckBody = z.infer<typeof Body>;
 
@@ -47,17 +47,21 @@ export async function POST(req: Request): Promise<Response> {
     const text = (b.text ?? '').trim();
     if (!text && !b.fileHash) return json({ error: 'Paste the message or add a picture first.' }, 400);
     const id = idOf(b);
-    // Checked in the last 7 days: the saved answer (no new AI cost), unless AI is now asked for.
+    // Checked in the last 7 days: the saved answer (no new AI cost), unless AI is now asked for
+    // or the AI failed / was over the limit last time (then it may try again).
     const cached = await getResult(id).catch(() => null);
-    if (cached && (cached.ai === 'done' || b.aiMode !== 'always')) return json(cached);
+    if (cached && (cached.ai === 'done' || (b.aiMode !== 'always' && cached.ai !== 'failed' && cached.ai !== 'limit'))) return json(cached);
 
     // 1. Free checks first: patterns, links, phone numbers, email sender.
     const free = text ? await freeChecks(text, { from: b.from }) : { text: '', signals: [], links: [], phones: [] };
     const base = buildResult(id, b.kind, text || (b.kind === 'bill' ? 'Bill (picture or PDF)' : 'Screenshot'), free, 'off');
     if (b.fileHash && !text) Object.assign(base, { unchecked: true, summary: 'Pictures and PDFs are read by the AI check.' });
 
-    // 2. The AI, only when useful: pictures/PDFs, "always", or when the free checks aren't already sure it's a scam.
-    const wantAi = b.aiMode === 'always' || (b.aiMode === 'smart' && (!!b.fileHash || base.score < 65));
+    // 2. The AI, only when needed (it costs money): pictures/PDFs (it is the only way to read them), "always",
+    //    or "smart" when the free checks aren't already sure. With "ask" (the default), text only gets an
+    //    "Ask the AI" button when the free checks aren't sure.
+    const wantAi = b.aiMode === 'always' || (b.aiMode !== 'never' && !!b.fileHash) || (b.aiMode === 'smart' && base.score < 65);
+    if (b.aiMode === 'ask' && !wantAi && base.score < 65 && aiReady() && storeReady()) Object.assign(base, { aiOffer: true });
     let result: CheckResult = base;
     if (wantAi && !aiReady()) result = { ...base, aiNote: 'The AI check is not set up (ANTHROPIC_API_KEY in Vercel).' };
     else if (wantAi && !storeReady()) result = { ...base, aiNote: 'The AI check needs the free Upstash Redis storage (Vercel → Storage) to keep its daily limit.' };

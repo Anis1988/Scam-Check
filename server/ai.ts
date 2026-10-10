@@ -51,12 +51,13 @@ export async function askAi(input: { kind: Kind; text?: string; file?: { mime: s
   const client = new Anthropic({ timeout: 120_000, maxRetries: 2 });
   const res = await client.beta.messages.parse({
     model: MODEL,
-    max_tokens: 8000,
+    max_tokens: 4000,
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default', // if the main model declines, Anthropic retries on its recommended fallback model
     system: SYSTEM,
     messages: [{ role: 'user', content }],
-    output_config: { effort: 'medium', format: betaZodOutputFormat(Answer) },
+    // Low effort: a short, focused answer keeps each check cheap (a few cents at most).
+    output_config: { effort: 'low', format: betaZodOutputFormat(Answer) },
   });
   if (res.stop_reason === 'refusal' || !res.parsed_output) throw new Error(`The AI gave no usable answer (${res.stop_reason}).`);
   return res.parsed_output;

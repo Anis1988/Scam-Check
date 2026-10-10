@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { ResultCard } from '../components/ResultCard';
-import type { CheckResult } from '../lib/types';
+import { SavedCard } from '../components/SavedCard';
+import type { CheckResult, SavedItem } from '../lib/types';
 
 function Section({ title, children, open: start = false }: { title: string; children: ReactNode; open?: boolean }) {
   const [open, setOpen] = useState(start);
@@ -41,6 +42,15 @@ const SAFE: CheckResult = {
   whatToDo: ['No warning signs found, but stay careful: scams change all the time.', 'Never share passwords or one-time codes, even when a message looks real.'],
 };
 
+const SAVED: SavedItem = {
+  id: 'example3', savedAt: at, checkedAt: at, note: 'Called Duke Energy at the number on my bill: my account is fine.', kind: 'text', verdict: 'scam', score: 91,
+  summary: 'This text pretends to be Duke Energy and demands gift cards to stop a shut-off.', impersonating: 'Duke Energy',
+  links: [], phones: [{ number: '+1 876 555 0199', note: 'In Jamaica: calling back is an expensive international call', level: 'bad' }],
+  reasons: ['Asks for gift cards', 'Utility shut-off threat', 'Pressure to act fast'],
+  whatToDo: ['Don’t call the number or pay.', 'Check your account in the Duke Energy app or at duke-energy.com.'],
+  excerpt: 'Duke Energy: your power will be disconnected in 30 minutes unless…',
+};
+
 export function Guide() {
   return (
     <div className="mx-auto max-w-2xl space-y-3">
@@ -53,7 +63,7 @@ export function Guide() {
         <ol className="list-decimal space-y-1.5 pl-5">
           <li><b>Pick what you got:</b> ✉️ Email, 💬 Text, 🧾 Bill or 📱 Screenshot.</li>
           <li><b>Paste it or add a picture.</b> For a text, you can also type the number it came from.</li>
-          <li>Tap <b>🛡️ Check it</b>. You get one of three answers, with the reasons and what to do:
+          <li>Tap <b>🛡️ Check it</b>. The free checks answer at once; photos and PDFs also go to the AI (it’s the only way to read them). You get one of three answers, with the reasons and what to do:
             <span className="mt-1 block">✅ <b>Looks safe</b> · ⚠️ <b>Suspicious</b> (check it another way) · 🚨 <b>Likely scam</b></span>
           </li>
         </ol>
@@ -67,10 +77,22 @@ export function Guide() {
           <li>🌐 <b>Links and websites</b> (free): a site pretending to be a company (paypa1-login.com is not PayPal), how new the website is (brand-new sites are a big warning), shortened links, unusual endings like .top or .xyz, and Google’s list of dangerous sites if you turned it on. Links are only looked up, never opened.</li>
           <li>📞 <b>Phone numbers</b> (free): country, mobile / landline / internet (VoIP) / premium-rate, and Caribbean numbers that look American but cost a lot to call back ("one-ring" scam).</li>
           <li>✉️ <b>Who sent the email</b> (free): the real sender address, a different reply address, a link that shows one website but opens another, and whether the email passed the sender checks. Best with the .eml file (in Gmail: ⋮ → Download message; in Outlook: Save as).</li>
-          <li>🤖 <b>AI analysis</b> (paid, a daily limit): reads pictures and PDFs, and gives its own opinion with the reasons. With <b>Smart</b> (Settings), it only runs when the free checks aren’t already sure, so most obvious scams cost nothing.</li>
+          <li>🤖 <b>AI analysis</b> (paid, 5 a day by default): reads photos and PDFs by itself. For texts and emails it only runs when <b>you</b> tap the button below a result where the free checks weren’t sure, so most checks cost nothing. The Check screen shows how many AI checks are left today. You can change this in Settings.</li>
         </ul>
+        <p className="text-xs text-slate-500">The button you see when the free checks aren’t sure (example, does nothing here):</p>
+        <div className="card space-y-2">
+          <p className="text-sm text-slate-300">The free checks aren’t sure about this one. Want a second opinion?</p>
+          <button className="btn-primary w-full" tabIndex={-1}>🤖 Ask the AI (uses 1 of 4 left today)</button>
+        </div>
         <p className="text-xs text-slate-500">Example of a safe one (made up):</p>
         <ResultCard r={SAFE} />
+      </Section>
+
+      <Section title="⭐ Saving important checks">
+        <p>Below any result, tap <b>⭐ Save this check</b> and add a note if you like ("Called my bank, all fine"). It keeps only the key facts: the verdict, who it pretended to be, the sender, phone numbers and websites, the main reasons, what to do, the date and the first words of the message. Never the whole message or the picture.</p>
+        <p>Find them in the <b>⭐ Saved</b> tab, on your phone and your computer alike. Search by name, number, website or a word of your note. They stay until you delete them (History only keeps your last 50 checks, on this device).</p>
+        <p className="text-xs text-slate-500">Example (made up):</p>
+        <SavedCard s={SAVED} example />
       </Section>
 
       <Section title="Bills and screenshots">
@@ -92,9 +114,9 @@ export function Guide() {
 
       <Section title="Privacy and cost">
         <ul className="list-disc space-y-1.5 pl-5">
-          <li>Your history is saved on <b>this device only</b>. The server keeps only the result for 7 days, so checking the same message again is instant and free; the message itself is deleted after the check.</li>
+          <li>Your history is saved on <b>this device only</b>. The server keeps only the result for 7 days, so checking the same message again is instant and free (no AI credit); the message itself is never stored. ⭐ Saved checks keep only their key facts.</li>
           <li>Pictures are made smaller on your phone before upload, and they’re only sent for the AI check, never stored.</li>
-          <li>The AI has a daily limit (set by <code>AI_DAILY_LIMIT</code>, 20 by default). When it’s used up, you still get the free checks.</li>
+          <li>The AI has a daily limit (set by <code>AI_DAILY_LIMIT</code>, 5 by default) and is asked for short answers to keep each check cheap. When it’s used up, you still get the free checks.</li>
           <li>No check is perfect. When in doubt, contact the company yourself using its official app, website or the number on your card.</li>
         </ul>
       </Section>

@@ -1,5 +1,5 @@
 import { Redis } from '@upstash/redis';
-import type { CheckResult } from '../src/lib/types';
+import type { CheckResult, SavedItem } from '../src/lib/types';
 
 /**
  * Upstash Redis (Vercel → Storage → Upstash for Redis, free): check results for 7 days (the same message is
@@ -23,8 +23,8 @@ export async function saveResult(r: CheckResult): Promise<void> {
   await db()?.set(`sc:result:${r.id}`, r, { ex: WEEK });
 }
 
-/** Paid AI: never more than AI_DAILY_LIMIT checks a day (default 20). No storage = no AI (the limit can't be kept). */
-export const aiLimit = () => Math.max(0, Number(process.env.AI_DAILY_LIMIT ?? 20) || 0);
+/** Paid AI: never more than AI_DAILY_LIMIT checks a day (default 5). No storage = no AI (the limit can't be kept). */
+export const aiLimit = () => Math.max(0, Number(process.env.AI_DAILY_LIMIT ?? 5) || 0);
 const dayKey = () => `sc:ai:${new Date().toISOString().slice(0, 10)}`;
 
 export async function aiUsed(): Promise<number> {
@@ -42,4 +42,23 @@ export async function takeAi(): Promise<boolean> {
     return false;
   }
   return true;
+}
+
+/** ⭐ Saved checks: kept until you delete them (max 500). */
+const SAVED = 'sc:saved';
+export async function listSaved(): Promise<SavedItem[]> {
+  const all = (await db()?.hgetall<Record<string, SavedItem>>(SAVED)) ?? {};
+  return Object.values(all).sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+}
+export async function putSaved(item: SavedItem): Promise<void> {
+  const r = db();
+  if (!r) throw new Error('Saving needs the free Upstash Redis storage (Vercel → Storage).');
+  if (!(await r.hexists(SAVED, item.id)) && (await r.hlen(SAVED)) >= 500) throw new Error('You have 500 saved checks: delete some old ones first.');
+  await r.hset(SAVED, { [item.id]: item });
+}
+export async function getSaved(id: string): Promise<SavedItem | null> {
+  return (await db()?.hget<SavedItem>(SAVED, id)) ?? null;
+}
+export async function deleteSaved(id: string): Promise<void> {
+  await db()?.hdel(SAVED, id);
 }
