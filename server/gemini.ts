@@ -7,7 +7,25 @@ import { Answer, SYSTEM, promptText, type AiAnswer, type AiInput } from './ai.js
  * Google's daily allowance. Same instructions and the same answer shape as Claude, so everything after it
  * (mixing with the free checks, never hiding a strong warning) is unchanged. Plain HTTPS, no extra library.
  */
-export async function askGemini(input: AiInput, cfg: AppSettings['ai']): Promise<AiAnswer> {
+/** The answer, and the Gemini model that gave it (Flash when Pro's free allowance ran out). */
+export type GeminiAnswer = AiAnswer & { model: string };
+
+export async function askGemini(input: AiInput, cfg: AppSettings['ai']): Promise<GeminiAnswer> {
+  try {
+    return { ...(await askModel(input, cfg, cfg.geminiModel)), model: cfg.geminiModel };
+  } catch (e) {
+    // Pro's free allowance is small (or not offered on some accounts): Flash takes over.
+    if (!/pro/i.test(cfg.geminiModel) || !(e instanceof GeminiError) || ![429, 403, 404].includes(e.status)) throw e;
+    return { ...(await askModel(input, cfg, FLASH)), model: FLASH };
+  }
+}
+
+const FLASH = 'gemini-flash-latest';
+class GeminiError extends Error {
+  constructor(message: string, public status: number) { super(message); }
+}
+
+async function askModel(input: AiInput, cfg: AppSettings['ai'], model: string): Promise<AiAnswer> {
   const parts: Record<string, unknown>[] = [];
   if (input.file) parts.push({ inline_data: { mime_type: input.file.mime, data: input.file.data } });
   parts.push({ text: promptText(input, cfg) });
@@ -20,7 +38,7 @@ export async function askGemini(input: AiInput, cfg: AppSettings['ai']): Promise
     // Scam messages talk about money and threats: only block truly harmful answers.
     safetySettings: ['HARM_CATEGORY_HARASSMENT', 'HARM_CATEGORY_HATE_SPEECH', 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'HARM_CATEGORY_DANGEROUS_CONTENT'].map((category) => ({ category, threshold: 'BLOCK_ONLY_HIGH' })),
   });
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(cfg.geminiModel)}:generateContent`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
   const send = (withSchema: boolean) => fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': process.env.GEMINI_API_KEY!.trim() },
@@ -33,7 +51,7 @@ export async function askGemini(input: AiInput, cfg: AppSettings['ai']): Promise
   const j = (await res.json().catch(() => ({}))) as { error?: { message?: string; status?: string }; candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[] };
   if (!res.ok) {
     const msg = j.error?.message ?? `HTTP ${res.status}`;
-    throw new Error(res.status === 429 ? 'Gemini’s free daily allowance is used up (try again later or tomorrow)' : `Gemini: ${msg.slice(0, 140)}`);
+    throw new GeminiError(res.status === 429 ? 'Gemini’s free daily allowance is used up (try again later or tomorrow)' : `Gemini: ${msg.slice(0, 140)}`, res.status);
   }
   const text = (j.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('').trim();
   if (!text) throw new Error(`Gemini gave no answer (${j.candidates?.[0]?.finishReason ?? 'empty'})`);

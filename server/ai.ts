@@ -88,8 +88,12 @@ export function promptText(input: AiInput, cfg: AppSettings['ai']): string {
 }
 
 /** Asks the chosen AI (Claude or Gemini). */
-export function askAi(input: AiInput, cfg: AppSettings['ai'], provider: Provider = 'claude'): Promise<AiAnswer> {
-  return provider === 'gemini' ? askGemini(input, cfg) : askClaude(input, cfg);
+export async function askAi(input: AiInput, cfg: AppSettings['ai'], provider: Provider = 'claude'): Promise<AiAnswer & { by: string }> {
+  if (provider === 'gemini') {
+    const a = await askGemini(input, cfg);
+    return { ...a, by: aiName('gemini', { ...cfg, geminiModel: a.model }) };
+  }
+  return { ...(await askClaude(input, cfg)), by: aiName('claude', cfg) };
 }
 
 async function askClaude(input: AiInput, cfg: AppSettings['ai']): Promise<AiAnswer> {
