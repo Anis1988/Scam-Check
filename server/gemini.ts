@@ -8,7 +8,7 @@ import { Answer, SYSTEM, promptText, type AiAnswer, type AiInput } from './ai.js
  * (mixing with the free checks, never hiding a strong warning) is unchanged. Plain HTTPS, no extra library.
  */
 /** The answer, and the Gemini model that gave it (Flash when Pro's free allowance ran out). */
-export type GeminiAnswer = AiAnswer & { model: string };
+export type GeminiAnswer = AiAnswer & { model: string; fallback?: string }; // fallback: why Pro wasn't used
 
 export async function askGemini(input: AiInput, cfg: AppSettings['ai']): Promise<GeminiAnswer> {
   try {
@@ -16,7 +16,8 @@ export async function askGemini(input: AiInput, cfg: AppSettings['ai']): Promise
   } catch (e) {
     // Pro's free allowance is small (or not offered on some accounts): Flash takes over.
     if (!/pro/i.test(cfg.geminiModel) || !(e instanceof GeminiError) || ![429, 403, 404].includes(e.status)) throw e;
-    return { ...(await askModel(input, cfg, FLASH)), model: FLASH };
+    const why = e.status === 429 ? 'its free allowance is used up for now' : e.status === 404 ? 'Google doesn’t offer it under this name' : 'your Google key can’t use it for free';
+    return { ...(await askModel(input, cfg, FLASH)), model: FLASH, fallback: why };
   }
 }
 

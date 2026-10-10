@@ -44,6 +44,7 @@ export interface CheckResult {
   brief?: Brief; // safe ones only: what it is, key info, what to do (from the same AI call)
   bill?: BillFacts; // a safe bill: who, how much, when (from the AI) -> 📅 Bills
   billCompare?: BillCompare; // the same company's previous bill
+  remembered?: boolean; // this answer was remembered from an earlier check (free): ↻ Re-check asks again
   aiBy?: string; // which AI answered, e.g. "Gemini (free)" or "Claude Opus 5.5"
   title?: string; // who or what it is, in a few words (from the AI), e.g. "Duke Energy bill": used to name saved checks
   preview: string; // the start of the message, for the history list

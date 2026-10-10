@@ -55,7 +55,7 @@ export async function POST(req: Request): Promise<Response> {
     // Checked recently (Settings → Results remembered): the saved answer (no new AI cost), unless AI is now asked for
     // or the AI failed / was over the limit last time (then it may try again).
     const cached = await getResult(id).catch(() => null);
-    if (cached && (cached.ai === 'done' || (b.aiMode !== 'always' && cached.ai !== 'failed' && cached.ai !== 'limit'))) return out(cached);
+    if (cached && (cached.ai === 'done' || (b.aiMode !== 'always' && cached.ai !== 'failed' && cached.ai !== 'limit'))) return out(cached.ai === 'done' ? { ...cached, remembered: true } : cached);
 
     // 1. Free checks first: patterns, links, phone numbers, email sender.
     const cfg = await getSettings();

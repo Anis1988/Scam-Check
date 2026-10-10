@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { ResultCard } from '../components/ResultCard';
 import { SavedCard } from '../components/SavedCard';
 import { BillRow } from './Bills';
+import { RecheckBar } from '../components/Recheck';
 import { Rail, ScoreRing, Shell, VerdictChip } from '../components/ui';
 import type { Bill, CheckResult, SavedItem, Verdict } from '../lib/types';
 
@@ -48,7 +49,7 @@ const BATCH: { icon: string; file: string; verdict: Verdict; score: number; line
 
 const SECTIONS = [
   ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['lookup', '⚡ Quick look-up'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
-  ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Claude or Gemini (free)'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
+  ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Claude or Gemini (free)'], ['recheck', '↻ Re-check'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
   ['share', 'Share from your phone'], ['scam', 'If it’s a scam'], ['privacy', 'Privacy and cost'],
 ] as const;
 type Id = (typeof SECTIONS)[number][0];
@@ -111,6 +112,7 @@ export function Guide() {
         <p><b>Drag & drop:</b> on a computer, drag pictures, PDFs or an email file (.eml) anywhere onto the Check page and let go. You can also paste a screenshot into the message box (Ctrl+V).</p>
         <p><b>Several at once:</b> choose or drop up to 10 pictures (you can change the number in Settings). Each picture is checked <b>on its own</b> and gets its own safety score (1 to 10) and, if it looks safe, its own short summary. Each picture uses 1 AI check.</p>
         <p>Tap a result to see why and what to do, or tap <b>⭐ Save all</b> to save them all in one go.</p>
+        <p><b>Keep using the app while it checks:</b> switch tabs, or even close the app or the browser. Everything is sent to the server at once and finished there. Your results stay on the Check screen, and <b>History</b> fills in the answers by itself (“AI checking…” until they arrive).</p>
         <p className="text-xs text-stone-500">Example of three pictures checked together (made up, does nothing here):</p>
         <ul className="space-y-2">
           {BATCH.map((b) => (
@@ -215,6 +217,14 @@ export function Guide() {
         <p>Each one has its own daily limit: with Claude you set the number of paid checks (or Unlimited), with Gemini how many free checks a day.</p>
         <p>The <b>top</b> of every result says which AI checked it, e.g. “🤖 Checked by Claude Opus 5.5” in the bill example above, or “🤖 Checked by Gemini Pro (free)”. When no AI was needed it says “🔎 Free checks only (no AI)”. It stays on the result in History and on your saved checks too.</p>
         <p><b>One-time setup for Gemini:</b> go to <b>aistudio.google.com</b>, sign in, tap <b>Get API key</b> → <b>Create API key</b>, and add it in Vercel as <code>GEMINI_API_KEY</code> (Settings → Environment Variables), then redeploy. Like your other keys, never paste it anywhere else.</p>
+      </Section>
+
+      <Section id="recheck">
+        <p><b>↻ Re-check</b> asks the AI again about the same message, with the model picked in Settings now. Handy after choosing another model (e.g. Gemini Pro instead of Flash). It uses 1 AI check. You find it under a result on the Check screen and when you open one in History.</p>
+        <p>Checking the <b>same</b> message again normally gives the answer remembered from last time, for free, even if you picked another model since. The result then says so (📌) and offers Re-check.</p>
+        <p>Re-check needs the original, so your device keeps each History check’s words and picture (on this device only, removed with History).</p>
+        <p className="text-xs text-stone-500">Example (made up, does nothing here):</p>
+        <RecheckBar r={{ ...SAFE, remembered: true, aiBy: 'Gemini Flash (free)' }} canRecheck example />
       </Section>
 
       <Section id="settings">

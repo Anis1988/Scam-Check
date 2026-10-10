@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { api, readUpload, type CheckInput, type Upload } from '../lib/api';
 import { readQr } from '../lib/qr';
+import { getInput } from '../lib/inputs';
 import { loadHistory, saveToHistory } from '../lib/history';
+import { askAgain, newKey, patchItem, runBatch, setBatch, showOne, useBatch, type Item } from '../lib/batch';
 import { KIND_LABEL, MODELS, money, type Bill, type CheckResult, type Kind, type Verdict } from '../lib/types';
-import { aiLeft, refreshStatus, useStatus } from '../lib/useStatus';
+import { aiLeft, useStatus } from '../lib/useStatus';
 import { ResultCard } from '../components/ResultCard';
+import { RecheckBar } from '../components/Recheck';
 import { SaveBox } from '../components/SaveBox';
 import { Rail, ScoreRing, Shell, VerdictChip, toast } from '../components/ui';
 import { dueText } from '../components/bills';
@@ -28,10 +31,7 @@ function takeShare(): string {
 }
 
 /** One thing being checked: its input (to ask the AI later) and its result. */
-interface Item { key: string; input?: CheckInput; result?: CheckResult; error?: string; waiting?: boolean; savedName?: string }
 type FileItem = Upload & { key: string; qr?: string }; // qr: what a QR code in the picture says (read on the phone)
-let seq = 0;
-const newKey = () => `k${Date.now()}-${seq++}`;
 const isPdf = (f: { mime: string }) => f.mime === 'application/pdf';
 
 export function Check() {
@@ -44,9 +44,10 @@ export function Check() {
   const [text, setText] = useState(shared);
   const [from, setFrom] = useState('');
   const [files, setFiles] = useState<FileItem[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [items, setItems] = useState<Item[]>([]);
-  const [openKey, setOpenKey] = useState('');
+  // The running checks live outside this screen (lib/batch): switching tabs doesn't stop or forget them.
+  const { items, busy, openKey } = useBatch();
+  const setItems = (items: Item[]) => setBatch({ items });
+  const setOpenKey = (openKey: string) => setBatch({ openKey });
   const [over, setOver] = useState(false);
   const depth = useRef(0);
   const resultRef = useRef<HTMLDivElement>(null);
@@ -57,7 +58,7 @@ export function Check() {
     window.addEventListener('sc-history', upd);
     return () => window.removeEventListener('sc-history', upd);
   }, []);
-  const patch = (key: string, p: Partial<Item>) => setItems((list) => list.map((x) => (x.key === key ? { ...x, ...p } : x)));
+  const patch = patchItem;
 
   // A file dropped outside the drop area must not make the browser open it (and leave the app).
   useEffect(() => {
@@ -115,24 +116,6 @@ export function Check() {
     if (t) setText((x) => (x ? `${x}\n${t}` : t).slice(0, 100_000));
   };
 
-  /** Free checks first (at once), then the AI when needed. */
-  const runItem = async (it: Item) => {
-    if (!it.input) return;
-    patch(it.key, { waiting: false });
-    try {
-      const r = await api.check(it.input);
-      patch(it.key, { result: r });
-      saveToHistory(r);
-      if (r.ai === 'pending') {
-        const done = await api.ai(it.input).catch((e) => ({ ...r, ai: 'failed' as const, aiNote: `The AI check failed (${e instanceof Error ? e.message : e}). The result is from the free checks.` }));
-        patch(it.key, { result: done });
-        saveToHistory(done);
-      }
-    } catch (e) {
-      patch(it.key, { error: e instanceof Error ? e.message : String(e) });
-    }
-  };
-
   const run = async () => {
     if (!text.trim() && !files.length) return toast('error', 'Paste the message or add a picture first.');
     const aiMode = cfg?.ai.mode ?? 'ask';
@@ -149,33 +132,15 @@ export function Check() {
           ...(text.trim() ? [{ kind: (kind === 'email' ? 'email' : 'text') as Kind, text, from, aiMode }] : []),
         ];
     if (!inputs.length) return toast('error', 'Add a photo of a QR code first.');
-    const batch: Item[] = inputs.map((input) => ({ key: newKey(), input, waiting: true }));
-    setItems(batch);
-    setOpenKey('');
-    setBusy(true);
     setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
-    // Two at a time: fast, and gentle on the server.
-    const queue = [...batch];
-    await Promise.all([0, 1].map(async () => { for (let it = queue.shift(); it; it = queue.shift()) await runItem(it); }));
-    setBusy(false);
-    void refreshStatus();
+    // All at once: the server finishes each one even if you switch tabs or close the app.
+    await runBatch(inputs);
   };
 
-  /** "Ask the AI" / "Summarize": uses 1 of today's AI checks, only when you tap it. */
-  const askAi = async (it: Item) => {
-    if (!it.input || !it.result) return;
-    const before = it.result;
-    patch(it.key, { result: { ...before, ai: 'pending', aiOffer: false, briefOffer: false } });
-    try {
-      const done = await api.ai({ ...it.input, aiMode: 'always' });
-      patch(it.key, { result: done });
-      saveToHistory(done);
-    } catch (e) {
-      patch(it.key, { result: before });
-      toast('error', e instanceof Error ? e.message : String(e));
-    } finally {
-      void refreshStatus();
-    }
+  /** "Ask the AI" / "Summarize" (only when you tap it), or ↻ Re-check with the AI picked in Settings: 1 AI check. */
+  const askAi = async (it: Item, fresh = false) => {
+    const note = await askAgain(it.key, fresh);
+    if (note) toast('info', note);
   };
 
   const saveAll = async () => {
@@ -223,9 +188,7 @@ export function Check() {
   const nextBills = bills.filter((b) => !b.paid && b.dueDate && new Date(`${b.dueDate}T23:59:59`).getTime() > Date.now() - 7 * 86400_000).sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 3);
 
   const reopen = (r: CheckResult) => {
-    const key = newKey();
-    setItems([{ key, result: r }]);
-    if (r.ai === 'pending') void api.result(r.id).then((x) => (patch(key, { result: x }), saveToHistory(x)), () => undefined);
+    void getInput(r.id).then((input) => showOne(r, input ?? undefined));
     setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
   };
 
@@ -265,6 +228,7 @@ export function Check() {
     <div className="space-y-3">
       {it.result && <ResultCard r={it.result} onChanged={() => reload(it)} />}
       {offers(it)}
+      {it.result && !it.result.aiOffer && !it.result.briefOffer && <RecheckBar r={it.result} canRecheck={!!it.input} onRecheck={() => void askAi(it, true)} />}
       {it.result && it.result.ai !== 'pending' && <SaveBox key={`${it.result.id}${it.savedName ?? ''}`} id={it.result.id} text={it.input?.text} file={it.input?.file} savedName={it.savedName} />}
     </div>
   );

@@ -23,7 +23,7 @@ const LEVEL = { bad: { icon: '✗', cls: 'text-red-600' }, warn: { icon: '!', cl
 /** One check's answer: the verdict, why, the links and numbers found, and what to do. */
 /** Which AI checked it, shown at the top of every result (or that only the free checks ran). */
 export function CheckedBy({ ai, aiBy }: { ai: CheckResult['ai']; aiBy?: string }) {
-  const text = ai === 'pending' ? '🤖 The AI is checking…' : ai === 'done' && aiBy ? `🤖 Checked by ${aiBy}` : ai === 'done' ? '🤖 Checked by the AI' : '🔎 Free checks only (no AI)';
+  const text = ai === 'pending' ? '🤖 The AI is checking…' : ai === 'done' && aiBy ? `🤖 Checked by ${aiBy}` : ai === 'done' ? '🤖 Checked by the AI' : ai === 'failed' ? '⚠️ The AI check failed' : ai === 'limit' ? '⏸ AI limit reached today' : '🔎 Free checks only (no AI)';
   return <span className="chip border-white/80 bg-white/75 font-mono !text-[10.5px] text-stone-700">{text}</span>;
 }
 
@@ -37,7 +37,7 @@ export function ResultCard({ r, example = false, onChanged }: { r: CheckResult; 
         <div className="card">
           <div className="flex flex-wrap items-center justify-between gap-2"><p className="label">Result</p><CheckedBy ai={r.ai} aiBy={r.aiBy} /></div>
           <p className="font-display text-2xl font-semibold">❔ Not checked</p>
-          <p className="mt-1 text-sm text-stone-600">{r.aiNote ?? r.summary} Paste the words of the message instead, so the free checks can read them.</p>
+          <p className="mt-1 break-words text-sm text-stone-600">{r.aiNote ?? r.summary} Paste the words of the message instead, so the free checks can read them.</p>
         </div>
       ) : (
         <div className={`rise rounded-2xl bg-gradient-to-br to-white/70 p-4 backdrop-blur-xl ${VERDICT_STYLE[r.verdict]}`}>
@@ -56,7 +56,7 @@ export function ResultCard({ r, example = false, onChanged }: { r: CheckResult; 
       )}
 
       {r.ai === 'pending' && <p className="panel scan text-sm text-teal-800"><span className="spinner" /> 🤖 The AI is taking a closer look (10 to 40 seconds)…</p>}
-      {r.aiNote && r.ai !== 'pending' && !r.unchecked && <p className="text-xs text-stone-500">{r.aiNote}</p>}
+      {r.aiNote && r.ai !== 'pending' && !r.unchecked && <p className="break-words text-xs text-stone-500">{r.aiNote}</p>}
 
       {r.brief && r.verdict === 'safe' && <BriefCard b={r.brief} />}
       {r.bill && r.verdict === 'safe' && <BillStrip b={r.bill} compare={r.billCompare} />}
