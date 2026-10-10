@@ -7,7 +7,7 @@ import { pickModel, providerOf } from '../src/lib/types.js';
 import { checkLinks } from '../server/domains.js';
 import { jsonIn } from '../server/gemini.js';
 import { checkPhones } from '../server/phones.js';
-import { db, getSettings, takeAi } from '../server/store.js';
+import { COMPANIES, db, getSettings, syncedDel, syncedList, syncedPut, takeAi } from '../server/store.js';
 
 /**
  * 🏢 Look up a company: what they do, their real website, customer service phone and email, contact page. Always
@@ -36,6 +36,32 @@ Answer with ONE JSON object only:
 
 const str = (v: unknown, n = 300) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
 
+/** 🔄 Recent companies, the same on every device (the last 20). */
+const recent = (name: string, typed: string) => syncedPut(COMPANIES, KEY(typed), { name, checkedAt: new Date().toISOString() }, 20).catch(() => undefined);
+
+/** GET /api/company -> your recent companies (newest first). */
+export async function GET(req: Request): Promise<Response> {
+  const blocked = guard(req, 'company', 60);
+  if (blocked) return blocked;
+  const list = await syncedList<{ name: string; checkedAt: string }>(COMPANIES).catch(() => []);
+  return json({ synced: !!db(), names: list.map(([, x]) => x.name) });
+}
+
+/** PUT /api/company {names} -> once per device: its recent companies (newest first) join the shared list. */
+export async function PUT(req: Request): Promise<Response> {
+  const blocked = guard(req, 'company', 10);
+  if (blocked) return blocked;
+  const b = z.object({ names: z.array(z.string().trim().min(2).max(120)).max(20) }).safeParse(await req.json().catch(() => null));
+  if (!b.success) return json({ error: 'Bad names.' }, 400);
+  const have = new Set((await syncedList<{ name: string; checkedAt: string }>(COMPANIES).catch(() => [])).map(([k]) => k));
+  // Older than anything new, keeping their order.
+  const base = Date.now() - 86400_000;
+  for (const [i, name] of b.data.names.entries()) {
+    if (!have.has(KEY(name))) await syncedPut(COMPANIES, KEY(name), { name, checkedAt: new Date(base - i * 1000).toISOString() }, 20);
+  }
+  return json({ synced: !!db() });
+}
+
 /** DELETE /api/company?name=… -> 🗑 forgets a company look-up (the next search starts fresh). */
 export async function DELETE(req: Request): Promise<Response> {
   const blocked = guard(req, 'company', 30);
@@ -43,6 +69,9 @@ export async function DELETE(req: Request): Promise<Response> {
   const name = (new URL(req.url).searchParams.get('name') ?? '').trim().slice(0, 120);
   if (name.length < 2) return json({ error: 'Bad name.' }, 400);
   await db()?.del(KEY(name)).catch(() => undefined);
+  // Typed differently ("chase" / "Chase Bank"): every recent entry with this name goes.
+  const list = await syncedList<{ name: string; checkedAt: string }>(COMPANIES).catch(() => []);
+  await syncedDel(COMPANIES, [KEY(name), ...list.filter(([, x]) => x.name.toLowerCase() === name.toLowerCase()).map(([k]) => k)]).catch(() => undefined);
   return json({ deleted: 1 });
 }
 
@@ -57,7 +86,10 @@ export async function POST(req: Request): Promise<Response> {
   }
   try {
     const cached = b.fresh || b.model ? null : await db()?.get<CompanyInfo>(KEY(b.name));
-    if (cached) return json({ ...cached, remembered: true });
+    if (cached) {
+      await recent(cached.name, b.name);
+      return json({ ...cached, remembered: true });
+    }
     const saved = await getSettings();
     // The AI picked in Settings, or the one picked just for this look-up.
     const cfg = b.model ? { ...saved, ai: { ...saved.ai, ...pickModel(saved.ai, b.model.provider, b.model.id) } } : saved;
@@ -85,6 +117,7 @@ export async function POST(req: Request): Promise<Response> {
       checkedAt: new Date().toISOString(),
     };
     await db()?.set(KEY(b.name), info, { ex: 7 * 86400 });
+    await recent(info.name, b.name);
     return json(info);
   } catch (e) {
     return json({ error: (e instanceof Error ? e.message : String(e)).slice(0, 300) }, e instanceof CannotDo ? 400 : 502);

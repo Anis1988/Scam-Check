@@ -83,7 +83,7 @@ const COMPANY: CompanyInfo = {
 
 const SECTIONS = [
   ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['voicemail', '🎙️ Voicemails and calls'], ['video', '🎬 Video: is it true?'], ['company', '🏢 Look up a company'], ['lookup', '⚡ Quick look-up'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
-  ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Which AI'], ['recheck', '↻ Re-check'], ['failed', '⚠️ When an AI fails'], ['look', '🌙 Dark mode'], ['tidy', '📂 Fold & 🗑 delete'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
+  ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Which AI'], ['recheck', '↻ Re-check'], ['failed', '⚠️ When an AI fails'], ['look', '🌙 Dark mode'], ['sync', '🔄 Same on phone & computer'], ['tidy', '📂 Fold & 🗑 delete'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
   ['share', 'Share from your phone'], ['android', '📱 Android app'], ['iphone', '🍏 iPhone'], ['scam', 'If it’s a scam'], ['privacy', 'Privacy and cost'],
 ] as const;
 type Id = (typeof SECTIONS)[number][0];
@@ -274,7 +274,7 @@ export function Guide() {
           <li><b>Pictures and messages only</b>: the kept picture, PDF and message are deleted, the key facts and your note stay.</li>
           <li><b>The whole saved check</b>: it is deleted completely.</li>
         </ul>
-        <p>History (your last checks) is on this device only and keeps itself short by itself.</p>
+        <p>History (your last 100 checks) keeps itself short by itself.</p>
       </Section>
 
       <Section id="whichai">
@@ -292,7 +292,7 @@ export function Guide() {
       <Section id="recheck">
         <p><b>↻ Re-check</b> asks an AI again about the same message, under <b>every</b> result, even a good one. Tap <b>↻ Re-check</b> and a list of all the models (Claude, Gemini, Groq, OpenRouter) opens: tap one and it checks it right away, just for this once (Settings stay as they are; models not set up, or with no checks left today, are greyed out). It uses 1 AI check of that kind. You find it under a result on the Check screen and when you open one in History.</p>
         <p>Checking the <b>same</b> message again normally gives the answer remembered from last time, for free, even if you picked another model since. The result then says so (📌) and offers Re-check.</p>
-        <p>Re-check needs the original, so your device keeps each History check’s words and picture (on this device only, removed with History).</p>
+        <p>Re-check needs the original, so the device you checked on keeps each check’s words and picture (on that device only, removed with History). A check made on your phone can be re-checked on the phone.</p>
         <p className="text-xs text-stone-500">Example (made up, does nothing here):</p>
         <RecheckBar r={{ ...SAFE, remembered: true, aiBy: 'Gemini Flash (free)' }} canRecheck example />
       </Section>
@@ -326,11 +326,17 @@ export function Guide() {
         </div>
       </Section>
 
+      <Section id="sync">
+        <p>Your phone (the app) and your computer (the website) show the <b>same</b> things: <b>🕘 History</b> (your last 100 checks), <b>🎬 video checks</b>, <b>🏢 recent companies</b>, <b>⭐ Saved</b>, <b>📅 Bills</b>, your <b>trusted / blocked</b> lists, <b>Settings</b> and today’s AI checks left. A check made on one shows on the other when you open the app again or switch back to it. Deleting one deletes it on both.</p>
+        <p>Only a few things stay per device: light or dark look, text size, and the access code.</p>
+        <p>The first time each device opens this version, the checks it had before are added to the shared list, so nothing is lost.</p>
+      </Section>
+
       <Section id="tidy">
         <p><b>Fold:</b> anything with a <b>▾</b> opens and closes when you tap its title. In <b>⚙️ Settings</b> every section starts <b>closed</b>, so the page stays short: tap the one you need, or <b>▾ Open all</b> / <b>▴ Close all</b>. In a result, <b>Why</b> and <b>Found in the message</b> start closed too (What to do stays open).</p>
         <p><b>Delete:</b> tap <b>🗑</b> to delete any check, everywhere it shows:</p>
         <ul className="list-disc space-y-1.5 pl-5">
-          <li><b>🛡️ Check</b> and <b>🕘 History:</b> 🗑 next to each check, or <b>🗑 Delete all</b> in History (also in Settings → This device). It’s removed from this device <b>and the server</b>, so checking the same message again starts fresh.</li>
+          <li><b>🛡️ Check</b> and <b>🕘 History:</b> 🗑 next to each check, or <b>🗑 Delete all</b> in History (also in Settings → This device). It’s removed from <b>all your devices and the server</b>, so checking the same message again starts fresh.</li>
           <li><b>🎬 Video:</b> open a video check → <b>🗑 Delete this video check</b>, or <b>🗑 Delete all</b> above the list.</li>
           <li><b>🏢 Look up:</b> ✕ / 🗑 next to a recent company, <b>🗑 Delete this look-up</b> under a result, or <b>🗑 Delete all</b>.</li>
           <li><b>⭐ Saved</b> and <b>📅 Bills</b> have their own 🗑. Deleting a check in History doesn’t touch its ⭐ saved copy.</li>
@@ -353,7 +359,7 @@ export function Guide() {
           <li><b>🔎 Free checks:</b> Google’s list of dangerous sites, how new a website is, and how many days a result is remembered (checking it again is then free).</li>
           <li><b>📷 Pictures:</b> picture size (Small is cheaper, Sharp reads tiny text better) and how many at once.</li>
           <li><b>⭐ Saving & clean-up:</b> keep the original by default, and the automatic clean-up.</li>
-          <li><b>📱 This device:</b> ☀️ light or 🌙 dark look, bigger text, how many checks History keeps, forget the access code.</li>
+          <li><b>📱 This device:</b> ☀️ light or 🌙 dark look, bigger text, forget the access code.</li>
         </ul>
         <p>The secret keys (the AI key, storage, access code) stay in Vercel and are never shown. The Vercel variables <code>AI_MODEL</code> and <code>AI_DAILY_LIMIT</code> are only the starting values: what you pick in Settings wins. <b>↺ Starting values</b> puts everything back.</p>
       </Section>
@@ -402,7 +408,7 @@ export function Guide() {
 
       <Section id="privacy">
         <ul className="list-disc space-y-1.5 pl-5">
-          <li>Your history is saved on <b>this device only</b>. The server keeps only the result (7 days to start, Settings → Remember results), so checking the same message again is instant and free; the message itself is not stored, unless you ⭐ save the check with “Keep the original”.</li>
+          <li>Your History (the results, with the first words of each message as a preview) is kept on the server so your phone and computer show the same, until you delete it (the last 100). The answer used to reply instantly to the same message is kept 7 days to start (Settings → Remember results). The whole message and picture are not stored, unless you ⭐ save the check with “Keep the original”.</li>
           <li>Pictures are made smaller on your phone before upload. They are only kept if you save the check with “Keep the original”.</li>
           <li>The AI has a daily limit (5 to start, change it in Settings) and is asked for short answers to keep each check cheap. When it’s used up, you still get the free checks.</li>
           <li>No check is perfect. When in doubt, contact the company yourself using its official app, website or the number on your card.</li>

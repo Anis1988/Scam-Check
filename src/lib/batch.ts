@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { api, type CheckInput } from './api';
-import { clearHistory, dropFromHistory, loadHistory, saveToHistory } from './history';
+import { clearHistory, dropFromHistory, loadHistory, replaceHistory, saveToHistory } from './history';
 import { deleteInputs, keepInput } from './inputs';
 import type { CheckResult, ModelChoice } from './types';
 import { refreshStatus } from './useStatus';
@@ -81,6 +81,28 @@ export async function askAgain(key: string, fresh: boolean, model?: ModelChoice)
   } finally {
     void refreshStatus();
   }
+}
+
+/** 🔄 Brings History in line with the server, so the phone and the computer show the same checks. */
+let syncing: Promise<void> | null = null;
+const SHARED = 'sc.historyShared';
+export function syncHistory(): Promise<void> {
+  syncing ??= (async () => {
+    try {
+      // Once per device: the checks it had before History was shared go to the server first, so none are lost.
+      let shared = true;
+      try { shared = localStorage.getItem(SHARED) === '1'; } catch { /* private mode */ }
+      if (!shared) {
+        const local = loadHistory();
+        const r = local.length ? await api.shareOldHistory(local) : { synced: true };
+        if (!r.synced) return;
+        try { localStorage.setItem(SHARED, '1'); } catch { /* private mode */ }
+      }
+      const { synced, checks } = await api.history();
+      if (synced) replaceHistory(checks);
+    } catch { /* offline: keep what's on the device */ }
+  })().finally(() => { syncing = null; });
+  return syncing;
 }
 
 /**

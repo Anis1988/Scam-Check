@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { getPrefs, loadHistory, saveToHistory } from '../lib/history';
-import { deleteAllChecks, deleteChecks } from '../lib/batch';
+import { HISTORY_MAX, loadHistory, saveToHistory } from '../lib/history';
+import { deleteAllChecks, deleteChecks, syncHistory } from '../lib/batch';
 import { KIND_LABEL, VERDICT_LABEL, type CheckResult, type ModelChoice, type Verdict } from '../lib/types';
 import { ResultCard } from '../components/ResultCard';
 import { SaveBox } from '../components/SaveBox';
@@ -14,16 +14,17 @@ import { Rail, ScoreRing, Shell, VerdictChip } from '../components/ui';
 
 const when = (iso: string) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
-/** Past checks on this device: tap one to see it again, right here. */
+/** Past checks (the same on every device): tap one to see it again, right here. */
 export function History() {
   const [list, setList] = useState(loadHistory);
   const [sel, setSel] = useState<CheckResult | null>(null);
   const [selInput, setSelInput] = useState<CheckInput | null>(null);
   const open = (r: CheckResult) => { setSel(r); setSelInput(null); void getInput(r.id).then(setSelInput); };
+  useEffect(() => { void syncHistory(); }, []);
   useEffect(() => { const upd = () => setList(loadHistory()); window.addEventListener('sc-history', upd); return () => window.removeEventListener('sc-history', upd); }, []);
-  /** 🗑 One check: gone from this device and the server (saved ⭐ copies stay). */
+  /** 🗑 One check: gone from every device and the server (saved ⭐ copies stay). */
   const remove = (r: CheckResult) => {
-    if (!window.confirm(`Delete this check (${r.title || KIND_LABEL[r.kind].text})? It’s removed from this device and the server. A ⭐ saved copy stays.`)) return;
+    if (!window.confirm(`Delete this check (${r.title || KIND_LABEL[r.kind].text})? It’s removed from all your devices. A ⭐ saved copy stays.`)) return;
     if (sel?.id === r.id) setSel(null);
     void deleteChecks([r.id]).then(() => toast('success', 'Deleted.'), (e) => toast('error', e instanceof Error ? e.message : String(e)));
   };
@@ -73,10 +74,10 @@ export function History() {
   };
   const counts = (['safe', 'suspicious', 'scam'] as Verdict[]).map((v) => [v, list.filter((r) => !r.unchecked && r.verdict === v).length] as const);
   const stats = (
-    <Rail title="On this device">
+    <Rail title="Your checks">
       <p className="font-display text-3xl font-bold text-stone-900">{list.length}<span className="ml-1 text-sm font-medium text-stone-500">checks</span></p>
       <ul className="space-y-1 text-sm">{counts.map(([v, n]) => <li key={v} className="flex justify-between"><span>{VERDICT_LABEL[v].icon} {VERDICT_LABEL[v].text}</span><span className="num text-stone-500">{n}</span></li>)}</ul>
-      <p className="text-xs text-stone-500">Keeps your last {getPrefs().historySize} (Settings → This device).</p>
+      <p className="text-xs text-stone-500">Your last {HISTORY_MAX}, the same on your phone and computer.</p>
     </Rail>
   );
 
@@ -100,9 +101,9 @@ export function History() {
         <div>
           <p className="label">Timeline</p>
           <h1 className="text-2xl font-bold">History</h1>
-          <p className="text-sm text-stone-500">Your last checks, saved on this device only.</p>
+          <p className="text-sm text-stone-500">Your last checks, the same on your phone and computer.</p>
         </div>
-        {list.length > 0 && <button className="btn" onClick={() => window.confirm(`Delete all ${list.length} checks? They’re removed from this device and the server. ⭐ Saved checks stay.`) && void deleteAllChecks().then(() => toast('success', 'All deleted.'), () => undefined)}>🗑 Delete all</button>}
+        {list.length > 0 && <button className="btn" onClick={() => window.confirm(`Delete all ${list.length} checks? They’re removed from all your devices. ⭐ Saved checks stay.`) && void deleteAllChecks().then(() => toast('success', 'All deleted.'), () => undefined)}>🗑 Delete all</button>}
       </div>
       {!list.length && <p className="card text-sm text-stone-600">Nothing checked yet. Your checks will show here.</p>}
       <ul className="space-y-2">
