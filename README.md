@@ -12,6 +12,8 @@ Checks: known scam patterns, links (look-alike brands, domain age via RDAP, shor
    - `APP_ACCESS_TOKEN` (required): any long password; you type it once in the app.
    - `ANTHROPIC_API_KEY`: for the AI check (reads pictures/PDFs).
    - `GEMINI_API_KEY` (optional, free): from aistudio.google.com → Get API key. Lets you pick a Gemini model (free) in Settings → AI model; it then checks everything.
+   - `GROQ_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY` (optional, free): more free AIs to pick in Settings → AI model (console.groq.com, console.mistral.ai, openrouter.ai).
+   - The 🎬 Video and 🏢 Look up tabs use `GEMINI_API_KEY` (Gemini + Google Search).
    - `AI_DAILY_LIMIT` (optional, default 5): most AI checks per day. Only a starting value: the app's Settings tab wins (AI model, daily limit or unlimited, effort and more are all set there).
    - `GOOGLE_SAFE_BROWSING_KEY` (optional, free): Google Cloud → enable "Safe Browsing API" → create an API key.
 4. Deployments → ⋯ → Redeploy (so the new variables are used), open the site, enter the access code.

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, getCode, type Status } from './api';
-import { GEMINI_MODELS, MODELS } from './types';
+import { modelFor, modelName, type Provider } from './types';
 
 /** What is set up, today's AI use and the settings: loaded once, shared by every screen, refreshed after changes. */
 let current: Status | null = null;
@@ -20,11 +20,11 @@ export function refreshStatus(): Promise<void> {
 /** After saving settings: everyone sees them at once. */
 export function setStatusSettings(settings: Status['settings']): void {
   if (!current) return;
-  const claude = { ...current.claude, limit: settings.ai.unlimited ? null : settings.ai.dailyLimit };
-  const gemini = { ...current.gemini, limit: settings.ai.geminiDailyLimit };
-  const main = settings.ai.provider === 'gemini' ? gemini : claude;
-  const model = settings.ai.provider === 'gemini' ? `${GEMINI_MODELS.find((m) => m.id === settings.ai.geminiModel)?.name ?? settings.ai.geminiModel} (free)` : MODELS.find((m) => m.id === settings.ai.model)?.name ?? settings.ai.model;
-  current = { ...current, settings, claude, gemini, ai: main.ready, used: main.used, limit: main.limit, model };
+  const a = settings.ai;
+  const lim = (p: Provider) => (p === 'claude' ? (a.unlimited ? null : a.dailyLimit) : p === 'gemini' ? a.geminiDailyLimit : a.freeDailyLimit);
+  const providers = Object.fromEntries(Object.entries(current.providers ?? {}).map(([p, u]) => [p, { ...u, limit: lim(p as Provider) }])) as Status['providers'];
+  const main = providers[a.provider] ?? { ready: false, used: 0, limit: lim(a.provider) };
+  current = { ...current, settings, providers, claude: providers.claude, gemini: providers.gemini, ai: main.ready, used: main.used, limit: main.limit, model: modelName(a.provider, modelFor(a, a.provider)) };
   listeners.forEach((f) => f(current));
 }
 

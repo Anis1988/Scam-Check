@@ -13,7 +13,8 @@ import { SaveBox } from '../components/SaveBox';
 import { Rail, ScoreRing, Shell, VerdictChip, toast } from '../components/ui';
 import { dueText } from '../components/bills';
 
-const KINDS = Object.keys(KIND_LABEL) as Kind[];
+// No typing on Check (owner's choice): pictures, PDFs, email files and QR codes. Texts shared from other apps still work.
+const KINDS: Kind[] = ['screenshot', 'bill', 'email', 'qr'];
 const MODE_NAME = { ask: 'Save credits', smart: 'Smart', always: 'Always', never: 'Never (free only)' } as const;
 const TIPS = [
   'Real companies never ask for gift cards, crypto or a wire transfer.',
@@ -48,9 +49,10 @@ export function Check() {
   const maxBatch = cfg?.pictures.maxBatch ?? 10;
   const left = aiLeft(st);
   const [shared] = useState(takeShare);
-  const [kind, setKind] = useState<Kind>('text');
+  const [kind, setKind] = useState<Kind>(shared.text ? 'text' : 'screenshot');
+  const [emlName, setEmlName] = useState('');
   const [text, setText] = useState(shared.text);
-  const [from, setFrom] = useState('');
+  const from = ''; // no typing on Check any more
   const [files, setFiles] = useState<FileItem[]>([]);
   // The running checks live outside this screen (lib/batch): switching tabs doesn't stop or forget them.
   const { items, busy, openKey } = useBatch();
@@ -98,6 +100,7 @@ export function Check() {
       // An email file (.eml) is read as text: its hidden sender details are checked for free.
       if (eml.size > 2_000_000) return toast('error', 'This email file is too big (2 MB max).');
       setText(await eml.text());
+      setEmlName(eml.name);
       setKind('email');
       list = list.filter((f) => f !== eml);
       if (!list.length) return;
@@ -121,6 +124,18 @@ export function Check() {
     setFiles((x) => [...x, ...added]);
     if (kind === 'email' || kind === 'text') setKind(added.every((f) => f.qr) ? 'qr' : added.every(isPdf) ? 'bill' : 'screenshot');
   };
+
+  // A screenshot pasted anywhere on Check (Ctrl+V) is added like a picked file.
+  const addRef = useRef(addFiles);
+  addRef.current = addFiles;
+  useEffect(() => {
+    const h = (e: ClipboardEvent) => {
+      const pics = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith('image/') || f.type === 'application/pdf');
+      if (pics.length) (e.preventDefault(), void addRef.current(pics));
+    };
+    window.addEventListener('paste', h);
+    return () => window.removeEventListener('paste', h);
+  }, []);
 
   const onDrag = (e: DragEvent, kindOf: 'enter' | 'leave') => {
     if (![...e.dataTransfer.types].some((t) => t === 'Files' || t === 'text/plain')) return;
@@ -186,24 +201,6 @@ export function Check() {
   /** After ✓ Trust / 🚫 Block: the result is shown again with your lists. */
   const reload = (it: Item) => it.result && void api.result(it.result.id).then((x) => (patch(it.key, { result: x }), saveToHistory(x)), () => undefined);
 
-  /** ⚡ Quick look-up: just a link, phone number or email address (free, never the AI). */
-  const [look, setLook] = useState('');
-  const [looking, setLooking] = useState(false);
-  const lookup = async () => {
-    if (look.trim().length < 3) return;
-    setLooking(true);
-    try {
-      const r = await api.lookup(look.trim());
-      setItems([{ key: newKey(), result: r }]);
-      saveToHistory(r);
-      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
-    } catch (e) {
-      toast('error', e instanceof Error ? e.message : String(e));
-    } finally {
-      setLooking(false);
-    }
-  };
-
   /** 📅 The next bills (side panel). */
   const [bills, setBills] = useState<Bill[]>([]);
   useEffect(() => { if (st?.store) void api.bills().then(setBills, () => undefined); }, [st?.store, items.length]);
@@ -214,8 +211,7 @@ export function Check() {
     setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
   };
 
-  const reset = () => (setText(''), setFrom(''), setFiles([]), setItems([]));
-  const wantsFile = kind === 'bill' || kind === 'screenshot' || kind === 'qr';
+  const reset = () => (setText(''), setEmlName(''), setFiles([]), setItems([]), kind === 'text' && setKind('screenshot'));
   const done = items.filter((x) => x.result && x.result.ai !== 'pending');
   const counts = (['safe', 'suspicious', 'scam'] as Verdict[]).map((v) => [v, done.filter((x) => !x.result!.unchecked && x.result!.verdict === v).length] as const);
 
@@ -318,21 +314,13 @@ export function Check() {
         </div>
       )}
       <Shell left={leftRail} right={rightRail}>
-        <form className="card flex flex-wrap items-center gap-2 p-3" onSubmit={(e) => (e.preventDefault(), void lookup())}>
-          <label className="w-full space-y-0.5" htmlFor="quick">
-            <span className="label">⚡ Quick look-up</span>
-            <span className="block text-xs text-stone-500">Just a link, phone number or email address. Free, never opened.</span>
-          </label>
-          <input id="quick" className="input min-w-0 flex-1" value={look} onChange={(e) => setLook(e.target.value)} maxLength={500} placeholder="usps-help.top · +1 876… · a@b.com" autoComplete="off" autoCapitalize="off" spellCheck={false} />
-          <button className="btn" disabled={looking || look.trim().length < 3}>{looking ? <span className="spinner" /> : 'Look up'}</button>
-        </form>
         <section className="card space-y-3">
           <div>
             <p className="label">New check</p>
             <h1 className="text-2xl font-bold">Is it a scam?</h1>
-            <p className="text-sm text-stone-500">Paste it, or drop pictures. Each one gets ✅ Looks safe, ⚠️ Suspicious or 🚨 Likely scam, with the reasons.</p>
+            <p className="text-sm text-stone-500">Add screenshots, photos or PDFs of bills, an email file or a QR code. Each one gets ✅ Looks safe, ⚠️ Suspicious or 🚨 Likely scam, with the reasons.</p>
           </div>
-          <div className="grid grid-cols-5 gap-1" role="tablist" aria-label="What are you checking?">
+          <div className="grid grid-cols-4 gap-1.5" role="tablist" aria-label="What are you checking?">
             {KINDS.map((k) => (
               <button key={k} role="tab" aria-selected={kind === k} onClick={() => setKind(k)}
                 className={`flex min-w-0 flex-col items-center gap-1 rounded-xl border px-0 py-2.5 text-[10.5px] font-semibold leading-tight transition sm:text-xs ${kind === k ? 'border-teal-500/70 bg-white text-teal-900 shadow-[0_0_0_3px_rgba(74,146,155,0.12),0_0_16px_-4px_rgba(74,146,155,0.5)]' : 'border-stone-200/80 bg-white/50 text-stone-600 hover:bg-white/80'}`}>
@@ -343,15 +331,11 @@ export function Check() {
           <p className="text-xs text-stone-500">{KIND_LABEL[kind].hint}</p>
 
           <input ref={fileInput} type="file" multiple className="hidden" accept={kind === 'email' ? '.eml,message/rfc822' : kind === 'qr' ? 'image/*' : 'image/*,application/pdf,.eml'} onChange={(e) => { void addFiles([...(e.target.files ?? [])]); e.target.value = ''; }} />
-          {wantsFile ? (
-            <button type="button" className="dropzone" onClick={() => fileInput.current?.click()}>
-              <span className="text-3xl" aria-hidden="true">{kind === 'bill' ? '🧾' : kind === 'qr' ? '🔳' : '📷'}</span>
-              <span className="font-display font-semibold text-teal-900">{kind === 'bill' ? 'Add photos or PDFs of bills' : kind === 'qr' ? 'Take or choose photos of QR codes' : 'Add screenshots'}</span>
-              <span className="text-xs text-stone-500">Tap to choose, or drag & drop here · up to {maxBatch} at once · each gets its own result</span>
-            </button>
-          ) : (
-            <button type="button" className="btn-ghost" onClick={() => fileInput.current?.click()}>{kind === 'email' ? '📎 Upload an .eml file instead' : '📷 Add pictures instead (or drag & drop them)'}</button>
-          )}
+          <button type="button" className="dropzone" onClick={() => fileInput.current?.click()}>
+            <span className="text-3xl" aria-hidden="true">{kind === 'bill' ? '🧾' : kind === 'qr' ? '🔳' : kind === 'email' ? '📧' : '📷'}</span>
+            <span className="font-display font-semibold text-teal-900">{kind === 'bill' ? 'Add photos or PDFs of bills' : kind === 'qr' ? 'Take or choose photos of QR codes' : kind === 'email' ? 'Add the email file (.eml)' : 'Add screenshots'}</span>
+            <span className="text-xs text-stone-500">{kind === 'email' ? 'In Gmail: ⋮ → Download message. In Outlook: Save as. Then tap here or drag it in.' : `Tap to choose, or drag & drop here · up to ${maxBatch} at once · each gets its own result`}</span>
+          </button>
           {files.length > 0 && (
             <div>
               <p className="hud mb-1.5">{files.length} file{files.length > 1 ? 's' : ''}{files.length > 1 ? ' · each checked on its own' : ''}</p>
@@ -370,21 +354,18 @@ export function Check() {
           {kind === 'qr' && files.length > 0 && (
             <ul className="space-y-1">{files.map((f) => <li key={f.key} className="panel break-all py-2 font-mono text-xs text-stone-700">🔳 {f.qr}</li>)}</ul>
           )}
-          {kind !== 'qr' && <label className="block space-y-1">
-            <span className="label">{files.length > 1 ? 'Words (optional, checked on their own)' : wantsFile ? 'Or paste the words (optional, makes the free checks better)' : kind === 'email' ? 'The email' : 'The message'}</span>
-            <textarea className="input min-h-[130px] w-full" value={text} onChange={(e) => setText(e.target.value)} maxLength={100_000}
-              onPaste={(e) => { const pics = [...e.clipboardData.files].filter((f) => f.type.startsWith('image/') || f.type === 'application/pdf'); if (pics.length) { e.preventDefault(); void addFiles(pics); } }}
-              placeholder={kind === 'email' ? 'Paste the whole email here (with the sender and subject if you can)…' : kind === 'text' ? 'e.g. "USPS: your package is on hold, update your address at…"' : 'Optional'} />
-          </label>}
-          {kind === 'text' && (
-            <label className="block space-y-1">
-              <span className="label">From (optional)</span>
-              <input className="input w-full" value={from} onChange={(e) => setFrom(e.target.value)} maxLength={60} placeholder="The number or name it came from, e.g. +1 876 555 0199" inputMode="tel" />
-            </label>
+          {text.trim() && (
+            <div className="panel space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <p className="label">{emlName ? `📧 ${emlName}` : '📩 Shared with Scam Check'}</p>
+                <button className="btn-ghost" onClick={() => (setText(''), setEmlName(''), kind === 'text' && setKind('screenshot'))} aria-label="Remove it">✕</button>
+              </div>
+              {!emlName && <p className="max-h-40 overflow-auto whitespace-pre-wrap break-words text-sm text-stone-700">{text}</p>}
+            </div>
           )}
           <div className="flex flex-wrap gap-2">
-            <button className="btn-primary flex-1" disabled={busy || (kind === 'qr' ? !files.length : !text.trim() && !files.length)} onClick={() => void run()}>
-              {busy ? <><span className="spinner" /> Checking…</> : files.length > 1 ? `🛡️ Check all ${files.length + (text.trim() && kind !== 'qr' ? 1 : 0)}` : '🛡️ Check it'}
+            <button className="btn-primary flex-1" disabled={busy || !text.trim() && !files.length} onClick={() => void run()}>
+              {busy ? <><span className="spinner" /> Checking…</> : files.length > 1 ? `🛡️ Check all ${files.length + (text.trim() ? 1 : 0)}` : '🛡️ Check it'}
             </button>
             {(text || files.length > 0 || items.length > 0) && <button className="btn" disabled={busy} onClick={reset}>Clear</button>}
           </div>

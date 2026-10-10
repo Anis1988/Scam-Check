@@ -6,6 +6,12 @@
   "functions": {
     "api/ai.ts": {
       "maxDuration": 60
+    },
+    "api/video.ts": {
+      "maxDuration": 300
+    },
+    "api/company.ts": {
+      "maxDuration": 60
     }
   },
   "rewrites": [

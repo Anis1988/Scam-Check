@@ -1,30 +1,31 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
-import type { AppSettings, Kind, Provider, Signal } from '../src/lib/types.js';
-import { GEMINI_MODELS, MODELS } from '../src/lib/types.js';
+import type { AppSettings, FreeProvider, Kind, Provider, Signal } from '../src/lib/types.js';
+import { modelFor, modelName, providerOf } from '../src/lib/types.js';
 import { askGemini } from './gemini.js';
+import { askOpenAI } from './openai.js';
 
-export const claudeReady = () => !!process.env.ANTHROPIC_API_KEY?.trim();
-export const geminiReady = () => !!process.env.GEMINI_API_KEY?.trim();
+/** An AI can be used when its key is in Vercel (ANTHROPIC_API_KEY, GEMINI_API_KEY, GROQ_API_KEY…). */
+export const ready = (p: Provider) => !!process.env[providerOf(p).env]?.trim();
+export const claudeReady = () => ready('claude');
+export const geminiReady = () => ready('gemini');
 
 /**
- * Which AI checks this message: the model picked in Settings → AI model (Claude or Gemini) checks everything
+ * Which AI checks this message: the model picked in Settings → AI model checks everything
  * (the owner chose not to keep bills for Claude). null = it isn't set up.
  */
 export function pickAi(cfg: AppSettings['ai'], _isPrivate?: boolean): Provider | null {
-  if (cfg.provider === 'gemini') return geminiReady() ? 'gemini' : null;
-  return claudeReady() ? 'claude' : null;
+  return ready(cfg.provider) ? cfg.provider : null;
 }
 /** Why no AI can check it (for the note under the result). */
 export function noAiNote(cfg: AppSettings['ai'], _isPrivate?: boolean): string {
-  if (cfg.provider === 'gemini') return 'Gemini is not set up (GEMINI_API_KEY in Vercel).';
-  return 'The AI check is not set up (ANTHROPIC_API_KEY in Vercel).';
+  const p = providerOf(cfg.provider);
+  return `${p.name} is not set up (${p.env} in Vercel).`;
 }
 /** A bill or a PDF counts as private. */
 export const isPrivate = (kind: Kind, mime?: string) => kind === 'bill' || mime === 'application/pdf';
-export const aiName = (p: Provider, cfg: AppSettings['ai']) =>
-  p === 'gemini' ? `${GEMINI_MODELS.find((m) => m.id === cfg.geminiModel)?.name ?? cfg.geminiModel} (free)` : MODELS.find((m) => m.id === cfg.model)?.name ?? cfg.model;
+export const aiName = (p: Provider, cfg: AppSettings['ai']) => modelName(p, modelFor(cfg, p));
 
 export const Answer = z.object({
   verdict: z.enum(['safe', 'suspicious', 'scam']).describe('safe = no real warning signs; suspicious = some signs, the person should check another way; scam = clearly a scam or phishing'),
@@ -88,6 +89,16 @@ export async function askAi(input: AiInput, cfg: AppSettings['ai'], provider: Pr
     const a = await askGemini(input, cfg);
     const by = aiName('gemini', { ...cfg, geminiModel: a.model });
     return { ...a, by, note: a.fallback ? `${aiName('gemini', cfg).replace(' (free)', '')} wasn’t available (${a.fallback}), so ${by.replace(' (free)', '')} checked it.` : undefined };
+  }
+  if (provider !== 'claude') {
+    // Groq, Mistral, OpenRouter: they can't read PDFs, so a PDF goes to Gemini or Claude when one is set up.
+    if (input.file?.mime === 'application/pdf') {
+      const other: Provider | null = ready('gemini') ? 'gemini' : ready('claude') ? 'claude' : null;
+      if (!other) throw new Error(`${providerOf(provider).name} can’t read PDFs: pick Claude or Gemini, or take a photo of the page`);
+      const a = await askAi(input, cfg, other);
+      return { ...a, note: `${providerOf(provider).name} can’t read PDFs, so ${a.by} checked it.` };
+    }
+    return askOpenAI(provider as FreeProvider, input, cfg);
   }
   return { ...(await askClaude(input, cfg)), by: aiName('claude', cfg) };
 }

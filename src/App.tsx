@@ -9,11 +9,23 @@ import { Saved } from './pages/Saved';
 import { Guide } from './pages/Guide';
 import { Settings } from './pages/Settings';
 import { api, getCode, setCode } from './lib/api';
+import { Video } from './pages/Video';
+import { Lookup } from './pages/Lookup';
 import { aiLeft, refreshStatus, useStatus } from './lib/useStatus';
 
-const TABS = ['Check', 'Saved', 'History', 'Guide', 'Settings'] as const;
+const TABS = ['Check', 'Video', 'Lookup', 'Saved', 'History', 'Guide', 'Settings'] as const;
 type Tab = (typeof TABS)[number];
-const TAB_ICON: Record<Tab, string> = { Check: '🛡️', Saved: '⭐', History: '🕘', Guide: '📖', Settings: '⚙️' };
+const TAB_ICON: Record<Tab, string> = { Check: '🛡️', Video: '🎬', Lookup: '🏢', Saved: '⭐', History: '🕘', Guide: '📖', Settings: '⚙️' };
+const TAB_LABEL: Partial<Record<Tab, string>> = { Lookup: 'Look up' };
+
+/** A YouTube or TikTok link shared to the app (Share → Scam Check) opens the Video tab with it. */
+function sharedVideoLink(): string {
+  if (!window.location.pathname.startsWith('/share')) return '';
+  const q = new URLSearchParams(window.location.search);
+  const link = [q.get('url'), ...(q.get('text') ?? '').split(/\s+/)].find((x) => x && /^https?:\/\/([a-z0-9-]+\.)*(youtube\.com|youtu\.be|tiktok\.com)\//i.test(x)) ?? '';
+  if (link) window.history.replaceState(null, '', '/video');
+  return link;
+}
 
 function Logo() {
   return (
@@ -82,8 +94,8 @@ function AccessGate({ onDone }: { onDone: () => void }) {
 }
 
 export default function App() {
-  const path = window.location.pathname;
-  const [tab, setTab] = useState<Tab>(path.startsWith('/history') ? 'History' : path.startsWith('/saved') ? 'Saved' : path.startsWith('/guide') ? 'Guide' : path.startsWith('/settings') ? 'Settings' : 'Check');
+  const [videoLink] = useState(sharedVideoLink);
+  const [tab, setTab] = useState<Tab>(() => (TABS.find((t) => t !== 'Check' && window.location.pathname.toLowerCase().startsWith(`/${t.toLowerCase()}`)) ?? 'Check'));
   const [hasCode, setHasCode] = useState(!!getCode());
   useEffect(() => {
     const off = () => setHasCode(false);
@@ -93,7 +105,7 @@ export default function App() {
   }, [hasCode]);
   const go = (t: Tab) => {
     setTab(t);
-    if (!path.startsWith('/share')) window.history.replaceState(null, '', t === 'Check' ? '/' : `/${t.toLowerCase()}`);
+    if (!window.location.pathname.startsWith('/share')) window.history.replaceState(null, '', t === 'Check' ? '/' : `/${t.toLowerCase()}`);
   };
 
   // Android app: the phone's back button goes back to Check, then puts the app in the background.
@@ -122,13 +134,13 @@ export default function App() {
           </div>
           <span className="md:order-last"><AiMeter /></span>
           {/* Tabs with icons, at the top. */}
-          <nav className="-mx-1 grid w-full grid-cols-5 md:mx-auto md:flex md:w-auto md:gap-1 md:rounded-2xl md:border md:border-white/80 md:bg-white/50 md:p-1 md:shadow-[0_0_0_1px_rgba(31,66,71,0.05)]" aria-label="Main">
+          <nav className="-mx-2 grid w-[calc(100%+1rem)] grid-cols-7 md:mx-auto md:flex md:w-auto md:gap-1 md:rounded-2xl md:border md:border-white/80 md:bg-white/50 md:p-1 md:shadow-[0_0_0_1px_rgba(31,66,71,0.05)]" aria-label="Main">
             {TABS.map((t) => (
               <button key={t} onClick={() => go(t)} aria-current={tab === t ? 'page' : undefined}
-                className={`relative flex min-h-[48px] flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-[11px] font-semibold transition md:min-h-0 md:flex-row md:gap-1.5 md:rounded-xl md:px-3.5 md:py-1.5 md:text-sm ${tab === t ? 'text-teal-800 md:bg-white md:shadow-[0_0_0_1px_rgba(74,146,155,0.25),0_4px_14px_-4px_rgba(74,146,155,0.45)]' : 'text-stone-500 hover:text-stone-800'}`}>
+                className={`relative flex min-h-[48px] min-w-0 flex-col items-center justify-center gap-0.5 px-0 py-1.5 text-[10px] font-semibold tracking-tight transition md:min-h-0 md:flex-row md:gap-1.5 md:rounded-xl md:px-3.5 md:py-1.5 md:text-sm ${tab === t ? 'text-teal-800 md:bg-white md:shadow-[0_0_0_1px_rgba(74,146,155,0.25),0_4px_14px_-4px_rgba(74,146,155,0.45)]' : 'text-stone-500 hover:text-stone-800'}`}>
                 <span className={`text-lg transition md:text-base ${tab === t ? 'drop-shadow-[0_0_6px_rgba(74,146,155,0.6)]' : 'opacity-80 grayscale-[35%]'}`} aria-hidden="true">{TAB_ICON[t]}</span>
-                {t}
-                {tab === t && <span className="absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-gradient-to-r from-teal-500 to-iris-500 shadow-[0_0_8px_rgba(74,146,155,0.8)] md:hidden" />}
+                {TAB_LABEL[t] ?? t}
+                {tab === t && <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-gradient-to-r from-teal-500 to-iris-500 shadow-[0_0_8px_rgba(74,146,155,0.8)] md:hidden" />}
               </button>
             ))}
           </nav>
@@ -136,7 +148,7 @@ export default function App() {
       </header>
       <main className="mx-auto max-w-7xl px-4 pb-16 pt-5" style={{ paddingBottom: 'calc(4rem + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))' }}>
         <AppUpdateCheck />
-        {tab === 'Guide' ? <Guide /> : !hasCode ? <AccessGate onDone={() => setHasCode(true)} /> : tab === 'Check' ? <Check /> : tab === 'Saved' ? <Saved /> : tab === 'History' ? <History /> : <Settings />}
+        {tab === 'Guide' ? <Guide /> : !hasCode ? <AccessGate onDone={() => setHasCode(true)} /> : tab === 'Check' ? <Check /> : tab === 'Video' ? <Video sharedLink={videoLink} /> : tab === 'Lookup' ? <Lookup /> : tab === 'Saved' ? <Saved /> : tab === 'History' ? <History /> : <Settings />}
       </main>
     </div>
   );

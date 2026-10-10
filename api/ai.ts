@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { waitUntil } from '@vercel/functions';
 import { z } from 'zod';
 import type { CheckResult } from '../src/lib/types.js';
+import { pickModel } from '../src/lib/types.js';
 import { guard, json } from '../server/guard.js';
 import { askAi, isPrivate, noAiNote, pickAi } from '../server/ai.js';
 import { buildResult, freeChecks } from '../server/analyze.js';
@@ -13,7 +14,7 @@ const AiBody = Body.extend({
   file: z.object({ mime: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']), data: z.string().max(4_300_000).regex(/^[A-Za-z0-9+/=]+$/) }).optional(),
   fresh: z.boolean().optional(), // ↻ Re-check: ask the AI again, even if an answer is remembered
   // ↻ Re-check with a model picked just for this once (Settings stay as they are).
-  model: z.object({ provider: z.enum(['claude', 'gemini']), id: z.string().regex(/^(claude|gemini)-[a-z0-9.-]{2,60}$/) }).optional(),
+  model: z.object({ provider: z.enum(['claude', 'gemini', 'groq', 'mistral', 'openrouter']), id: z.string().regex(/^[A-Za-z0-9._:/-]{2,120}$/) }).optional(),
 });
 
 /**
@@ -49,7 +50,7 @@ async function work(b: z.infer<typeof AiBody>, id: string, text: string, cached:
   {
     const saved = await getSettings();
     const pick = b.fresh ? b.model : undefined;
-    const cfg = !pick ? saved : { ...saved, ai: { ...saved.ai, provider: pick.provider, ...(pick.provider === 'claude' ? { model: pick.id } : { geminiModel: pick.id }) } };
+    const cfg = !pick ? saved : { ...saved, ai: { ...saved.ai, ...pickModel(saved.ai, pick.provider, pick.id) } };
     const free = text ? await freeChecks(text, { from: b.from, check: cfg.checks }) : { text: '', signals: [], links: [], phones: [] };
     const base = buildResult(id, b.kind, text || (b.kind === 'bill' ? 'Bill (picture or PDF)' : 'Screenshot'), free, 'pending');
     // Claude or Gemini (Settings → AI); bills and PDFs may be kept for Claude only.

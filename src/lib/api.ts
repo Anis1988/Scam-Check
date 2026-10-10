@@ -1,7 +1,7 @@
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { apiUrl, getServer, isNative } from './native';
-import type { AiMode, AppSettings, Bill, CheckResult, Kind, ListEntry, ModelChoice, SavedItem } from './types';
+import type { AiMode, AppSettings, Bill, CheckResult, CompanyInfo, Kind, ListEntry, ModelChoice, Provider, SavedItem, VideoResult } from './types';
 
 const CODE_KEY = 'sc.accessCode';
 export const getCode = (): string => { try { return localStorage.getItem(CODE_KEY) ?? ''; } catch { return ''; } };
@@ -41,7 +41,7 @@ export async function call<T>(path: string, init?: RequestInit): Promise<T> {
 /** limit null = unlimited. */
 export interface AiUse { ready: boolean; used: number; limit: number | null }
 /** ai / model / used / limit: the AI chosen in Settings (Claude or Gemini). */
-export interface Status { ai: boolean; store: boolean; model: string; used: number; limit: number | null; claude: AiUse; gemini: AiUse; safeBrowsing: boolean; settings: AppSettings }
+export interface Status { ai: boolean; store: boolean; model: string; used: number; limit: number | null; providers: Record<Provider, AiUse>; claude: AiUse; gemini: AiUse; safeBrowsing: boolean; settings: AppSettings }
 export interface Upload { mime: string; data: string; name: string; preview?: string }
 
 export interface CheckInput { kind: Kind; text?: string; from?: string; file?: Upload; aiMode: AiMode }
@@ -67,6 +67,12 @@ export const api = {
   resetSettings: () => call<AppSettings & { cleaned: number }>('/api/settings', { method: 'POST', body: JSON.stringify({ reset: true }) }),
   saveSettings: (s: AppSettings) => call<AppSettings & { cleaned: number }>('/api/settings', { method: 'POST', body: JSON.stringify(s) }),
   setNote: (id: string, note: string, name?: string) => call<SavedItem>('/api/saved', { method: 'POST', body: JSON.stringify({ action: 'note', id, note, name: name?.trim() || undefined }) }),
+  /** 🎬 Video: the check (it keeps going on the server if the app closes; GET it again with its id). */
+  videoCheck: (b: { id: string; label: string; file?: { name: string }; inline?: { mime: string; data: string }; url?: string }) =>
+    call<VideoResult>('/api/video', { method: 'POST', body: JSON.stringify({ action: 'check', ...b }) }),
+  video: (id: string) => call<VideoResult>(`/api/video?id=${encodeURIComponent(id)}`),
+  /** 🏢 A company's real contact details (live Google search). */
+  company: (name: string, fresh = false) => call<CompanyInfo>('/api/company', { method: 'POST', body: JSON.stringify({ name, fresh: fresh || undefined }) }),
   /** ⚡ Quick look-up: just a link, phone number or email address (free checks only). */
   lookup: (value: string) => call<CheckResult>('/api/lookup', { method: 'POST', body: JSON.stringify({ value }) }),
   bills: () => call<Bill[]>('/api/bills'),
@@ -150,4 +156,35 @@ export function downloadFile(f: { mime: string; name: string; data: string }): v
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(href), 60_000);
+}
+
+/**
+ * 🎬 A video from the phone or computer goes straight to Google (Vercel only takes 4.5 MB): the server opens the
+ * upload (the key stays on the server), the video is sent to that one-time address, and Google returns its name.
+ * Small videos (3 MB or less) can also go through the server if the direct upload fails.
+ */
+export async function uploadVideo(f: File, onProgress?: (share: number) => void): Promise<{ file?: { name: string }; inline?: { mime: string; data: string } }> {
+  const mime = f.type && f.type.startsWith('video/') ? f.type : 'video/mp4';
+  try {
+    const { uploadUrl } = await call<{ uploadUrl: string }>('/api/video', { method: 'POST', body: JSON.stringify({ action: 'start', mime, size: f.size, name: f.name }) });
+    const name = await new Promise<string>((ok, fail) => {
+      const x = new XMLHttpRequest();
+      x.open('POST', uploadUrl);
+      x.setRequestHeader('X-Goog-Upload-Command', 'upload, finalize');
+      x.setRequestHeader('X-Goog-Upload-Offset', '0');
+      x.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total);
+      x.onload = () => {
+        try {
+          const n = (JSON.parse(x.responseText) as { file?: { name?: string } }).file?.name;
+          return n ? ok(n) : fail(new Error(`Upload failed (HTTP ${x.status})`));
+        } catch { fail(new Error(`Upload failed (HTTP ${x.status})`)); }
+      };
+      x.onerror = () => fail(new Error('Upload failed'));
+      x.send(f);
+    });
+    return { file: { name } };
+  } catch (e) {
+    if (f.size <= 3_000_000) return { inline: { mime, data: await toBase64(f) } };
+    throw new Error(`The video couldn’t be uploaded (${e instanceof Error ? e.message : e}). Try a shorter clip, or a YouTube link.`);
+  }
 }
