@@ -12,6 +12,7 @@ import { api, getCode, setCode } from './lib/api';
 import { Video } from './pages/Video';
 import { Lookup } from './pages/Lookup';
 import { aiLeft, refreshStatus, useStatus } from './lib/useStatus';
+import { getPrefs, setPrefs } from './lib/history';
 
 const TABS = ['Check', 'Video', 'Lookup', 'Saved', 'History', 'Guide', 'Settings'] as const;
 type Tab = (typeof TABS)[number];
@@ -38,6 +39,18 @@ function Logo() {
       <path d="M256 92 394 144v100c0 88-58 150-138 174-80-24-138-86-138-174V144z" fill="url(#lg)" />
       <path d="m196 262 42 42 82-90" fill="none" stroke="#fff" strokeWidth="34" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+/** ☀️/🌙: light or dark, remembered on this device (also in Settings → This device). */
+function ThemeButton() {
+  const [dark, setDark] = useState(() => getPrefs().theme === 'dark');
+  useEffect(() => { const upd = () => setDark(getPrefs().theme === 'dark'); window.addEventListener('sc-prefs', upd); return () => window.removeEventListener('sc-prefs', upd); }, []);
+  return (
+    <button type="button" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-stone-200/80 bg-white/60 text-lg transition hover:shadow-[0_0_0_3px_rgba(74,146,155,0.15)] active:scale-95"
+      onClick={() => setPrefs({ ...getPrefs(), theme: dark ? 'light' : 'dark' })} aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'} title={dark ? 'Light mode' : 'Dark mode'}>
+      <span aria-hidden="true">{dark ? '☀️' : '🌙'}</span>
+    </button>
   );
 }
 
@@ -132,7 +145,7 @@ export default function App() {
               <p className="hud truncate !text-[10px]">Check before you click, call or pay</p>
             </div>
           </div>
-          <span className="md:order-last"><AiMeter /></span>
+          <span className="flex items-center gap-2 md:order-last"><AiMeter /><ThemeButton /></span>
           {/* Tabs with icons, at the top. */}
           <nav className="-mx-2 grid w-[calc(100%+1rem)] grid-cols-7 md:mx-auto md:flex md:w-auto md:gap-1 md:rounded-2xl md:border md:border-white/80 md:bg-white/50 md:p-1 md:shadow-[0_0_0_1px_rgba(31,66,71,0.05)]" aria-label="Main">
             {TABS.map((t) => (

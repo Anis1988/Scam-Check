@@ -5,7 +5,7 @@ import { guard, json } from '../server/guard.js';
 import { geminiReady, ready } from '../server/ai.js';
 import { deleteVideo, jsonIn, startVideoUpload, waitForVideo } from '../server/gemini.js';
 import { askWithSearch } from '../server/search.js';
-import { pickModel, providerOf } from '../src/lib/types.js';
+import { modelFor, modelName, pickModel, providerOf } from '../src/lib/types.js';
 import { db, getSettings, takeAi } from '../server/store.js';
 
 /**
@@ -100,11 +100,13 @@ async function linkInfo(url: string): Promise<{ title: string; author: string; t
 
 async function run(b: Extract<z.infer<typeof Post>, { action: 'check' }>, base: VideoResult): Promise<VideoResult> {
   let result: VideoResult;
+  let tried: string | undefined;
   try {
     const saved = await getSettings();
     const cfg = b.model ? { ...saved, ai: { ...saved.ai, ...pickModel(saved.ai, b.model.provider, b.model.id) } } : saved;
     const p = cfg.ai.provider;
     const name = providerOf(p).name;
+    tried = modelName(p, modelFor(cfg.ai, p));
     if (!ready(p)) throw new Error(`${name} isn’t set up (${providerOf(p).env} in Vercel): pick another model`);
     const notes: string[] = [];
     const geminiParts: Record<string, unknown>[] = [];
@@ -144,7 +146,7 @@ async function run(b: Extract<z.infer<typeof Post>, { action: 'check' }>, base: 
       claims, aiSigns: String(o.aiSigns ?? '').slice(0, 300) || undefined, sources: g.sources, aiBy: g.by, note: notes.join(' ') || undefined,
     };
   } catch (e) {
-    result = { ...base, status: 'failed', error: (e instanceof Error ? e.message : String(e)).slice(0, 300) };
+    result = { ...base, status: 'failed', tried, error: (e instanceof Error ? e.message : String(e)).slice(0, 300) };
   } finally {
     if (b.file) void deleteVideo(b.file.name); // the uploaded video isn't kept at Google
   }

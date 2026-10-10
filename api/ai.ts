@@ -2,9 +2,9 @@ import { createHash } from 'node:crypto';
 import { waitUntil } from '@vercel/functions';
 import { z } from 'zod';
 import type { CheckResult } from '../src/lib/types.js';
-import { pickModel } from '../src/lib/types.js';
+import { pickModel, providerOf } from '../src/lib/types.js';
 import { guard, json } from '../server/guard.js';
-import { askAi, isPrivate, noAiNote, pickAi } from '../server/ai.js';
+import { aiName, askAi, isPrivate, noAiNote, pickAi } from '../server/ai.js';
 import { buildResult, freeChecks } from '../server/analyze.js';
 import { mergeAi } from '../server/merge.js';
 import { getResult, getSettings, recordBill, saveResult, takeAi } from '../server/store.js';
@@ -59,8 +59,9 @@ async function work(b: z.infer<typeof AiBody>, id: string, text: string, cached:
     // A re-check that can't run keeps the answer you already had.
     const keep = (note: string, r: CheckResult) => (b.fresh && cached?.ai === 'done' ? { ...cached, aiNote: note, remembered: true } : r);
     if (!prov) return keep(noAiNote(cfg.ai, priv), { ...base, ai: 'off', aiNote: noAiNote(cfg.ai, priv) });
-    const over = `Today’s ${prov === 'gemini' ? 'Gemini' : 'AI'} checks are used up (daily limit in Settings). The result below is from the free checks.`;
-    if (!(await takeAi(prov))) return keep(over, { ...base, ai: 'limit', aiNote: over, unchecked: !text || undefined });
+    const tried = aiName(prov, cfg.ai);
+    const over = `Today’s ${providerOf(prov).name} checks are used up (daily limit in Settings). The result below is from the free checks: pick another model to continue.`;
+    if (!(await takeAi(prov))) return keep(over, { ...base, ai: 'limit', aiNote: over, aiTried: tried, unchecked: !text || undefined });
     let result: CheckResult;
     try {
       const a = await askAi({ kind: b.kind, text: text || undefined, file: b.file, from: b.from, signals: free.signals }, cfg.ai, prov);
@@ -73,8 +74,8 @@ async function work(b: z.infer<typeof AiBody>, id: string, text: string, cached:
       const raw = e instanceof Error ? e.message : String(e);
       // "401 {"type":"error","error":{…"message":"invalid x-api-key"}}" -> "invalid x-api-key"
       const why = raw.match(/"message"\s*:\s*"([^"]{1,160})"/)?.[1] ?? raw.slice(0, 160);
-      const note = `The AI check failed (${why}). The result below is from the free checks.`;
-      result = keep(note, { ...base, ai: 'failed', unchecked: !text || undefined, aiNote: note });
+      const note = `${tried} couldn’t check it (${why}). The result below is from the free checks: pick another model to try again.`;
+      result = keep(note, { ...base, ai: 'failed', aiTried: tried, unchecked: !text || undefined, aiNote: note });
     }
     if (!result.remembered) await saveResult(result, cfg.checks.rememberDays).catch(() => undefined);
     return result;

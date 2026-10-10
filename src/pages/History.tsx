@@ -4,7 +4,7 @@ import { clearHistory, getPrefs, loadHistory, saveToHistory } from '../lib/histo
 import { KIND_LABEL, VERDICT_LABEL, type CheckResult, type ModelChoice, type Verdict } from '../lib/types';
 import { ResultCard } from '../components/ResultCard';
 import { SaveBox } from '../components/SaveBox';
-import { RecheckBar } from '../components/Recheck';
+import { RecheckBar, needOf, stuck } from '../components/Recheck';
 import { getInput } from '../lib/inputs';
 import { refreshStatus } from '../lib/useStatus';
 import { toast } from '../components/ui';
@@ -76,8 +76,10 @@ export function History() {
   if (sel) return (
     <Shell right={stats}>
       <button className="btn" onClick={() => setSel(null)}>← Back to History</button>
+      {/* It failed or hit today's limit: the other models come first. */}
+      {!rechecking && stuck(sel) && <RecheckBar r={sel} canRecheck={!!selInput} need={needOf(selInput?.file)} onRecheck={(m) => void recheck(m)} />}
       <ResultCard r={sel} onChanged={() => void api.result(sel.id).then((x) => (setSel(x), setList(saveToHistory(x))), () => undefined)} />
-      {!rechecking && <RecheckBar r={sel} canRecheck={!!selInput} onRecheck={(m) => void recheck(m)} />}
+      {!rechecking && !stuck(sel) && <RecheckBar r={sel} canRecheck={!!selInput} need={needOf(selInput?.file)} onRecheck={(m) => void recheck(m)} />}
       {sel.ai !== 'pending' && <SaveBox key={sel.id} id={sel.id} />}
     </Shell>
   );

@@ -88,11 +88,11 @@ export function ScoreRing({ score, verdict, size = 64, muted = false }: { score:
   const c = muted ? '#97A3AB' : RING[verdict];
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" role="img" aria-label={`Safety ${safe} out of 10`} className="shrink-0">
-      <circle cx="32" cy="32" r={r} fill="rgba(255,255,255,0.7)" stroke="rgba(31,66,71,0.08)" strokeWidth="6" />
+      <circle cx="32" cy="32" r={r} className="fill-white/70 stroke-stone-900/10" strokeWidth="6" />
       <circle cx="32" cy="32" r={r} fill="none" stroke={c} strokeWidth="6" strokeLinecap="round" className="ring-fill"
         strokeDasharray={full} strokeDashoffset={full * (1 - safe / 10)} transform="rotate(-90 32 32)"
         style={{ ['--full' as string]: full, filter: `drop-shadow(0 0 3px ${c}88)` }} />
-      <text x="32" y="36.5" textAnchor="middle" fontFamily="JetBrains Mono, monospace" fontWeight="600" fill="#2B333A"><tspan fontSize="17">{safe}</tspan><tspan fontSize="9" fill="#6B7882">/10</tspan></text>
+      <text x="32" y="36.5" textAnchor="middle" fontFamily="JetBrains Mono, monospace" fontWeight="600" className="fill-stone-800"><tspan fontSize="17">{safe}</tspan><tspan fontSize="9" className="fill-stone-500">/10</tspan></text>
     </svg>
   );
 }

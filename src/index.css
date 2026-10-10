@@ -6,6 +6,28 @@
    glowing top edge, mono "HUD" labels, a score ring and a scanning line while checking. Muted colours throughout.
    Verdict colours are fixed: green = looks safe, amber = suspicious, red = likely scam (always with an icon and words). */
 @layer base {
+  /* The palette (tailwind.config.js reads these). 🌙 Dark: the same muted colours, light and dark swapped. */
+  :root, .light {
+    --c-white: 255 255 255;
+    --c-mist: 235 240 243;
+    --c-iris-300: 185 181 226; --c-iris-400: 156 150 210; --c-iris-500: 130 123 192; --c-iris-600: 108 101 169;
+    --c-stone-50: 246 248 249; --c-stone-100: 236 240 242; --c-stone-200: 220 227 231; --c-stone-300: 196 205 211; --c-stone-400: 151 163 171; --c-stone-500: 107 120 130; --c-stone-600: 81 93 102; --c-stone-700: 62 72 80; --c-stone-800: 43 51 58; --c-stone-900: 27 34 39;
+    --c-teal-50: 237 246 247; --c-teal-100: 216 236 238; --c-teal-200: 185 218 222; --c-teal-300: 144 195 201; --c-teal-400: 102 169 177; --c-teal-500: 74 146 155; --c-teal-600: 59 126 135; --c-teal-700: 49 106 114; --c-teal-800: 40 87 93; --c-teal-900: 31 66 71;
+    --c-emerald-50: 239 245 241; --c-emerald-200: 207 225 212; --c-emerald-500: 118 164 134; --c-emerald-600: 94 140 110; --c-emerald-700: 77 118 91; --c-emerald-800: 63 96 74; --c-emerald-900: 49 75 58;
+    --c-amber-50: 248 244 234; --c-amber-200: 231 218 185; --c-amber-400: 205 175 111; --c-amber-600: 163 132 75; --c-amber-700: 135 109 61; --c-amber-800: 108 87 50; --c-amber-900: 84 68 40;
+    --c-red-50: 247 239 238; --c-red-200: 230 208 204; --c-red-500: 188 127 118; --c-red-600: 163 104 95; --c-red-700: 138 86 78; --c-red-800: 112 70 64; --c-red-900: 88 56 51;
+  }
+  .dark {
+    color-scheme: dark;
+    --c-white: 22 32 38;
+    --c-mist: 11 18 22;
+    --c-iris-300: 74 69 128; --c-iris-400: 108 101 169; --c-iris-500: 150 144 208; --c-iris-600: 179 174 224;
+    --c-stone-50: 20 28 33; --c-stone-100: 28 37 43; --c-stone-200: 42 53 60; --c-stone-300: 58 70 78; --c-stone-400: 93 106 115; --c-stone-500: 140 153 162; --c-stone-600: 167 178 185; --c-stone-700: 190 200 206; --c-stone-800: 214 221 225; --c-stone-900: 236 241 243;
+    --c-teal-50: 17 39 43; --c-teal-100: 22 50 54; --c-teal-200: 31 68 74; --c-teal-300: 42 90 97; --c-teal-400: 59 126 135; --c-teal-500: 79 154 163; --c-teal-600: 106 176 184; --c-teal-700: 130 193 200; --c-teal-800: 157 208 214; --c-teal-900: 188 223 227;
+    --c-emerald-50: 19 36 26; --c-emerald-200: 40 66 49; --c-emerald-500: 118 164 134; --c-emerald-600: 141 185 156; --c-emerald-700: 158 197 171; --c-emerald-800: 180 212 190; --c-emerald-900: 207 227 213;
+    --c-amber-50: 42 35 21; --c-amber-200: 75 62 35; --c-amber-400: 205 175 111; --c-amber-600: 202 168 104; --c-amber-700: 213 186 128; --c-amber-800: 225 204 154; --c-amber-900: 235 221 187;
+    --c-red-50: 44 27 25; --c-red-200: 79 48 44; --c-red-500: 196 135 126; --c-red-600: 204 148 139; --c-red-700: 214 164 156; --c-red-800: 226 185 178; --c-red-900: 235 211 207;
+  }
   html { -webkit-tap-highlight-color: transparent; color-scheme: light; }
   html.text-large { font-size: 112.5%; }
   body {
@@ -18,6 +40,14 @@
       linear-gradient(90deg, rgba(49, 106, 114, 0.045) 1px, transparent 1px);
     background-size: auto, auto, 32px 32px, 32px 32px;
     background-attachment: fixed;
+  }
+  /* 🌙 A deep night-teal page: the same grid and cyan/violet light, a bit brighter so it glows. */
+  html.dark body {
+    background-image:
+      radial-gradient(52rem 30rem at 105% -8%, rgba(74, 146, 155, 0.2), transparent 62%),
+      radial-gradient(44rem 28rem at -8% 4%, rgba(130, 123, 192, 0.16), transparent 62%),
+      linear-gradient(rgba(130, 193, 200, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(130, 193, 200, 0.05) 1px, transparent 1px);
   }
   h1, h2, h3 { @apply font-display tracking-tight text-stone-900; }
   ::selection { background: rgba(74, 146, 155, 0.2); }
@@ -33,6 +63,11 @@
     content: ''; position: absolute; left: 1.25rem; right: 1.25rem; top: -1px; height: 1px; pointer-events: none;
     background: linear-gradient(90deg, transparent, rgba(74, 146, 155, 0.55), rgba(130, 123, 192, 0.55), transparent);
   }
+  .dark .card:not(.light .card) {
+    border-color: rgba(130, 193, 200, 0.14);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 12px 32px -12px rgba(0, 0, 0, 0.6), 0 0 24px -12px rgba(74, 146, 155, 0.25);
+  }
+  .dark .card:not(.light .card)::before { background: linear-gradient(90deg, transparent, rgba(106, 176, 184, 0.8), rgba(150, 144, 208, 0.8), transparent); }
   .panel { @apply rounded-xl border border-stone-200/80 bg-white/60 p-3; }
   .num { @apply font-mono tabular-nums; }
   .label { @apply font-mono text-[10.5px] font-semibold uppercase tracking-[0.18em] text-teal-700/80; }
@@ -42,7 +77,8 @@
   /* >=44px tap targets and 16px inputs on phones (16px stops iOS zooming into fields) */
   .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-stone-300/80 bg-white/75 px-4 py-2 text-sm font-semibold text-stone-800 backdrop-blur transition hover:border-teal-500/60 hover:shadow-[0_0_0_3px_rgba(74,146,155,0.12)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40; }
   .btn-primary {
-    @apply inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-display text-base font-semibold tracking-wide text-white transition active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40;
+    @apply inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-display text-base font-semibold tracking-wide transition active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40;
+    color: #fff; /* white in both modes (the palette's "white" turns dark in 🌙) */
     background: linear-gradient(120deg, #3B7E87, #316A72 45%, #6C65A9);
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25) inset, 0 8px 22px -8px rgba(49, 106, 114, 0.55), 0 0 18px -6px rgba(108, 101, 169, 0.45);
   }
@@ -54,6 +90,7 @@
   .toggle[aria-checked='true'] { @apply border-teal-600; background: linear-gradient(120deg, #3B7E87, #6C65A9); box-shadow: 0 0 12px -2px rgba(74, 146, 155, 0.55); }
   .toggle > span { @apply inline-block h-5 w-5 translate-x-1 rounded-full bg-white shadow transition; }
   .toggle[aria-checked='true'] > span { @apply translate-x-6; }
+  .dark .toggle > span { background: #E6EDF0; }
   /* The dashed drop area (pictures, PDFs). */
   .dropzone { @apply relative flex w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl border-2 border-dashed border-teal-400/50 bg-teal-50/40 px-4 py-6 text-center transition; }
   .dropzone:hover, .dropzone[data-over='true'] { @apply border-teal-500 bg-teal-50/80; box-shadow: 0 0 0 4px rgba(74, 146, 155, 0.12), 0 0 30px -8px rgba(74, 146, 155, 0.5) inset; }

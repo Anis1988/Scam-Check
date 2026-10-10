@@ -8,7 +8,8 @@ import { askAgain, newKey, patchItem, runBatch, setBatch, showOne, useBatch, typ
 import { KIND_LABEL, MODELS, money, type Bill, type CheckResult, type ModelChoice, type Kind, type Verdict } from '../lib/types';
 import { aiLeft, useStatus } from '../lib/useStatus';
 import { ResultCard } from '../components/ResultCard';
-import { RecheckBar } from '../components/Recheck';
+import { RecheckBar, needOf, stuck } from '../components/Recheck';
+import { ModelMenu } from '../components/ModelMenu';
 import { SaveBox } from '../components/SaveBox';
 import { Rail, ScoreRing, Shell, VerdictChip, toast } from '../components/ui';
 import { dueText } from '../components/bills';
@@ -242,11 +243,15 @@ export function Check() {
     );
   };
 
+  const recheckBar = (it: Item) => it.result && <RecheckBar r={it.result} canRecheck={!!it.input} need={needOf(it.input?.file)} onRecheck={(m) => void askAi(it, true, m)} />;
+  // The AI failed or hit today's limit on these: they can all go to another model at once.
+  const stuckOnes = items.filter((x) => x.result && x.input && stuck(x.result));
   const full = (it: Item) => (
     <div className="space-y-3">
+      {it.result && stuck(it.result) && recheckBar(it)}
       {it.result && <ResultCard r={it.result} onChanged={() => reload(it)} />}
       {offers(it)}
-      {it.result && <RecheckBar r={it.result} canRecheck={!!it.input} onRecheck={(m) => void askAi(it, true, m)} />}
+      {it.result && !stuck(it.result) && recheckBar(it)}
       {it.result && it.result.ai !== 'pending' && <SaveBox key={`${it.result.id}${it.savedName ?? ''}`} id={it.result.id} text={it.input?.text} file={it.input?.file} savedName={it.savedName} />}
     </div>
   );
@@ -391,6 +396,14 @@ export function Check() {
                   <p className="flex flex-wrap gap-1.5 pt-1">{counts.filter(([, n]) => n).map(([v, n]) => <VerdictChip key={v} verdict={v} extra={String(n)} />)}</p>
                 </div>
                 {!busy && done.length > 0 && <button className="btn" onClick={() => void saveAll()} disabled={done.every((x) => x.savedName)}>⭐ Save all</button>}
+                {!busy && stuckOnes.length > 0 && (
+                  <div className="w-full space-y-1.5 border-t border-stone-200/70 pt-2">
+                    <p className="text-sm text-amber-800">⚠️ The AI couldn’t check {stuckOnes.length === 1 ? '1 of them' : `${stuckOnes.length} of them`}{stuckOnes[0].result!.aiTried ? ` (${stuckOnes[0].result!.aiTried})` : ''}.</p>
+                    <ModelMenu label={`Continue ${stuckOnes.length === 1 ? 'it' : `all ${stuckOnes.length}`} with another model`} primary
+                      need={stuckOnes.some((x) => needOf(x.input?.file) === 'pdf') ? 'pdf' : stuckOnes.some((x) => x.input?.file) ? 'pictures' : undefined}
+                      tried={stuckOnes[0].result!.aiTried} onPick={(m) => stuckOnes.forEach((x) => void askAi(x, true, m))} />
+                  </div>
+                )}
               </div>
               <ul className="space-y-2">
                 {items.map((it, i) => {
@@ -411,6 +424,7 @@ export function Check() {
                                 <VerdictChip verdict={r.verdict} unchecked={r.unchecked && r.ai !== 'pending'} extra={r.ai === 'pending' ? 'AI reading…' : undefined} />
                                 <span className="mt-0.5 block truncate text-sm font-medium text-stone-900">{r.brief?.whatItIs || r.title || r.summary}</span>
                                 {r.ai === 'done' && r.aiBy && <span className="hud block truncate !text-[10px]">🤖 {r.aiBy}</span>}
+                                {stuck(r) && <span className="block truncate text-xs font-semibold text-amber-700">⚠️ {r.ai === 'limit' ? 'Limit reached' : r.ai === 'off' ? 'No AI set up' : 'The AI failed'}: tap to pick another model</span>}
                                 {it.savedName && <span className="block truncate font-mono text-xs text-emerald-700">⭐ {it.savedName}</span>}
                               </>}
                         </span>
