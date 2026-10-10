@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { api, setCode } from '../lib/api';
 import { clearHistory, getPrefs, setPrefs, type DevicePrefs } from '../lib/history';
 import { MODELS, type AiMode, type AppSettings, type Effort, type ListEntry } from '../lib/types';
-import { aiLeft, refreshStatus, setStatusSettings, useStatus } from '../lib/useStatus';
+import { aiLeft, refreshStatus, setStatusSettings, useStatus, useStatusError } from '../lib/useStatus';
 import { Card, Field, Rail, Shell, Toggle, toast } from '../components/ui';
 import { APP_BUILD, downloadApp, latestApp } from '../components/AppUpdate';
 import { getServer, isNative, setServer } from '../lib/native';
@@ -35,6 +35,7 @@ function Section({ id, title, subtitle, children }: { id: string; title: string;
 
 export function Settings() {
   const st = useStatus();
+  const stErr = useStatusError();
   const [cfg, setCfg] = useState<AppSettings | null>(st?.settings ?? null);
   useEffect(() => { if (st && !cfg) setCfg(st.settings); }, [st, cfg]);
   const [prefs, setP] = useState<DevicePrefs>(getPrefs);
@@ -78,7 +79,12 @@ export function Settings() {
 
   const setupRail = (
     <Rail title="What’s set up">
-      {!st ? <p className="text-sm text-stone-500"><span className="spinner" /> Loading…</p> : (
+      {!st && stErr ? (
+        <div className="space-y-2">
+          <p className="text-sm text-red-700">{stErr}</p>
+          <button className="btn w-full" onClick={() => void refreshStatus()}>↻ Try again</button>
+        </div>
+      ) : !st ? <p className="text-sm text-stone-500"><span className="spinner" /> Loading…</p> : (
         <ul className="space-y-2 text-sm">
           {[
             ['AI key', st.ai, 'ANTHROPIC_API_KEY in Vercel'],
@@ -115,7 +121,7 @@ export function Settings() {
         {cfg && <button className="btn" onClick={() => void reset()}>↺ Starting values</button>}
       </div>
       <div className="lg:hidden">{setupRail}</div>
-      {!cfg ? <p className="card text-sm text-stone-500"><span className="spinner" /> Loading…</p> : (
+      {!cfg ? <p className="card text-sm text-stone-500">{stErr ? 'Settings can’t be loaded until the server answers (see above).' : <><span className="spinner" /> Loading…</>}</p> : (
         <>
           <Section id="ai" title="🤖 AI" subtitle={st?.ai ? `Used today: ${st.used}${st.limit === null ? '' : ` of ${st.limit}`}${aiLeft(st) === 0 ? ' (none left)' : ''}` : 'Add ANTHROPIC_API_KEY in Vercel to turn the AI on.'}>
             <div className="space-y-1.5">
