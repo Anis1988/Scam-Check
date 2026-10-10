@@ -2,44 +2,83 @@
 @tailwind components;
 @tailwind utilities;
 
-/* "Light & calm": warm off-white page, white rounded cards with soft shadows, deep teal + coral accents,
-   a friendly rounded font. Verdict colours are fixed everywhere: green = looks safe, amber = suspicious,
-   red = likely scam — always with an icon and words, never colour alone. */
+/* "Light futuristic": a misty cool page with a faint grid and soft cyan/violet light, frosted-glass panels with a thin
+   glowing top edge, mono "HUD" labels, a score ring and a scanning line while checking. Muted colours throughout.
+   Verdict colours are fixed: green = looks safe, amber = suspicious, red = likely scam (always with an icon and words). */
 @layer base {
   html { -webkit-tap-highlight-color: transparent; color-scheme: light; }
+  html.text-large { font-size: 112.5%; }
   body {
-    @apply min-h-screen bg-cream font-sans text-stone-800 antialiased;
+    @apply min-h-screen bg-mist font-sans text-stone-800 antialiased;
     overflow-x: hidden;
-    background-image: radial-gradient(48rem 28rem at 100% -10%, rgba(74, 114, 109, 0.05), transparent 60%), radial-gradient(40rem 24rem at -10% 0%, rgba(201, 138, 122, 0.05), transparent 60%);
+    background-image:
+      radial-gradient(52rem 30rem at 105% -8%, rgba(74, 146, 155, 0.13), transparent 62%),
+      radial-gradient(44rem 28rem at -8% 4%, rgba(130, 123, 192, 0.11), transparent 62%),
+      linear-gradient(rgba(49, 106, 114, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(49, 106, 114, 0.045) 1px, transparent 1px);
+    background-size: auto, auto, 32px 32px, 32px 32px;
     background-attachment: fixed;
   }
   h1, h2, h3 { @apply font-display tracking-tight text-stone-900; }
-  ::selection { background: rgba(74, 114, 109, 0.18); }
+  ::selection { background: rgba(74, 146, 155, 0.2); }
 }
 
 @layer components {
-  .card { @apply rounded-3xl border border-stone-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(28,25,23,0.04),0_8px_24px_rgba(28,25,23,0.06)]; }
-  .panel { @apply rounded-2xl border border-stone-200 bg-stone-50 p-3; }
+  /* Frosted glass panel with a thin cyan→violet light along the top edge. */
+  .card {
+    @apply relative rounded-2xl border border-white/80 bg-white/70 p-4 backdrop-blur-xl;
+    box-shadow: 0 0 0 1px rgba(31, 66, 71, 0.06), 0 10px 30px -12px rgba(31, 66, 71, 0.18);
+  }
+  .card::before {
+    content: ''; position: absolute; left: 1.25rem; right: 1.25rem; top: -1px; height: 1px; pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgba(74, 146, 155, 0.55), rgba(130, 123, 192, 0.55), transparent);
+  }
+  .panel { @apply rounded-xl border border-stone-200/80 bg-white/60 p-3; }
   .num { @apply font-mono tabular-nums; }
-  .label { @apply text-[11px] font-bold uppercase tracking-[0.1em] text-stone-500; }
+  .label { @apply font-mono text-[10.5px] font-semibold uppercase tracking-[0.18em] text-teal-700/80; }
   .muted { @apply text-stone-500; }
+  .hud { @apply font-mono text-[11px] uppercase tracking-[0.14em] text-stone-500; }
 
   /* >=44px tap targets and 16px inputs on phones (16px stops iOS zooming into fields) */
-  .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-800 shadow-sm transition hover:border-teal-600/50 hover:bg-teal-50/50 active:scale-95 disabled:pointer-events-none disabled:opacity-40; }
-  .btn-primary { @apply inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 py-2.5 text-base font-bold text-white shadow-[0_6px_16px_rgba(74,114,109,0.18)] transition hover:bg-teal-800 active:scale-95 disabled:pointer-events-none disabled:opacity-40; }
-  .btn-coral { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-coral px-4 py-2 text-sm font-bold text-white shadow-[0_6px_16px_rgba(201,138,122,0.2)] transition hover:brightness-95 active:scale-95 disabled:pointer-events-none disabled:opacity-40; }
-  .btn-ghost { @apply inline-flex items-center gap-1 rounded-xl px-2 py-1 text-sm font-semibold text-teal-700 hover:bg-teal-50 active:scale-95; }
-  .input { @apply min-h-[48px] min-w-0 max-w-full rounded-2xl border border-stone-300 bg-white px-4 py-2.5 text-base text-stone-900 caret-teal-700 shadow-inner shadow-stone-900/[0.02] placeholder:text-stone-400 focus:border-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-600/15 disabled:opacity-60; }
+  .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-stone-300/80 bg-white/75 px-4 py-2 text-sm font-semibold text-stone-800 backdrop-blur transition hover:border-teal-500/60 hover:shadow-[0_0_0_3px_rgba(74,146,155,0.12)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40; }
+  .btn-primary {
+    @apply inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-display text-base font-semibold tracking-wide text-white transition active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40;
+    background: linear-gradient(120deg, #3B7E87, #316A72 45%, #6C65A9);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25) inset, 0 8px 22px -8px rgba(49, 106, 114, 0.55), 0 0 18px -6px rgba(108, 101, 169, 0.45);
+  }
+  .btn-primary:hover { filter: brightness(1.06); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3) inset, 0 10px 26px -8px rgba(49, 106, 114, 0.6), 0 0 24px -4px rgba(108, 101, 169, 0.5); }
+  .btn-ghost { @apply inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-teal-700 hover:bg-teal-50 active:scale-95; }
+  .input { @apply min-h-[48px] min-w-0 max-w-full rounded-xl border border-stone-300/80 bg-white/80 px-4 py-2.5 text-base text-stone-900 caret-teal-600 placeholder:text-stone-400 focus:border-teal-500 focus:outline-none focus:ring-4 focus:ring-teal-500/15 disabled:opacity-60; }
+  .chip { @apply inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold; }
   .toggle { @apply relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border border-stone-300 bg-stone-200 transition; }
-  .toggle[aria-checked='true'] { @apply border-teal-700 bg-teal-700; }
+  .toggle[aria-checked='true'] { @apply border-teal-600; background: linear-gradient(120deg, #3B7E87, #6C65A9); box-shadow: 0 0 12px -2px rgba(74, 146, 155, 0.55); }
   .toggle > span { @apply inline-block h-5 w-5 translate-x-1 rounded-full bg-white shadow transition; }
   .toggle[aria-checked='true'] > span { @apply translate-x-6; }
+  /* The dashed drop area (pictures, PDFs). */
+  .dropzone { @apply relative flex w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl border-2 border-dashed border-teal-400/50 bg-teal-50/40 px-4 py-6 text-center transition; }
+  .dropzone:hover, .dropzone[data-over='true'] { @apply border-teal-500 bg-teal-50/80; box-shadow: 0 0 0 4px rgba(74, 146, 155, 0.12), 0 0 30px -8px rgba(74, 146, 155, 0.5) inset; }
 }
 
 @keyframes toast-in { from { opacity: 0; transform: translateY(-12px) scale(0.97); } to { opacity: 1; transform: none; } }
 .toast-in { animation: toast-in 0.18s ease-out; }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-.rise { animation: rise 0.25s ease-out; }
+.rise { animation: rise 0.28s ease-out both; }
 .spinner { width: 1em; height: 1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; vertical-align: -0.125em; }
 @keyframes spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .spinner, .toast-in, .rise { animation: none; } }
+/* A light line sweeping down a picture while it is being checked. */
+.scan { position: relative; overflow: hidden; }
+.scan::after {
+  content: ''; position: absolute; inset-inline: 0; top: -30%; height: 30%; pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(102, 169, 177, 0.35) 70%, rgba(156, 150, 210, 0.9) 98%, transparent);
+  animation: scan 1.6s ease-in-out infinite;
+}
+@keyframes scan { to { top: 100%; } }
+/* The score ring fills in once. */
+@keyframes ring { from { stroke-dashoffset: var(--full); } }
+.ring-fill { animation: ring 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes glow { 50% { opacity: 0.55; } }
+.pulse-glow { animation: glow 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .spinner, .toast-in, .rise, .ring-fill, .pulse-glow { animation: none; }
+  .scan::after { animation: none; top: 0; height: 100%; opacity: 0.25; }
+}

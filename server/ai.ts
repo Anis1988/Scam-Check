@@ -1,9 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
-import type { Kind, Signal } from '../src/lib/types.js';
+import type { AppSettings, Kind, Signal } from '../src/lib/types.js';
 
-export const MODEL = process.env.AI_MODEL || 'claude-opus-5-5';
 export const aiReady = () => !!process.env.ANTHROPIC_API_KEY?.trim();
 
 const Answer = z.object({
@@ -12,6 +11,7 @@ const Answer = z.object({
   summary: z.string().describe('one or two short sentences in plain everyday English, speaking to the person ("This text pretends to be USPS…")'),
   redFlags: z.array(z.object({ title: z.string().describe('max 8 words'), detail: z.string().describe('one short sentence') })).describe('the warning signs you see, most important first, max 5; empty if none'),
   goodSigns: z.array(z.string()).describe('real signs it is genuine (max 3, one short sentence each); empty if none'),
+  title: z.string().describe('who or what this is, 1 to 4 words, used as its name, e.g. "Duke Energy bill", "USPS package text", "Netflix", "Chase alert"'),
   impersonating: z.string().describe('the company, agency or person it pretends to be or claims to be from, or an empty string'),
   whatToDo: z.array(z.string()).describe('2 to 4 short, concrete steps for this exact message (e.g. "Log in to your USPS account yourself at usps.com"); never tell them to use a link or number from the message'),
   brief: z.object({
@@ -38,7 +38,7 @@ How to judge:
 
 const KIND_WORDS: Record<Kind, string> = { email: 'an email', text: 'a text message', bill: 'a bill or invoice', screenshot: 'a screenshot' };
 
-export async function askAi(input: { kind: Kind; text?: string; file?: { mime: string; data: string }; from?: string; signals: Signal[] }): Promise<AiAnswer> {
+export async function askAi(input: { kind: Kind; text?: string; file?: { mime: string; data: string }; from?: string; signals: Signal[] }, cfg: AppSettings['ai']): Promise<AiAnswer> {
   const found = input.signals.length
     ? input.signals.map((s) => `- [${s.source}] ${s.title}${s.detail ? `: ${s.detail}` : ''}`).join('\n')
     : '- nothing found';
@@ -52,18 +52,20 @@ export async function askAi(input: { kind: Kind; text?: string; file?: { mime: s
       input.from ? `It came from: ${input.from.slice(0, 80)}` : '',
       input.text ? `<message>\n${input.text.slice(0, 15_000)}\n</message>` : '',
       `Findings of the free automatic checks:\n${found}`,
+      cfg.summaries ? '' : 'Leave "brief" empty, even if it is safe (summaries are turned off).',
     ].filter(Boolean).join('\n\n'),
   });
   const client = new Anthropic({ timeout: 120_000, maxRetries: 2 });
   const res = await client.beta.messages.parse({
-    model: MODEL,
+    model: cfg.model, // Settings (starts from AI_MODEL)
     max_tokens: 4000,
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default', // if the main model declines, Anthropic retries on its recommended fallback model
     system: SYSTEM,
     messages: [{ role: 'user', content }],
-    // Low effort: a short, focused answer keeps each check cheap (a few cents at most).
-    output_config: { effort: 'low', format: betaZodOutputFormat(Answer) },
+    // Low effort (the default in Settings): a short, focused answer keeps each check cheap (a few cents at most).
+    // Haiku models are sent no effort setting.
+    output_config: /haiku/i.test(cfg.model) ? { format: betaZodOutputFormat(Answer) } : { effort: cfg.effort, format: betaZodOutputFormat(Answer) },
   });
   if (res.stop_reason === 'refusal' || !res.parsed_output) throw new Error(`The AI gave no usable answer (${res.stop_reason}).`);
   return res.parsed_output;

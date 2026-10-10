@@ -114,7 +114,8 @@ const ago = (d: Date) => {
 };
 
 /** Checks up to 6 links: returns one line per link and the signals they add. */
-export async function checkLinks(urls: string[]): Promise<{ links: LinkInfo[]; signals: Signal[] }> {
+export interface LinkOptions { safeBrowsing?: boolean; websiteAge?: boolean } // both on unless turned off in Settings
+export async function checkLinks(urls: string[], opts: LinkOptions = {}): Promise<{ links: LinkInfo[]; signals: Signal[] }> {
   const list = [...new Set(urls)].slice(0, 6);
   const parsed = list.map((url) => {
     try {
@@ -126,8 +127,8 @@ export async function checkLinks(urls: string[]): Promise<{ links: LinkInfo[]; s
   }).filter((x): x is { url: string; host: string } => !!x && !!x.host);
   const regs = [...new Set(parsed.map((p) => parse(p.host).domain).filter((d): d is string => !!d))];
   const [bad, ages] = await Promise.all([
-    safeBrowsing(parsed.map((p) => p.url)),
-    Promise.all(regs.slice(0, 5).map(async (d) => [d, await registeredAt(d)] as const)).then((x) => new Map(x)),
+    opts.safeBrowsing === false ? new Set<string>() : safeBrowsing(parsed.map((p) => p.url)),
+    Promise.all((opts.websiteAge === false ? [] : regs.slice(0, 5)).map(async (d) => [d, await registeredAt(d)] as const)).then((x) => new Map(x)),
   ]);
   const links: LinkInfo[] = [];
   const signals: Signal[] = [];

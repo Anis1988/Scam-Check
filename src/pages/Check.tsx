@@ -1,12 +1,21 @@
-import { useEffect, useRef, useState } from 'react';
-import { api, readUpload, type CheckInput, type Status, type Upload } from '../lib/api';
-import { getAiMode, saveToHistory } from '../lib/history';
-import { KIND_LABEL, type CheckResult, type Kind } from '../lib/types';
+import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { api, readUpload, type CheckInput, type Upload } from '../lib/api';
+import { loadHistory, saveToHistory } from '../lib/history';
+import { KIND_LABEL, MODELS, type CheckResult, type Kind, type Verdict } from '../lib/types';
+import { aiLeft, refreshStatus, useStatus } from '../lib/useStatus';
 import { ResultCard } from '../components/ResultCard';
 import { SaveBox } from '../components/SaveBox';
-import { toast } from '../components/ui';
+import { Rail, ScoreRing, Shell, VerdictChip, toast } from '../components/ui';
 
 const KINDS = Object.keys(KIND_LABEL) as Kind[];
+const MODE_NAME = { ask: 'Save credits', smart: 'Smart', always: 'Always', never: 'Never (free only)' } as const;
+const TIPS = [
+  'Real companies never ask for gift cards, crypto or a wire transfer.',
+  'Never read a one-time code to someone who called or texted you.',
+  'A link that “looks right” can still be fake: type the website yourself.',
+  'Pressure (“in 30 minutes”, “today only”) is the #1 scam sign.',
+  'Call back on the number on your card or a past bill, not the one in the message.',
+];
 
 /** Something shared to the app from the phone's Share menu (/share?text=…). */
 function takeShare(): string {
@@ -16,171 +25,383 @@ function takeShare(): string {
   return [q.get('title'), q.get('text'), q.get('url')].filter(Boolean).join('\n').slice(0, 20_000);
 }
 
-export function Check({ open }: { open?: CheckResult | null }) {
+/** One thing being checked: its input (to ask the AI later) and its result. */
+interface Item { key: string; input?: CheckInput; result?: CheckResult; error?: string; waiting?: boolean; savedName?: string }
+type FileItem = Upload & { key: string };
+let seq = 0;
+const newKey = () => `k${Date.now()}-${seq++}`;
+const isPdf = (f: { mime: string }) => f.mime === 'application/pdf';
+
+export function Check() {
+  const st = useStatus();
+  const cfg = st?.settings;
+  const maxBatch = cfg?.pictures.maxBatch ?? 10;
+  const left = aiLeft(st);
   const [shared] = useState(takeShare);
   const [kind, setKind] = useState<Kind>('text');
   const [text, setText] = useState(shared);
   const [from, setFrom] = useState('');
-  const [file, setFile] = useState<Upload | null>(null);
+  const [files, setFiles] = useState<FileItem[]>([]);
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<CheckResult | null>(open ?? null);
+  const [items, setItems] = useState<Item[]>([]);
+  const [openKey, setOpenKey] = useState('');
+  const [over, setOver] = useState(false);
+  const depth = useRef(0);
   const resultRef = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
-  // What was checked last (to ask the AI about it with one tap), and today's AI credits.
-  const [last, setLast] = useState<CheckInput | null>(null);
-  const [st, setSt] = useState<Status | null>(null);
-  const refreshCredits = () => void api.status().then(setSt, () => undefined);
-  useEffect(refreshCredits, []);
-  const left = st ? Math.max(0, st.limit - st.used) : null;
-  useEffect(() => setResult(open ?? null), [open]);
-  // A check from History that was still waiting for the AI (the app was closed): see if its answer was saved.
+  const [recent, setRecent] = useState(() => loadHistory().slice(0, 5));
   useEffect(() => {
-    if (open?.ai === 'pending') void api.result(open.id).then((r) => (setResult(r), saveToHistory(r)), () => undefined);
-  }, [open?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    const upd = () => setRecent(loadHistory().slice(0, 5));
+    window.addEventListener('sc-history', upd);
+    return () => window.removeEventListener('sc-history', upd);
+  }, []);
+  const patch = (key: string, p: Partial<Item>) => setItems((list) => list.map((x) => (x.key === key ? { ...x, ...p } : x)));
 
-  const pick = async (f: File | undefined) => {
-    if (!f) return;
-    try {
+  // A file dropped outside the drop area must not make the browser open it (and leave the app).
+  useEffect(() => {
+    const stop = (e: Event) => e.preventDefault();
+    window.addEventListener('dragover', stop);
+    window.addEventListener('drop', stop);
+    return () => { window.removeEventListener('dragover', stop); window.removeEventListener('drop', stop); };
+  }, []);
+
+  /** Pictures and PDFs from the file picker, drag & drop or paste (several at once, up to the limit in Settings). */
+  const addFiles = async (list: File[]) => {
+    if (!list.length) return;
+    const eml = list.find((f) => /\.eml$/i.test(f.name) || f.type === 'message/rfc822');
+    if (eml) {
       // An email file (.eml) is read as text: its hidden sender details are checked for free.
-      if (/\.eml$/i.test(f.name) || f.type === 'message/rfc822') {
-        if (f.size > 2_000_000) throw new Error('This email file is too big (2 MB max).');
-        setText(await f.text());
-        setKind('email');
-        setFile(null);
-        return;
+      if (eml.size > 2_000_000) return toast('error', 'This email file is too big (2 MB max).');
+      setText(await eml.text());
+      setKind('email');
+      list = list.filter((f) => f !== eml);
+      if (!list.length) return;
+    }
+    const room = maxBatch - files.length;
+    if (room <= 0) return toast('error', `Up to ${maxBatch} pictures at once (Settings → Pictures).`);
+    if (list.length > room) toast('info', `Only the first ${room} were added (up to ${maxBatch} at once).`);
+    const added: FileItem[] = [];
+    for (const f of list.slice(0, room)) {
+      try {
+        added.push({ ...(await readUpload(f, cfg?.pictures.maxSize ?? 1400)), key: newKey() });
+      } catch (e) {
+        toast('error', `${f.name}: ${e instanceof Error ? e.message : String(e)}`);
       }
-      setFile(await readUpload(f));
-      if (kind === 'email' || kind === 'text') setKind(f.type === 'application/pdf' ? 'bill' : 'screenshot');
+    }
+    if (!added.length) return;
+    setFiles((x) => [...x, ...added]);
+    if (kind === 'email' || kind === 'text') setKind(added.every(isPdf) ? 'bill' : 'screenshot');
+  };
+
+  const onDrag = (e: DragEvent, kindOf: 'enter' | 'leave') => {
+    if (![...e.dataTransfer.types].some((t) => t === 'Files' || t === 'text/plain')) return;
+    e.preventDefault();
+    depth.current += kindOf === 'enter' ? 1 : -1;
+    setOver(depth.current > 0);
+  };
+  const onDrop = (e: DragEvent) => {
+    e.preventDefault();
+    depth.current = 0;
+    setOver(false);
+    const dropped = [...e.dataTransfer.files];
+    if (dropped.length) return void addFiles(dropped);
+    const t = e.dataTransfer.getData('text/plain');
+    if (t) setText((x) => (x ? `${x}\n${t}` : t).slice(0, 100_000));
+  };
+
+  /** Free checks first (at once), then the AI when needed. */
+  const runItem = async (it: Item) => {
+    if (!it.input) return;
+    patch(it.key, { waiting: false });
+    try {
+      const r = await api.check(it.input);
+      patch(it.key, { result: r });
+      saveToHistory(r);
+      if (r.ai === 'pending') {
+        const done = await api.ai(it.input).catch((e) => ({ ...r, ai: 'failed' as const, aiNote: `The AI check failed (${e instanceof Error ? e.message : e}). The result is from the free checks.` }));
+        patch(it.key, { result: done });
+        saveToHistory(done);
+      }
     } catch (e) {
-      toast('error', e instanceof Error ? e.message : String(e));
+      patch(it.key, { error: e instanceof Error ? e.message : String(e) });
     }
   };
 
   const run = async () => {
-    if (!text.trim() && !file) return toast('error', 'Paste the message or add a picture first.');
+    if (!text.trim() && !files.length) return toast('error', 'Paste the message or add a picture first.');
+    const aiMode = cfg?.ai.mode ?? 'ask';
+    // One picture goes with the words; several pictures are each checked on their own (and the words too, if any).
+    const inputs: CheckInput[] = files.length <= 1
+      ? [{ kind, text, from, file: files[0], aiMode }]
+      : [
+          ...files.map((f) => ({ kind: (isPdf(f) || kind === 'bill' ? 'bill' : 'screenshot') as Kind, file: f, aiMode })),
+          ...(text.trim() ? [{ kind: (kind === 'email' ? 'email' : 'text') as Kind, text, from, aiMode }] : []),
+        ];
+    const batch: Item[] = inputs.map((input) => ({ key: newKey(), input, waiting: true }));
+    setItems(batch);
+    setOpenKey('');
     setBusy(true);
-    try {
-      const input = { kind, text, from, file: file ?? undefined, aiMode: getAiMode() };
-      const r = await api.check(input);
-      setLast(input);
-      setResult(r);
-      saveToHistory(r);
-      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
-      if (r.ai === 'pending') {
-        // The free result shows at once; the AI's opinion replaces it when it arrives.
-        const done = await api.ai(input).catch((e) => ({ ...r, ai: 'failed' as const, aiNote: `The AI check failed (${e instanceof Error ? e.message : e}). The result above is from the free checks.` }));
-        setResult(done);
-        saveToHistory(done);
-        refreshCredits();
-      }
-    } catch (e) {
-      toast('error', e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
+    setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+    // Two at a time: fast, and gentle on the server.
+    const queue = [...batch];
+    await Promise.all([0, 1].map(async () => { for (let it = queue.shift(); it; it = queue.shift()) await runItem(it); }));
+    setBusy(false);
+    void refreshStatus();
   };
 
-  /** The "Ask the AI" button: uses 1 of today's AI checks, only when you tap it. */
-  const askAi = async () => {
-    if (!last || !result) return;
-    setBusy(true);
-    const before = result;
-    setResult({ ...before, ai: 'pending', aiOffer: false, briefOffer: false });
+  /** "Ask the AI" / "Summarize": uses 1 of today's AI checks, only when you tap it. */
+  const askAi = async (it: Item) => {
+    if (!it.input || !it.result) return;
+    const before = it.result;
+    patch(it.key, { result: { ...before, ai: 'pending', aiOffer: false, briefOffer: false } });
     try {
-      const done = await api.ai({ ...last, aiMode: 'always' });
-      setResult(done);
+      const done = await api.ai({ ...it.input, aiMode: 'always' });
+      patch(it.key, { result: done });
       saveToHistory(done);
     } catch (e) {
-      setResult(before);
+      patch(it.key, { result: before });
       toast('error', e instanceof Error ? e.message : String(e));
     } finally {
-      setBusy(false);
-      refreshCredits();
+      void refreshStatus();
     }
   };
 
-  const reset = () => (setText(''), setFrom(''), setFile(null), setResult(null), setLast(null));
+  const saveAll = async () => {
+    const keep = cfg?.saving.keepOriginal ?? true;
+    let n = 0;
+    for (const it of items) {
+      if (!it.result || it.result.ai === 'pending' || it.savedName) continue;
+      try {
+        const s = await api.save(it.result.id, '', keep ? { text: it.input?.text, file: it.input?.file } : undefined);
+        patch(it.key, { savedName: s.name ?? 'Saved' });
+        n++;
+      } catch (e) {
+        toast('error', e instanceof Error ? e.message : String(e));
+        break;
+      }
+    }
+    if (n) toast('success', `${n} saved. Find them in ⭐ Saved.`);
+  };
+
+  /** A check from the Recent list: shown again here. */
+  const reopen = (r: CheckResult) => {
+    const key = newKey();
+    setItems([{ key, result: r }]);
+    if (r.ai === 'pending') void api.result(r.id).then((x) => (patch(key, { result: x }), saveToHistory(x)), () => undefined);
+    setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+  };
+
+  const reset = () => (setText(''), setFrom(''), setFiles([]), setItems([]));
   const wantsFile = kind === 'bill' || kind === 'screenshot';
+  const done = items.filter((x) => x.result && x.result.ai !== 'pending');
+  const counts = (['safe', 'suspicious', 'scam'] as Verdict[]).map((v) => [v, done.filter((x) => !x.result!.unchecked && x.result!.verdict === v).length] as const);
 
-  return (
-    <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-      <section className="card space-y-3 lg:sticky lg:top-24">
-        <div>
-          <h1 className="text-2xl font-extrabold">Is it a scam?</h1>
-          <p className="text-sm text-stone-500">Paste it or add a picture. You get ✅ Looks safe, ⚠️ Suspicious or 🚨 Likely scam, with the reasons.</p>
-        </div>
-        <div className="grid grid-cols-4 gap-1.5" role="tablist" aria-label="What are you checking?">
-          {KINDS.map((k) => (
-            <button key={k} role="tab" aria-selected={kind === k} onClick={() => setKind(k)}
-              className={`flex min-w-0 flex-col items-center gap-1 rounded-2xl border-2 px-0.5 py-2.5 text-[11px] font-bold transition sm:text-xs ${kind === k ? 'border-teal-600 bg-teal-50 text-teal-900 shadow-sm' : 'border-stone-200 bg-white text-stone-600'}`}>
-              <span className="text-lg" aria-hidden="true">{KIND_LABEL[k].icon}</span>{KIND_LABEL[k].text}
-            </button>
-          ))}
-        </div>
-        <p className="text-xs text-stone-500">{KIND_LABEL[kind].hint}</p>
-
-        {wantsFile && (
-          <div className="flex flex-wrap gap-2">
-            <button className="btn-coral flex-1" onClick={() => fileInput.current?.click()}>📷 {kind === 'bill' ? 'Photo or PDF of the bill' : 'Choose a screenshot'}</button>
-          </div>
-        )}
-        <input ref={fileInput} type="file" className="hidden" accept={kind === 'email' ? '.eml,message/rfc822' : 'image/*,application/pdf,.eml'} onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ''; }} />
-        {file && (
-          <div className="panel flex items-center gap-3">
-            {file.preview ? <img src={file.preview} alt="" className="h-16 w-16 rounded-lg object-cover" /> : <span className="text-3xl" aria-hidden="true">📄</span>}
-            <p className="min-w-0 flex-1 truncate text-sm">{file.name}</p>
-            <button className="btn" onClick={() => setFile(null)} aria-label="Remove the file">✕</button>
-          </div>
-        )}
-
-        <label className="block space-y-1">
-          <span className="label">{wantsFile ? 'Or paste the words (optional, makes the free checks better)' : kind === 'email' ? 'The email' : 'The message'}</span>
-          <textarea className="input min-h-[140px] w-full" value={text} onChange={(e) => setText(e.target.value)} maxLength={100_000}
-            placeholder={kind === 'email' ? 'Paste the whole email here (with the sender and subject if you can)…' : kind === 'text' ? 'e.g. "USPS: your package is on hold, update your address at…"' : 'Optional'} />
-        </label>
-        {kind === 'email' && <button className="btn-ghost" onClick={() => fileInput.current?.click()}>📎 Upload an .eml file instead</button>}
-        {kind === 'text' && (
-          <label className="block space-y-1">
-            <span className="label">From (optional)</span>
-            <input className="input w-full" value={from} onChange={(e) => setFrom(e.target.value)} maxLength={60} placeholder="The number or name it came from, e.g. +1 876 555 0199" inputMode="tel" />
-          </label>
-        )}
-        <div className="flex flex-wrap gap-2">
-          <button className="btn-primary flex-1" disabled={busy || (!text.trim() && !file)} onClick={() => void run()}>{busy ? <><span className="spinner" /> Checking…</> : '🛡️ Check it'}</button>
-          {(text || file || result) && <button className="btn" disabled={busy} onClick={reset}>Clear</button>}
-        </div>
-        <p className="text-xs text-stone-500">Never open links or call numbers from a message you’re unsure about. This app only looks them up.</p>
-        {st?.ai && st.store && <p className="text-xs text-stone-500">🤖 AI checks left today: <b className="num">{left}</b> of {st.limit}. Free checks are unlimited.</p>}
-      </section>
-      <div ref={resultRef} className="space-y-3">
-        {!result && (
-          <div className="hidden rounded-3xl border border-dashed border-stone-300 p-8 text-center text-stone-500 lg:block">
-            <p className="text-4xl" aria-hidden="true">🛡️</p>
-            <p className="mt-2 font-semibold">Your result will show here.</p>
-            <p className="text-sm">Paste a message or add a picture on the left, then tap Check it.</p>
-          </div>
-        )}
-        {result && <ResultCard r={result} />}
-        {result?.aiOffer && result.ai !== 'pending' && last && (
+  const offers = (it: Item) => {
+    const r = it.result;
+    if (!r || r.ai === 'pending' || !it.input) return null;
+    return (
+      <>
+        {r.aiOffer && (
           <div className="card space-y-2">
             <p className="text-sm text-stone-600">The free checks aren’t sure about this one. Want a second opinion?</p>
-            <button className="btn-primary w-full" disabled={busy || left === 0} onClick={() => void askAi()}>
+            <button className="btn-primary w-full" disabled={left === 0} onClick={() => void askAi(it)}>
               🤖 Ask the AI {left !== null ? `(uses 1 of ${left} left today)` : ''}
             </button>
             {left === 0 && <p className="text-xs text-amber-700">No AI checks left today. They come back tomorrow.</p>}
           </div>
         )}
-        {result?.briefOffer && result.ai !== 'pending' && last && (
+        {r.briefOffer && (
           <div className="card space-y-2">
             <p className="text-sm text-stone-600">Looks safe. Want a short summary: what it is, the key info and what to do?</p>
-            <button className="btn w-full border-teal-600 text-teal-800" disabled={busy || left === 0} onClick={() => void askAi()}>
+            <button className="btn w-full border-teal-500/60 text-teal-800" disabled={left === 0} onClick={() => void askAi(it)}>
               📋 Summarize {left !== null ? `(uses 1 of ${left} AI checks left today)` : '(uses 1 AI check)'}
             </button>
             {left === 0 && <p className="text-xs text-amber-700">No AI checks left today. They come back tomorrow.</p>}
           </div>
         )}
-        {result && result.ai !== 'pending' && <SaveBox key={result.id} id={result.id} text={last?.text} file={last?.file} />}
-      </div>
+      </>
+    );
+  };
+
+  const full = (it: Item) => (
+    <div className="space-y-3">
+      {it.result && <ResultCard r={it.result} />}
+      {offers(it)}
+      {it.result && it.result.ai !== 'pending' && <SaveBox key={`${it.result.id}${it.savedName ?? ''}`} id={it.result.id} text={it.input?.text} file={it.input?.file} savedName={it.savedName} />}
+    </div>
+  );
+
+  const leftRail = (
+    <>
+      <Rail title="AI today">
+        {!st ? <p className="text-sm text-stone-500"><span className="spinner" /></p> : !st.ai || !st.store ? <p className="text-sm text-stone-600">Off: free checks only. See Settings.</p> : (
+          <>
+            <p className="font-display text-3xl font-bold text-stone-900">{left === null ? '∞' : left}<span className="ml-1 text-sm font-medium text-stone-500">{left === null ? 'unlimited' : `of ${st.limit} left`}</span></p>
+            {st.limit !== null && <div className="h-1.5 overflow-hidden rounded-full bg-stone-200"><div className="h-full rounded-full bg-gradient-to-r from-teal-500 to-iris-500" style={{ width: `${Math.min(100, (100 * (left ?? 0)) / Math.max(1, st.limit))}%` }} /></div>}
+            <p className="hud">{MODELS.find((m) => m.id === st.model)?.name ?? st.model}</p>
+            <p className="hud">Mode · {MODE_NAME[cfg?.ai.mode ?? 'ask']}</p>
+          </>
+        )}
+      </Rail>
+      <Rail title="How it works">
+        <ol className="space-y-1.5 text-sm text-stone-600">
+          <li><span className="num text-teal-700">01</span> Paste it, or drop pictures</li>
+          <li><span className="num text-teal-700">02</span> Free checks answer at once</li>
+          <li><span className="num text-teal-700">03</span> Pictures are read by the AI</li>
+        </ol>
+      </Rail>
+    </>
+  );
+  const rightRail = (
+    <>
+      <Rail title="Recent">
+        {!recent.length ? <p className="text-sm text-stone-500">Nothing checked yet.</p> : (
+          <ul className="space-y-1">
+            {recent.map((r) => (
+              <li key={r.id}>
+                <button className="w-full rounded-lg px-1.5 py-1.5 text-left transition hover:bg-white/80" onClick={() => reopen(r)}>
+                  <VerdictChip verdict={r.verdict} unchecked={r.unchecked} />
+                  <span className="mt-0.5 block truncate text-xs text-stone-700">{r.title || r.preview || KIND_LABEL[r.kind].text}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Rail>
+      <Rail title="Tip">
+        <p className="text-sm text-stone-700">{TIPS[new Date().getDate() % TIPS.length]}</p>
+      </Rail>
+    </>
+  );
+
+  return (
+    <div onDragEnter={(e) => onDrag(e, 'enter')} onDragLeave={(e) => onDrag(e, 'leave')} onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
+      {over && (
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-mist/70 p-6 backdrop-blur-sm">
+          <div className="dropzone max-w-md py-12" data-over="true">
+            <p className="text-4xl" aria-hidden="true">📥</p>
+            <p className="font-display text-xl font-semibold text-teal-900">Drop to check</p>
+            <p className="text-sm text-stone-600">Pictures, PDFs or an .eml email, up to {maxBatch} at once</p>
+          </div>
+        </div>
+      )}
+      <Shell left={leftRail} right={rightRail}>
+        <section className="card space-y-3">
+          <div>
+            <p className="label">New check</p>
+            <h1 className="text-2xl font-bold">Is it a scam?</h1>
+            <p className="text-sm text-stone-500">Paste it, or drop pictures. Each one gets ✅ Looks safe, ⚠️ Suspicious or 🚨 Likely scam, with the reasons.</p>
+          </div>
+          <div className="grid grid-cols-4 gap-1.5" role="tablist" aria-label="What are you checking?">
+            {KINDS.map((k) => (
+              <button key={k} role="tab" aria-selected={kind === k} onClick={() => setKind(k)}
+                className={`flex min-w-0 flex-col items-center gap-1 rounded-xl border px-0.5 py-2.5 text-[11px] font-semibold transition sm:text-xs ${kind === k ? 'border-teal-500/70 bg-white text-teal-900 shadow-[0_0_0_3px_rgba(74,146,155,0.12),0_0_16px_-4px_rgba(74,146,155,0.5)]' : 'border-stone-200/80 bg-white/50 text-stone-600 hover:bg-white/80'}`}>
+                <span className="text-lg" aria-hidden="true">{KIND_LABEL[k].icon}</span>{KIND_LABEL[k].text}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-stone-500">{KIND_LABEL[kind].hint}</p>
+
+          <input ref={fileInput} type="file" multiple className="hidden" accept={kind === 'email' ? '.eml,message/rfc822' : 'image/*,application/pdf,.eml'} onChange={(e) => { void addFiles([...(e.target.files ?? [])]); e.target.value = ''; }} />
+          {wantsFile ? (
+            <button type="button" className="dropzone" onClick={() => fileInput.current?.click()}>
+              <span className="text-3xl" aria-hidden="true">{kind === 'bill' ? '🧾' : '📷'}</span>
+              <span className="font-display font-semibold text-teal-900">{kind === 'bill' ? 'Add photos or PDFs of bills' : 'Add screenshots'}</span>
+              <span className="text-xs text-stone-500">Tap to choose, or drag & drop here · up to {maxBatch} at once · each gets its own result</span>
+            </button>
+          ) : (
+            <button type="button" className="btn-ghost" onClick={() => fileInput.current?.click()}>{kind === 'email' ? '📎 Upload an .eml file instead' : '📷 Add pictures instead (or drag & drop them)'}</button>
+          )}
+          {files.length > 0 && (
+            <div>
+              <p className="hud mb-1.5">{files.length} file{files.length > 1 ? 's' : ''}{files.length > 1 ? ' · each checked on its own' : ''}</p>
+              <ul className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+                {files.map((f) => (
+                  <li key={f.key} className={`relative aspect-square overflow-hidden rounded-xl border border-white bg-white/70 shadow-[0_0_0_1px_rgba(31,66,71,0.08)] ${busy ? 'scan' : ''}`}>
+                    {f.preview ? <img src={f.preview} alt={f.name} className="h-full w-full object-cover" /> : <span className="flex h-full flex-col items-center justify-center gap-1 p-1 text-center"><span className="text-2xl" aria-hidden="true">📄</span><span className="w-full truncate text-[10px] text-stone-600">{f.name}</span></span>}
+                    {!busy && <button className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-stone-900/60 text-sm text-white backdrop-blur" onClick={() => setFiles((x) => x.filter((y) => y.key !== f.key))} aria-label={`Remove ${f.name}`}>✕</button>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <label className="block space-y-1">
+            <span className="label">{files.length > 1 ? 'Words (optional, checked on their own)' : wantsFile ? 'Or paste the words (optional, makes the free checks better)' : kind === 'email' ? 'The email' : 'The message'}</span>
+            <textarea className="input min-h-[130px] w-full" value={text} onChange={(e) => setText(e.target.value)} maxLength={100_000}
+              onPaste={(e) => { const pics = [...e.clipboardData.files].filter((f) => f.type.startsWith('image/') || f.type === 'application/pdf'); if (pics.length) { e.preventDefault(); void addFiles(pics); } }}
+              placeholder={kind === 'email' ? 'Paste the whole email here (with the sender and subject if you can)…' : kind === 'text' ? 'e.g. "USPS: your package is on hold, update your address at…"' : 'Optional'} />
+          </label>
+          {kind === 'text' && (
+            <label className="block space-y-1">
+              <span className="label">From (optional)</span>
+              <input className="input w-full" value={from} onChange={(e) => setFrom(e.target.value)} maxLength={60} placeholder="The number or name it came from, e.g. +1 876 555 0199" inputMode="tel" />
+            </label>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <button className="btn-primary flex-1" disabled={busy || (!text.trim() && !files.length)} onClick={() => void run()}>
+              {busy ? <><span className="spinner" /> Checking…</> : files.length > 1 ? `🛡️ Check all ${files.length + (text.trim() ? 1 : 0)}` : '🛡️ Check it'}
+            </button>
+            {(text || files.length > 0 || items.length > 0) && <button className="btn" disabled={busy} onClick={reset}>Clear</button>}
+          </div>
+          <p className="text-xs text-stone-500">Never open links or call numbers from a message you’re unsure about. This app only looks them up.</p>
+          {st?.ai && st.store && <p className="hud xl:hidden">🤖 AI checks left today: <b className="text-stone-800">{left === null ? 'unlimited' : `${left} of ${st.limit}`}</b> · free checks unlimited</p>}
+        </section>
+
+        <div ref={resultRef} className="scroll-mt-28 space-y-3">
+          {!items.length && (
+            <div className="hidden rounded-2xl border border-dashed border-teal-400/40 bg-white/30 p-8 text-center text-stone-500 lg:block">
+              <p className="text-4xl" aria-hidden="true">🛡️</p>
+              <p className="mt-2 font-display font-semibold text-stone-700">Your results will show here.</p>
+              <p className="text-sm">Paste a message or drop pictures above, then tap Check it.</p>
+            </div>
+          )}
+          {items.length === 1 && (items[0].result ? full(items[0]) : items[0].error ? <p className="card text-sm text-red-700">{items[0].error}</p> : <p className="card scan text-sm text-teal-800"><span className="spinner" /> Checking…</p>)}
+          {items.length > 1 && (
+            <>
+              <div className="card flex flex-wrap items-center gap-x-3 gap-y-2">
+                <div className="min-w-0 flex-1">
+                  <p className="label">Results</p>
+                  <p className="font-display text-lg font-semibold">{done.length} of {items.length} checked{busy ? '…' : ''}</p>
+                  <p className="flex flex-wrap gap-1.5 pt-1">{counts.filter(([, n]) => n).map(([v, n]) => <VerdictChip key={v} verdict={v} extra={String(n)} />)}</p>
+                </div>
+                {!busy && done.length > 0 && <button className="btn" onClick={() => void saveAll()} disabled={done.every((x) => x.savedName)}>⭐ Save all</button>}
+              </div>
+              <ul className="space-y-2">
+                {items.map((it, i) => {
+                  const r = it.result;
+                  const f = it.input?.file;
+                  const open = openKey === it.key;
+                  return (
+                    <li key={it.key} className="rise" style={{ animationDelay: `${i * 40}ms` }}>
+                      <button className="card flex w-full items-center gap-3 text-left transition hover:shadow-[0_0_0_1px_rgba(74,146,155,0.35),0_10px_30px_-12px_rgba(74,146,155,0.45)]" onClick={() => setOpenKey(open ? '' : it.key)} aria-expanded={open} disabled={!r}>
+                        <span className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white bg-white/70 ${!r || r.ai === 'pending' ? 'scan' : ''}`}>
+                          {f?.preview ? <img src={f.preview} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full items-center justify-center text-2xl" aria-hidden="true">{f ? '📄' : KIND_LABEL[it.input?.kind ?? 'text'].icon}</span>}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-xs text-stone-500">{f?.name ?? 'The words you pasted'}</span>
+                          {it.error ? <span className="block text-sm text-red-700">{it.error}</span>
+                            : !r ? <span className="hud">{it.waiting ? 'Waiting…' : 'Checking…'}</span>
+                            : <>
+                                <VerdictChip verdict={r.verdict} unchecked={r.unchecked && r.ai !== 'pending'} extra={r.ai === 'pending' ? 'AI reading…' : undefined} />
+                                <span className="mt-0.5 block truncate text-sm font-medium text-stone-900">{r.brief?.whatItIs || r.title || r.summary}</span>
+                                {it.savedName && <span className="block truncate font-mono text-xs text-emerald-700">⭐ {it.savedName}</span>}
+                              </>}
+                        </span>
+                        {r && !r.unchecked && <ScoreRing score={r.score} verdict={r.verdict} size={46} muted={r.ai === 'pending'} />}
+                        {r && <span className="text-stone-400" aria-hidden="true">{open ? '−' : '+'}</span>}
+                      </button>
+                      {open && r && <div className="mt-2 border-l-2 border-teal-400/40 pl-3">{full(it)}</div>}
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="text-xs text-stone-500">Tap a result to see why, what to do, and to save it.</p>
+            </>
+          )}
+        </div>
+      </Shell>
     </div>
   );
 }
+

@@ -1,35 +1,34 @@
 import { useEffect, useState } from 'react';
 import { api, downloadFile, fileLink } from '../lib/api';
-import { toast } from './ui';
-import { KIND_LABEL, VERDICT_LABEL, type SavedItem } from '../lib/types';
+import { ScoreRing, VerdictChip, toast } from './ui';
+import { KIND_LABEL, type SavedItem } from '../lib/types';
 import { BriefCard } from './ResultCard';
 
-const CHIP = { safe: 'border-emerald-200 bg-emerald-50 text-emerald-800', suspicious: 'border-amber-200 bg-amber-50 text-amber-800', scam: 'border-red-200 bg-red-50 text-red-800' } as const;
 const DOT = { bad: 'text-red-600', warn: 'text-amber-600', good: 'text-emerald-600', info: 'text-stone-500' } as const;
 const when = (iso: string) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 /** One saved check: the headline at a glance, the key facts when opened, your note (editable), delete. */
-export function SavedCard({ s, onNote, onDelete, onChange, example = false }: { s: SavedItem; onNote?: (note: string) => Promise<void>; onDelete?: () => void; onChange?: (s: SavedItem) => void; example?: boolean }) {
+export function SavedCard({ s, onNote, onDelete, onChange, example = false }: { s: SavedItem; onNote?: (note: string, name?: string) => Promise<void>; onDelete?: () => void; onChange?: (s: SavedItem) => void; example?: boolean }) {
   const [open, setOpen] = useState(example);
   const [editing, setEditing] = useState(false);
   const [note, setNote] = useState(s.note);
+  const [name, setName] = useState(s.name ?? '');
   const [busy, setBusy] = useState(false);
   return (
     <article className="card space-y-2">
       <button className="flex w-full items-start gap-3 text-left" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <span className="text-2xl" aria-hidden="true">{KIND_LABEL[s.kind].icon}</span>
+        {s.unchecked ? <span className="flex h-12 w-12 shrink-0 items-center justify-center text-2xl" aria-hidden="true">{KIND_LABEL[s.kind].icon}</span> : <ScoreRing score={s.score} verdict={s.verdict} size={48} />}
         <span className="min-w-0 flex-1">
-          <span className={`inline-flex rounded-md border px-1.5 py-0.5 text-[11px] font-semibold ${s.unchecked ? 'border-stone-200 bg-stone-100 text-stone-600' : CHIP[s.verdict]}`}>
-            {s.unchecked ? '❔ Not checked' : `${VERDICT_LABEL[s.verdict].icon} ${VERDICT_LABEL[s.verdict].text} · ${s.score}/100`}
-          </span>
-          <span className="mt-1 block text-sm font-medium text-stone-900">{s.impersonating ? `Pretended to be ${s.impersonating}` : s.excerpt || KIND_LABEL[s.kind].text}</span>
+          {s.name && <span className="block truncate font-display text-base font-semibold text-stone-900">{s.name}</span>}
+          <span className="mt-0.5 flex flex-wrap items-center gap-1.5"><VerdictChip verdict={s.verdict} unchecked={s.unchecked} />{s.file && <span className="chip border-stone-200 bg-white/70 text-stone-600">{s.file.mime === 'application/pdf' ? '📄 PDF' : '🖼️ Picture'}</span>}</span>
+          <span className="mt-1 block text-sm text-stone-700">{s.impersonating ? `Pretended to be ${s.impersonating}` : s.brief?.whatItIs || s.excerpt || KIND_LABEL[s.kind].text}</span>
           {s.note && <span className="block text-sm text-teal-800">📝 {s.note}</span>}
           <span className="block text-xs text-stone-500">Checked {when(s.checkedAt)}</span>
         </span>
         <span className="text-stone-500" aria-hidden="true">{open ? '−' : '+'}</span>
       </button>
       {open && (
-        <div className="space-y-2 border-t border-stone-200 pt-2 text-sm">
+        <div className="space-y-2 border-t border-stone-200/70 pt-2 text-sm">
           <p className="text-stone-800">{s.summary}</p>
           {s.brief && s.verdict === 'safe' && <BriefCard b={s.brief} />}
           {s.file && <Original s={s} example={example} onRemoved={onChange} />}
@@ -49,13 +48,17 @@ export function SavedCard({ s, onNote, onDelete, onChange, example = false }: { 
             <div><p className="label">What to do</p><ol className="list-decimal space-y-0.5 pl-5 text-stone-600">{s.whatToDo.map((r) => <li key={r}>{r}</li>)}</ol></div>
           )}
           {editing ? (
-            <div className="flex flex-wrap gap-2">
-              <input className="input min-w-0 flex-1" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="Your note" aria-label="Note" />
-              <button className="btn-primary" disabled={busy} onClick={() => { if (!onNote) return; setBusy(true); void onNote(note.trim()).then(() => setEditing(false)).finally(() => setBusy(false)); }}>Save note</button>
+            <div className="space-y-2">
+              {s.name && <label className="block space-y-1"><span className="label">Name</span><input className="input w-full font-mono" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-label="Name" /></label>}
+              <label className="block space-y-1"><span className="label">Note</span><input className="input w-full" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="Your note" aria-label="Note" /></label>
+              <div className="flex gap-2">
+                <button className="btn-primary flex-1" disabled={busy || (!!s.name && !name.trim())} onClick={() => { if (!onNote) return; setBusy(true); void onNote(note.trim(), s.name ? name.trim() : undefined).then(() => setEditing(false)).finally(() => setBusy(false)); }}>Save</button>
+                <button className="btn" disabled={busy} onClick={() => (setEditing(false), setName(s.name ?? ''), setNote(s.note))}>Cancel</button>
+              </div>
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
-              <button className="btn" onClick={() => !example && setEditing(true)}>📝 {s.note ? 'Edit note' : 'Add a note'}</button>
+              <button className="btn" onClick={() => !example && setEditing(true)}>✏️ {s.name ? 'Rename / note' : s.note ? 'Edit note' : 'Add a note'}</button>
               <button className="btn" onClick={() => !example && onDelete?.()}>🗑 Delete this check</button>
             </div>
           )}
@@ -87,13 +90,13 @@ function Original({ s, example, onRemoved }: { s: SavedItem; example: boolean; o
   const kb = Math.max(1, Math.round(s.file!.size / 1024));
   return (
     <div className="panel space-y-2">
-      <p className="text-sm font-semibold text-stone-700">{isPdf ? '📄' : '🖼️'} {s.file!.name} <span className="font-normal text-stone-500">· {kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`}</span></p>
+      <p className="break-all text-sm font-semibold text-stone-700">{isPdf ? '📄' : '🖼️'} {s.file!.name} <span className="font-normal text-stone-500">· {kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`}</span></p>
       {url && (isPdf
         ? <a className="btn-ghost" href={url} target="_blank" rel="noopener noreferrer">Open the PDF ↗</a>
-        : <img src={url} alt="The saved picture" className="max-h-[70vh] w-full rounded-xl border border-stone-200 bg-white object-contain" />)}
+        : <img src={url} alt="The saved picture" className="rise max-h-[70vh] w-full rounded-xl border border-white bg-white object-contain shadow-[0_0_0_1px_rgba(31,66,71,0.08)]" />)}
       <div className="flex flex-wrap gap-2">
         {!url && <button className="btn" disabled={!!busy} onClick={() => void run('show', async () => setUrl(fileLink(await load())))}>{busy === 'show' ? <><span className="spinner" /> Loading…</> : isPdf ? '👁 View the PDF' : '👁 View the picture'}</button>}
-        <button className="btn" disabled={!!busy} onClick={() => void run('dl', async () => downloadFile(await load()))}>{busy === 'dl' ? <><span className="spinner" /> …</> : '⬇ Download'}</button>
+        <button className="btn" disabled={!!busy} onClick={() => void run('dl', async () => { const f = await load(); downloadFile(s.name ? { ...f, name: s.name } : f); })}>{busy === 'dl' ? <><span className="spinner" /> …</> : '⬇ Download'}</button>
         <button className="btn" disabled={!!busy} onClick={() => !example && window.confirm(`Delete the ${isPdf ? 'PDF' : 'picture'}? The key facts and your note stay.`) && void run('rm', async () => { onRemoved?.(await api.removeFile(s.id)); toast('success', 'Deleted.'); })}>🗑 Delete {isPdf ? 'PDF' : 'picture'}</button>
       </div>
     </div>

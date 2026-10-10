@@ -11,7 +11,7 @@ Checks: known scam patterns, links (look-alike brands, domain age via RDAP, shor
 3. Project → Settings → Environment Variables:
    - `APP_ACCESS_TOKEN` (required): any long password; you type it once in the app.
    - `ANTHROPIC_API_KEY`: for the AI check (reads pictures/PDFs).
-   - `AI_DAILY_LIMIT` (optional, default 5): most AI checks per day.
+   - `AI_DAILY_LIMIT` (optional, default 5): most AI checks per day. Only a starting value: the app's Settings tab wins (AI model, daily limit or unlimited, effort and more are all set there).
    - `GOOGLE_SAFE_BROWSING_KEY` (optional, free): Google Cloud → enable "Safe Browsing API" → create an API key.
 4. Deployments → ⋯ → Redeploy (so the new variables are used), open the site, enter the access code.
 

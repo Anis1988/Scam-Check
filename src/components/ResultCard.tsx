@@ -1,12 +1,12 @@
 import type { Brief, CheckResult, Signal, Source } from '../lib/types';
 import { KIND_LABEL, VERDICT_LABEL } from '../lib/types';
+import { ScoreRing } from './ui';
 
 const VERDICT_STYLE = {
-  safe: 'border-emerald-200 bg-emerald-50 text-emerald-900',
-  suspicious: 'border-amber-200 bg-amber-50 text-amber-900',
-  scam: 'border-red-200 bg-red-50 text-red-900',
+  safe: 'from-emerald-50/90 text-emerald-900 shadow-[0_0_0_1px_rgba(94,140,110,0.25),0_12px_30px_-14px_rgba(94,140,110,0.5)]',
+  suspicious: 'from-amber-50/90 text-amber-900 shadow-[0_0_0_1px_rgba(163,132,75,0.25),0_12px_30px_-14px_rgba(163,132,75,0.5)]',
+  scam: 'from-red-50/90 text-red-900 shadow-[0_0_0_1px_rgba(163,104,95,0.25),0_12px_30px_-14px_rgba(163,104,95,0.5)]',
 } as const;
-const BAR = { safe: 'bg-emerald-500', suspicious: 'bg-amber-400', scam: 'bg-red-500' } as const;
 const SOURCE: Record<Source, { icon: string; name: string }> = {
   pattern: { icon: '🔎', name: 'Known scam patterns' },
   link: { icon: '🌐', name: 'Links & websites' },
@@ -23,25 +23,27 @@ export function ResultCard({ r }: { r: CheckResult }) {
   return (
     <section className="space-y-3" aria-live="polite">
       {r.unchecked && r.ai !== 'pending' ? (
-        <div className="rounded-3xl border border-stone-200 bg-stone-100 p-4">
+        <div className="card">
+          <p className="label">Result</p>
           <p className="font-display text-2xl font-semibold">❔ Not checked</p>
           <p className="mt-1 text-sm text-stone-600">{r.aiNote ?? r.summary} Paste the words of the message instead, so the free checks can read them.</p>
         </div>
       ) : (
-        <div className={`rise rounded-3xl border p-4 ${VERDICT_STYLE[r.verdict]}`}>
-          <div className="flex items-center justify-between gap-2">
-            <p className="font-display text-2xl font-extrabold"><span aria-hidden="true">{v.icon}</span> {v.text}</p>
-            <span className="num rounded-xl bg-white/80 px-2 py-0.5 text-sm font-semibold" title="Risk score, 0 to 100">{r.score}/100</span>
+        <div className={`rise rounded-2xl bg-gradient-to-br to-white/70 p-4 backdrop-blur-xl ${VERDICT_STYLE[r.verdict]}`}>
+          <div className="flex items-center gap-3.5">
+            <ScoreRing score={r.score} verdict={r.verdict} muted={r.ai === 'pending'} />
+            <div className="min-w-0">
+              <p className="label !text-current opacity-70">{r.ai === 'pending' ? 'Free checks · AI coming' : 'Risk score'}</p>
+              <p className="font-display text-2xl font-bold leading-tight"><span aria-hidden="true">{v.icon}</span> {v.text}</p>
+              {r.title && <p className="truncate text-xs font-semibold opacity-80">{r.title}</p>}
+            </div>
           </div>
-          <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/80" role="img" aria-label={`Risk ${r.score} out of 100`}>
-            <div className={`h-full rounded-full ${BAR[r.verdict]}`} style={{ width: `${Math.max(4, r.score)}%` }} />
-          </div>
-          <p className="mt-2 text-sm">{r.summary}</p>
+          <p className="mt-3 text-sm">{r.summary}</p>
           {r.impersonating && <p className="mt-1 text-xs opacity-90">Claims to be: <b>{r.impersonating}</b></p>}
         </div>
       )}
 
-      {r.ai === 'pending' && <p className="panel text-sm text-teal-800"><span className="spinner" /> 🤖 The AI is taking a closer look (10 to 40 seconds)…</p>}
+      {r.ai === 'pending' && <p className="panel scan text-sm text-teal-800"><span className="spinner" /> 🤖 The AI is taking a closer look (10 to 40 seconds)…</p>}
       {r.aiNote && r.ai !== 'pending' && !r.unchecked && <p className="text-xs text-stone-500">{r.aiNote}</p>}
 
       {r.brief && r.verdict === 'safe' && <BriefCard b={r.brief} />}
@@ -95,7 +97,7 @@ const dedupe = (list: Signal[]) => list.filter((s, i) => list.findIndex((x) => x
 /** Safe messages and documents: what it is, the key facts and what to do, in very simple words. */
 export function BriefCard({ b }: { b: Brief }) {
   return (
-    <div className="card rise space-y-3 border-teal-200">
+    <div className="card rise space-y-3">
       <div>
         <p className="label">📋 What it is</p>
         <p className="mt-0.5 text-base font-semibold text-stone-900">{b.whatItIs}</p>
@@ -103,11 +105,11 @@ export function BriefCard({ b }: { b: Brief }) {
       {b.keyInfo.length > 0 && (
         <div>
           <p className="label">🔑 Key info</p>
-          <dl className="mt-1 divide-y divide-stone-100 rounded-2xl border border-stone-200">
+          <dl className="mt-1 divide-y divide-stone-200/70 rounded-xl border border-stone-200/80 bg-white/60">
             {b.keyInfo.map((k) => (
               <div key={k.label} className="flex items-baseline justify-between gap-3 px-3 py-2 text-sm">
                 <dt className="text-stone-500">{k.label}</dt>
-                <dd className="text-right font-bold text-stone-900">{k.value}</dd>
+                <dd className="text-right font-mono font-semibold text-stone-900">{k.value}</dd>
               </div>
             ))}
           </dl>
@@ -119,7 +121,7 @@ export function BriefCard({ b }: { b: Brief }) {
           <ol className="mt-1 space-y-1.5">
             {b.steps.map((s, i) => (
               <li key={i} className="flex gap-2.5 text-sm text-stone-800">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-700 text-xs font-bold text-white">{i + 1}</span>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-600 to-iris-600 font-mono text-xs font-semibold text-white shadow-[0_0_8px_rgba(74,146,155,0.5)]">{i + 1}</span>
                 <span className="pt-0.5">{s}</span>
               </li>
             ))}

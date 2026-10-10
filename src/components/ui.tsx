@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { VERDICT_LABEL, type Verdict } from '../lib/types';
 
 export function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
@@ -62,3 +63,55 @@ export function Toasts() {
 }
 
 export const when = (iso: string) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+/**
+ * Page layout: the main column in the centre, side panels on big screens (left from 1280px, right from 1024px).
+ * On phones only the centre shows, so anything important must also be in the centre.
+ */
+export function Shell({ left, right, children }: { left?: ReactNode; right?: ReactNode; children: ReactNode }) {
+  const cols = left && right ? 'lg:grid-cols-[minmax(0,1fr)_260px] xl:grid-cols-[230px_minmax(0,1fr)_260px]' : right ? 'lg:grid-cols-[minmax(0,1fr)_280px]' : left ? 'xl:grid-cols-[230px_minmax(0,1fr)]' : '';
+  return (
+    <div className={`grid items-start gap-5 ${cols}`}>
+      {left && <aside className="hidden xl:block"><div className="sticky top-24 space-y-3">{left}</div></aside>}
+      <div className="min-w-0 space-y-4">{children}</div>
+      {right && <aside className="hidden lg:block"><div className="sticky top-24 space-y-3">{right}</div></aside>}
+    </div>
+  );
+}
+
+const RING = { safe: '#5E8C6E', suspicious: '#A3844B', scam: '#A3685F' } as const;
+/** The risk score as a glowing ring (0 = no risk, 100 = scam). */
+export function ScoreRing({ score, verdict, size = 64, muted = false }: { score: number; verdict: Verdict; size?: number; muted?: boolean }) {
+  const r = 26;
+  const full = 2 * Math.PI * r;
+  const c = muted ? '#97A3AB' : RING[verdict];
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" role="img" aria-label={`Risk ${score} out of 100`} className="shrink-0">
+      <circle cx="32" cy="32" r={r} fill="rgba(255,255,255,0.7)" stroke="rgba(31,66,71,0.08)" strokeWidth="6" />
+      <circle cx="32" cy="32" r={r} fill="none" stroke={c} strokeWidth="6" strokeLinecap="round" className="ring-fill"
+        strokeDasharray={full} strokeDashoffset={full * (1 - Math.max(3, score) / 100)} transform="rotate(-90 32 32)"
+        style={{ ['--full' as string]: full, filter: `drop-shadow(0 0 3px ${c}88)` }} />
+      <text x="32" y="36.5" textAnchor="middle" fontFamily="JetBrains Mono, monospace" fontSize="14" fontWeight="600" fill="#2B333A">{score}</text>
+    </svg>
+  );
+}
+
+export const VERDICT_CHIP = { safe: 'border-emerald-200 bg-emerald-50 text-emerald-800', suspicious: 'border-amber-200 bg-amber-50 text-amber-800', scam: 'border-red-200 bg-red-50 text-red-800' } as const;
+/** ✅ Looks safe · ⚠️ Suspicious · 🚨 Likely scam, small. */
+export function VerdictChip({ verdict, unchecked, extra }: { verdict: Verdict; unchecked?: boolean; extra?: string }) {
+  return (
+    <span className={`chip ${unchecked ? 'border-stone-200 bg-stone-100 text-stone-600' : VERDICT_CHIP[verdict]}`}>
+      {unchecked ? '❔ Not checked' : `${VERDICT_LABEL[verdict].icon} ${VERDICT_LABEL[verdict].text}`}{extra ? ` · ${extra}` : ''}
+    </span>
+  );
+}
+
+/** A small side-panel box with a HUD-style title. */
+export function Rail({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="card space-y-2 p-3.5">
+      <p className="label">{title}</p>
+      {children}
+    </section>
+  );
+}

@@ -6,7 +6,7 @@ export type Source = 'pattern' | 'link' | 'phone' | 'sender' | 'ai';
 export type AiState = 'off' | 'pending' | 'done' | 'failed' | 'limit' | 'skipped';
 /**
  * ask (default, saves AI credit): photos and PDFs automatically, text only when you tap "Ask the AI".
- * smart: also text when the free checks aren't sure. always / never. Per device, in Settings.
+ * smart: also text when the free checks aren't sure. always / never. In Settings.
  */
 export type AiMode = 'ask' | 'smart' | 'always' | 'never';
 
@@ -42,6 +42,7 @@ export interface CheckResult {
   aiOffer?: boolean; // the free checks weren't sure: the app offers an "Ask the AI" button
   briefOffer?: boolean; // safe, but no AI yet: the app offers a "Summarize" button (1 AI check)
   brief?: Brief; // safe ones only: what it is, key info, what to do (from the same AI call)
+  title?: string; // who or what it is, in a few words (from the AI), e.g. "Duke Energy bill": used to name saved checks
   preview: string; // the start of the message, for the history list
   checkedAt: string;
 }
@@ -72,6 +73,7 @@ export const verdictOf = (score: number): Verdict => (score >= 65 ? 'scam' : sco
 /** A check you saved (⭐): only the key facts, kept on the server until you delete it. Never the full message or picture. */
 export interface SavedItem {
   id: string;
+  name?: string; // "1-Duke Energy": a number that goes up with each save, then what it is
   savedAt: string;
   checkedAt: string;
   note: string;
@@ -92,8 +94,37 @@ export interface SavedItem {
   file?: { mime: string; name: string; size: number }; // a kept picture or PDF (the file itself: GET /api/file?id=…)
 }
 
-/** Server settings (Settings tab). */
+/** The AI models you can pick in Settings (cheapest last). */
+export const MODELS: { id: string; name: string; hint: string }[] = [
+  { id: 'claude-opus-5-5', name: 'Claude Opus 5.5', hint: 'The best at spotting tricky scams. Costs the most (a few cents a check).' },
+  { id: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5', hint: 'Very good, and cheaper.' },
+  { id: 'claude-haiku-5-5', name: 'Claude Haiku 5.5', hint: 'The fastest and cheapest. Can miss clever scams.' },
+];
+export type Effort = 'low' | 'medium' | 'high';
+
+/** Server settings (Settings tab): the same on the phone and the computer. They win over the Vercel variables. */
 export interface AppSettings {
+  ai: {
+    mode: AiMode;
+    model: string;
+    dailyLimit: number; // AI checks a day (starts from AI_DAILY_LIMIT)
+    unlimited: boolean;
+    effort: Effort; // how hard the AI thinks: more = a bit better, slower and dearer
+    summaries: boolean; // the short summary of safe ones
+  };
+  checks: {
+    safeBrowsing: boolean; // Google's list of dangerous sites (needs GOOGLE_SAFE_BROWSING_KEY)
+    websiteAge: boolean; // how new a website is
+    rememberDays: number; // the same message is answered again for free for this many days
+  };
+  pictures: { maxSize: number; maxBatch: number }; // picture size sent to the AI (px), pictures at once
+  saving: { keepOriginal: boolean }; // "Keep the original" ticked by default
   cleanup: { enabled: boolean; days: number; what: 'files' | 'all' }; // auto clean-up of ⭐ Saved
 }
-export const DEFAULT_SETTINGS: AppSettings = { cleanup: { enabled: false, days: 90, what: 'files' } };
+export const DEFAULT_SETTINGS: AppSettings = {
+  ai: { mode: 'ask', model: 'claude-opus-5-5', dailyLimit: 5, unlimited: false, effort: 'low', summaries: true },
+  checks: { safeBrowsing: true, websiteAge: true, rememberDays: 7 },
+  pictures: { maxSize: 1400, maxBatch: 10 },
+  saving: { keepOriginal: true },
+  cleanup: { enabled: false, days: 90, what: 'files' },
+};

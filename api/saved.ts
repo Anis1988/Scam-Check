@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import type { CheckResult, SavedItem } from '../src/lib/types.js';
 import { guard, json } from '../server/guard.js';
-import { cleanUp, deleteFile, deleteSaved, getResult, getSaved, listSaved, putFile, putSaved } from '../server/store.js';
+import { KIND_LABEL } from '../src/lib/types.js';
+import { cleanUp, deleteFile, deleteSaved, getResult, getSaved, listSaved, nextSavedNumber, putFile, putSaved } from '../server/store.js';
 
 const Post = z.discriminatedUnion('action', [
   z.object({
@@ -11,7 +12,7 @@ const Post = z.discriminatedUnion('action', [
     file: z.object({ mime: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']), name: z.string().max(200), data: z.string().max(4_300_000).regex(/^[A-Za-z0-9+/=]+$/) }).optional(),
   }),
   z.object({ action: z.literal('delete-file'), id: z.string().regex(/^[a-f0-9]{32}$/) }),
-  z.object({ action: z.literal('note'), id: z.string().regex(/^[a-f0-9]{32}$/), note: z.string().trim().max(500) }),
+  z.object({ action: z.literal('note'), id: z.string().regex(/^[a-f0-9]{32}$/), note: z.string().trim().max(500), name: z.string().trim().min(1).max(80).optional() }),
   z.object({ action: z.literal('delete'), id: z.string().regex(/^[a-f0-9]{32}$/) }),
 ]);
 
@@ -31,6 +32,15 @@ function keyFacts(r: CheckResult, note: string): SavedItem {
   };
 }
 
+/** What it is, in a few words: the AI's title, else who it pretends to be, a real company's website, the sender, the kind. */
+function titleOf(r: CheckResult): string {
+  const real = r.links.map((l) => l.note.match(/^Real (.+) website/)?.[1]).find(Boolean);
+  const fake = r.signals.map((s) => s.title.match(/^Pretends to be (.+)$/)?.[1]).find(Boolean);
+  return (r.title || r.impersonating || (fake && `Fake ${fake}`) || real || r.sender?.name || r.links[0]?.domain || KIND_LABEL[r.kind].text).replace(/\s+/g, ' ').trim().slice(0, 60);
+}
+/** A file name the phone and computer accept. */
+const fileName = (name: string, mime: string) => `${name.replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'scam-check'}${mime === 'application/pdf' ? '.pdf' : mime === 'image/png' ? '.png' : '.jpg'}`;
+
 /** GET /api/saved -> your saved checks (newest first). */
 export async function GET(req: Request): Promise<Response> {
   const blocked = guard(req, 'saved', 30);
@@ -43,7 +53,7 @@ export async function GET(req: Request): Promise<Response> {
   }
 }
 
-/** POST /api/saved {action: save | note | delete, id, note?} */
+/** POST /api/saved {action: save | note | delete | delete-file, id, note?, name?} */
 export async function POST(req: Request): Promise<Response> {
   const blocked = guard(req, 'saved', 30);
   if (blocked) return blocked;
@@ -66,17 +76,23 @@ export async function POST(req: Request): Promise<Response> {
     if (b.action === 'note') {
       const item = await getSaved(b.id);
       if (!item) return json({ error: 'Not found.' }, 404);
-      const next = { ...item, note: b.note };
+      const name = b.name ?? item.name;
+      const next = { ...item, note: b.note, name, file: item.file && name ? { ...item.file, name: fileName(name, item.file.mime) } : item.file };
       await putSaved(next);
       return json(next);
     }
     // Saved from the check's own result on the server (kept 7 days), so what is saved is what was checked.
     const r = await getResult(b.id);
     if (!r) return json({ error: 'This check is too old to save (results are kept 7 days). Check it again first.' }, 404);
-    const item: SavedItem = { ...keyFacts(r, b.note), text: b.text?.trim() || undefined };
+    // A name that starts with a number going up with each save: "1-Duke Energy", "2-USPS package text"…
+    // Saving the same check again keeps its name.
+    const before = await getSaved(b.id);
+    const name = before?.name ?? `${await nextSavedNumber()}-${titleOf(r)}`;
+    const item: SavedItem = { ...keyFacts(r, b.note), name, text: b.text?.trim() || undefined };
     if (b.file) {
-      await putFile(b.id, { mime: b.file.mime, name: b.file.name || 'picture', data: b.file.data });
-      item.file = { mime: b.file.mime, name: b.file.name || 'picture', size: Math.floor((b.file.data.length * 3) / 4) };
+      const fname = fileName(name, b.file.mime);
+      await putFile(b.id, { mime: b.file.mime, name: fname, data: b.file.data });
+      item.file = { mime: b.file.mime, name: fname, size: Math.floor((b.file.data.length * 3) / 4) };
     }
     await putSaved(item);
     return json(item);

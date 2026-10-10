@@ -4,7 +4,7 @@ import { aiRisk, type AiAnswer } from './ai.js';
 import { defaultSteps, scoreOf, type FreeResult } from './analyze.js';
 
 /** Free checks + the AI's answer -> the final result. The AI weighs more when it is sure, but never hides a certain sign. */
-export function mergeAi(base: CheckResult, free: FreeResult, a: AiAnswer): CheckResult {
+export function mergeAi(base: CheckResult, free: FreeResult, a: AiAnswer, summaries = true): CheckResult {
   const freeScore = scoreOf(free.signals);
   const { risk, weight } = aiRisk(a);
   let score = Math.round(risk * weight + freeScore * (1 - weight));
@@ -26,9 +26,10 @@ export function mergeAi(base: CheckResult, free: FreeResult, a: AiAnswer): Check
     signals: [...free.signals, ...aiSignals],
     links: free.links, phones: free.phones, sender: free.sender ?? base.sender,
     impersonating: a.impersonating.trim() || undefined,
+    title: a.title.trim().slice(0, 60) || undefined,
     whatToDo: steps,
-    // The short summary is kept only when the final answer is "safe".
-    brief: verdict === 'safe' && a.brief.whatItIs.trim() ? { whatItIs: a.brief.whatItIs.trim(), keyInfo: a.brief.keyInfo.filter((k) => k.label.trim() && k.value.trim()).slice(0, 5), steps: a.brief.steps.filter((x) => x.trim()).slice(0, 3) } : undefined,
+    // The short summary is kept only when the final answer is "safe" (and summaries are on in Settings).
+    brief: summaries && verdict === 'safe' && a.brief.whatItIs.trim() ? { whatItIs: a.brief.whatItIs.trim(), keyInfo: a.brief.keyInfo.filter((k) => k.label.trim() && k.value.trim()).slice(0, 5), steps: a.brief.steps.filter((x) => x.trim()).slice(0, 3) } : undefined,
     ai: 'done', aiNote: undefined, unchecked: undefined, aiOffer: undefined, briefOffer: undefined,
     preview: base.preview || a.readText.replace(/\s+/g, ' ').trim().slice(0, 140),
   };

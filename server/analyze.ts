@@ -1,7 +1,7 @@
 import type { CheckResult, Kind, LinkInfo, PhoneInfo, SenderInfo, Signal } from '../src/lib/types.js';
 import { verdictOf } from '../src/lib/types.js';
 import { patternSignals } from './patterns.js';
-import { checkLinks } from './domains.js';
+import { checkLinks, type LinkOptions } from './domains.js';
 import { checkPhones, findPhones } from './phones.js';
 import { looksLikeRawEmail, parseEmail } from './email.js';
 
@@ -21,7 +21,7 @@ export function findLinks(text: string): string[] {
 export interface FreeResult { text: string; signals: Signal[]; links: LinkInfo[]; phones: PhoneInfo[]; sender?: SenderInfo }
 
 /** Every free check on a text (and the links / numbers found in it, or given by the AI for pictures). */
-export async function freeChecks(raw: string, opts: { from?: string; links?: string[]; phones?: string[] } = {}): Promise<FreeResult> {
+export async function freeChecks(raw: string, opts: { from?: string; links?: string[]; phones?: string[]; check?: LinkOptions } = {}): Promise<FreeResult> {
   let text = raw;
   let sender: SenderInfo | undefined;
   const signals: Signal[] = [];
@@ -40,7 +40,7 @@ export async function freeChecks(raw: string, opts: { from?: string; links?: str
   }
   links = [...links, ...findLinks(text).filter((u) => ![...shownOnly].some((label) => label.includes(u.toLowerCase().replace(/^https?:\/\//, ''))))];
   signals.push(...patternSignals(text));
-  const [l, p] = await Promise.all([checkLinks(links), Promise.resolve(checkPhones(findPhones(text, [...(opts.from ? [opts.from] : []), ...(opts.phones ?? [])])))]);
+  const [l, p] = await Promise.all([checkLinks(links, opts.check), Promise.resolve(checkPhones(findPhones(text, [...(opts.from ? [opts.from] : []), ...(opts.phones ?? [])])))]);
   signals.push(...l.signals, ...p.signals);
   return { text, signals, links: l.links, phones: p.phones, sender };
 }

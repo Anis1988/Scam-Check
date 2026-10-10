@@ -33,7 +33,8 @@ export async function call<T>(path: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
-export interface Status { ai: boolean; store: boolean; model: string; used: number; limit: number; safeBrowsing: boolean }
+/** limit null = unlimited. */
+export interface Status { ai: boolean; store: boolean; model: string; used: number; limit: number | null; safeBrowsing: boolean; settings: AppSettings }
 export interface Upload { mime: string; data: string; name: string; preview?: string }
 
 export interface CheckInput { kind: Kind; text?: string; from?: string; file?: Upload; aiMode: AiMode }
@@ -56,17 +57,18 @@ export const api = {
   file: (id: string) => call<{ mime: string; name: string; data: string }>(`/api/file?id=${encodeURIComponent(id)}`),
   removeFile: (id: string) => call<SavedItem>('/api/saved', { method: 'POST', body: JSON.stringify({ action: 'delete-file', id }) }),
   settings: () => call<AppSettings>('/api/settings'),
+  resetSettings: () => call<AppSettings & { cleaned: number }>('/api/settings', { method: 'POST', body: JSON.stringify({ reset: true }) }),
   saveSettings: (s: AppSettings) => call<AppSettings & { cleaned: number }>('/api/settings', { method: 'POST', body: JSON.stringify(s) }),
-  setNote: (id: string, note: string) => call<SavedItem>('/api/saved', { method: 'POST', body: JSON.stringify({ action: 'note', id, note }) }),
+  setNote: (id: string, note: string, name?: string) => call<SavedItem>('/api/saved', { method: 'POST', body: JSON.stringify({ action: 'note', id, note, name: name?.trim() || undefined }) }),
   unsave: (id: string) => call<{ ok: boolean }>('/api/saved', { method: 'POST', body: JSON.stringify({ action: 'delete', id }) }),
 };
 
 /**
- * Pictures are made smaller on the phone first (max 1400 px, JPEG): fast to upload and fewer AI credits (a picture's
- * cost grows with its size), while text in screenshots stays readable.
- * PDFs are sent as they are (4 MB max).
+ * Pictures are made smaller on the phone first (1400 px by default, Settings → Pictures, JPEG): fast to upload and
+ * fewer AI credits (a picture's cost grows with its size), while text in screenshots stays readable.
+ * PDFs are sent as they are (3 MB max).
  */
-export async function readUpload(f: File): Promise<Upload> {
+export async function readUpload(f: File, maxSize = 1400): Promise<Upload> {
   if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) {
     if (f.size > 3 * 1024 * 1024) throw new Error('This PDF is over 3 MB. Take a photo or screenshot of the page instead.');
     return { mime: 'application/pdf', data: await toBase64(f), name: f.name };
@@ -74,11 +76,12 @@ export async function readUpload(f: File): Promise<Upload> {
   if (/\.eml$/i.test(f.name) || f.type === 'message/rfc822') throw new Error('EML');
   if (!f.type.startsWith('image/') && !/\.(heic|heif|jpe?g|png|webp|gif)$/i.test(f.name)) throw new Error('Choose a picture (photo or screenshot) or a PDF.');
   const img = await loadImage(f);
-  const k = Math.min(1, 1400 / Math.max(img.width, img.height));
+  const k = Math.min(1, maxSize / Math.max(img.width, img.height));
   const c = document.createElement('canvas');
   c.width = Math.round(img.width * k);
   c.height = Math.round(img.height * k);
   c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+  URL.revokeObjectURL(img.src);
   const url = c.toDataURL('image/jpeg', 0.8);
   return { mime: 'image/jpeg', data: url.split(',')[1], name: f.name, preview: url };
 }
@@ -107,11 +110,12 @@ export function fileLink(f: { mime: string; data: string }): string {
   return URL.createObjectURL(new Blob([bytes], { type: f.mime }));
 }
 
-/** Saves a kept file to the phone or computer (Downloads). */
+/** Saves a kept file to the phone or computer (Downloads), named after the saved check ("1-Duke Energy.jpg"). */
 export function downloadFile(f: { mime: string; name: string; data: string }): void {
   const href = fileLink(f);
   const ext = f.mime === 'application/pdf' ? '.pdf' : f.mime === 'image/png' ? '.png' : '.jpg';
-  const name = /\.[a-z0-9]{2,4}$/i.test(f.name) ? f.name : `${f.name || 'scam-check'}${ext}`;
+  const base = f.name.replace(/[\\/:*?"<>|]+/g, ' ').trim();
+  const name = /\.(jpe?g|png|pdf|webp|gif)$/i.test(base) ? base : `${base || 'scam-check'}${ext}`;
   const a = Object.assign(document.createElement('a'), { href, download: name });
   document.body.appendChild(a);
   a.click();
