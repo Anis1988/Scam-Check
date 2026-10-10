@@ -1,7 +1,7 @@
-import type { CheckResult, Signal } from '../src/lib/types';
-import { verdictOf } from '../src/lib/types';
-import { aiRisk, type AiAnswer } from './ai';
-import { defaultSteps, scoreOf, type FreeResult } from './analyze';
+import type { CheckResult, Signal } from '../src/lib/types.js';
+import { verdictOf } from '../src/lib/types.js';
+import { aiRisk, type AiAnswer } from './ai.js';
+import { defaultSteps, scoreOf, type FreeResult } from './analyze.js';
 
 /** Free checks + the AI's answer -> the final result. The AI weighs more when it is sure, but never hides a certain sign. */
 export function mergeAi(base: CheckResult, free: FreeResult, a: AiAnswer): CheckResult {

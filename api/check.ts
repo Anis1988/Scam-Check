@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import type { CheckResult } from '../src/lib/types';
-import { guard, json } from '../server/guard';
-import { buildResult, freeChecks } from '../server/analyze';
-import { aiReady } from '../server/ai';
-import { aiLimit, aiUsed, getResult, saveResult, storeReady } from '../server/store';
+import type { CheckResult } from '../src/lib/types.js';
+import { guard, json } from '../server/guard.js';
+import { buildResult, freeChecks } from '../server/analyze.js';
+import { aiReady } from '../server/ai.js';
+import { aiLimit, aiUsed, getResult, saveResult, storeReady } from '../server/store.js';
 
 export const Body = z.object({
   kind: z.enum(['email', 'text', 'bill', 'screenshot']),

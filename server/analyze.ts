@@ -1,9 +1,9 @@
-import type { CheckResult, Kind, LinkInfo, PhoneInfo, SenderInfo, Signal } from '../src/lib/types';
-import { verdictOf } from '../src/lib/types';
-import { patternSignals } from './patterns';
-import { checkLinks } from './domains';
-import { checkPhones, findPhones } from './phones';
-import { looksLikeRawEmail, parseEmail } from './email';
+import type { CheckResult, Kind, LinkInfo, PhoneInfo, SenderInfo, Signal } from '../src/lib/types.js';
+import { verdictOf } from '../src/lib/types.js';
+import { patternSignals } from './patterns.js';
+import { checkLinks } from './domains.js';
+import { checkPhones, findPhones } from './phones.js';
+import { looksLikeRawEmail, parseEmail } from './email.js';
 
 /** Links written in a text: full addresses, and bare ones like "usps-redelivery.top/abc". */
 export function findLinks(text: string): string[] {

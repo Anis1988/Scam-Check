@@ -1,5 +1,5 @@
 import { parse } from 'tldts';
-import type { LinkInfo, Signal } from '../src/lib/types';
+import type { LinkInfo, Signal } from '../src/lib/types.js';
 
 /**
  * Domain reputation, free: lookalike brand names, risky endings, link shorteners, how new the domain is (RDAP),

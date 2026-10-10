@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import type { CheckResult } from '../src/lib/types';
-import { guard, json } from '../server/guard';
-import { askAi, aiReady } from '../server/ai';
-import { buildResult, freeChecks } from '../server/analyze';
-import { mergeAi } from '../server/merge';
-import { getResult, saveResult, takeAi } from '../server/store';
-import { Body, idOf } from './check';
+import type { CheckResult } from '../src/lib/types.js';
+import { guard, json } from '../server/guard.js';
+import { askAi, aiReady } from '../server/ai.js';
+import { buildResult, freeChecks } from '../server/analyze.js';
+import { mergeAi } from '../server/merge.js';
+import { getResult, saveResult, takeAi } from '../server/store.js';
+import { Body, idOf } from './check.js';
 
 const AiBody = Body.extend({
   file: z.object({ mime: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']), data: z.string().max(4_300_000).regex(/^[A-Za-z0-9+/=]+$/) }).optional(),

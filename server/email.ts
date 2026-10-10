@@ -1,7 +1,7 @@
 import PostalMime from 'postal-mime';
 import { parse } from 'tldts';
-import type { SenderInfo, Signal } from '../src/lib/types';
-import { BRANDS, isFreeMail, lookalikeOf, officialBrand } from './domains';
+import type { SenderInfo, Signal } from '../src/lib/types.js';
+import { BRANDS, isFreeMail, lookalikeOf, officialBrand } from './domains.js';
 
 /**
  * A full email (.eml file, or pasted with its headers): the hidden sender details tell a lot —

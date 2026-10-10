@@ -1,6 +1,6 @@
 import { Redis } from '@upstash/redis';
-import type { CheckResult, SavedItem } from '../src/lib/types';
-import { LocalStore } from './localStore';
+import type { CheckResult, SavedItem } from '../src/lib/types.js';
+import { LocalStore } from './localStore.js';
 
 /**
  * Upstash Redis (Vercel → Storage → Upstash for Redis, free): check results for 7 days (the same message is

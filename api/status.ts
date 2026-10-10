@@ -1,6 +1,6 @@
-import { guard, json } from '../server/guard';
-import { aiReady, MODEL } from '../server/ai';
-import { aiLimit, aiUsed, storeReady } from '../server/store';
+import { guard, json } from '../server/guard.js';
+import { aiReady, MODEL } from '../server/ai.js';
+import { aiLimit, aiUsed, storeReady } from '../server/store.js';
 
 /** GET /api/status -> what is set up, and today's AI use. */
 export async function GET(req: Request): Promise<Response> {

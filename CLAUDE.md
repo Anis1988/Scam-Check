@@ -11,3 +11,4 @@
 - Hosting is Vercel: `api/*.ts` are the server functions (Web `GET`/`POST` handlers), `server/` the shared code, Upstash Redis the storage. Vercel's request limit is 4.5 MB (PDFs 3 MB max) and `api/ai.ts` may run 60 s (`vercel.json`).
 - ⭐ Saved keeps only key facts (`api/saved.ts` → `keyFacts`), never the full message or picture.
 - Local: `npm run dev` also serves `api/*.ts` (plugin in `vite.config.ts`, keys from `.env.local`); without Upstash keys it uses `server/localStore.ts` (`.local/store.json`). Keep `api/` handlers runnable both ways.
+- Server imports must end in `.js` (`../server/guard.js`): Vercel runs `api/` as plain Node ESM without bundling, and Node needs the extension.

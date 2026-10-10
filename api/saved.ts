@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import type { CheckResult, SavedItem } from '../src/lib/types';
-import { guard, json } from '../server/guard';
-import { deleteSaved, getResult, getSaved, listSaved, putSaved } from '../server/store';
+import type { CheckResult, SavedItem } from '../src/lib/types.js';
+import { guard, json } from '../server/guard.js';
+import { deleteSaved, getResult, getSaved, listSaved, putSaved } from '../server/store.js';
 
 const Post = z.discriminatedUnion('action', [
   z.object({ action: z.literal('save'), id: z.string().regex(/^[a-f0-9]{32}$/), note: z.string().trim().max(500).default('') }),
