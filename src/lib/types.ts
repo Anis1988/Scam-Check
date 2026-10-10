@@ -127,9 +127,9 @@ export const MODELS: { id: string; name: string; hint: string }[] = [
   { id: 'claude-haiku-5-5', name: 'Claude Haiku 5.5', hint: 'The fastest and cheapest. Can miss clever scams.' },
 ];
 export type Effort = 'low' | 'medium' | 'high';
-export type Provider = 'claude' | 'gemini' | 'groq' | 'mistral' | 'openrouter';
+export type Provider = 'claude' | 'gemini' | 'groq' | 'openrouter';
 /** The free AIs that speak the OpenAI way (one shared client, server/openai.ts). */
-export type FreeProvider = 'groq' | 'mistral' | 'openrouter';
+export type FreeProvider = 'groq' | 'openrouter';
 /** A model picked for one ↻ Re-check. */
 export interface ModelChoice { provider: Provider; id: string }
 /** Google's Gemini models (free with a key from Google AI Studio, within Google's own daily limits). */
@@ -153,7 +153,7 @@ export interface AppSettings {
     geminiDailyLimit: number; // Gemini checks a day (kept under Google's free allowance)
     privateToClaude: boolean; // no longer used (the owner removed the switch): the picked model checks everything
     freeModels: Record<FreeProvider, string>; // the model picked for each of the other free AIs
-    freeDailyLimit: number; // checks a day for each of Groq, Mistral and OpenRouter
+    freeDailyLimit: number; // checks a day for each of Groq and OpenRouter
   };
   checks: {
     safeBrowsing: boolean; // Google's list of dangerous sites (needs GOOGLE_SAFE_BROWSING_KEY)
@@ -166,7 +166,7 @@ export interface AppSettings {
   cleanup: { enabled: boolean; days: number; what: 'files' | 'all' }; // auto clean-up of ⭐ Saved
 }
 export const DEFAULT_SETTINGS: AppSettings = {
-  ai: { mode: 'ask', model: 'claude-opus-5-5', dailyLimit: 5, unlimited: false, effort: 'low', summaries: true, provider: 'claude', geminiModel: 'gemini-flash-latest', geminiDailyLimit: 50, privateToClaude: false, freeModels: { groq: 'meta-llama/llama-4-maverick-17b-128e-instruct', mistral: 'mistral-medium-latest', openrouter: 'meta-llama/llama-4-maverick:free' }, freeDailyLimit: 50 },
+  ai: { mode: 'ask', model: 'claude-opus-5-5', dailyLimit: 5, unlimited: false, effort: 'low', summaries: true, provider: 'claude', geminiModel: 'gemini-flash-latest', geminiDailyLimit: 50, privateToClaude: false, freeModels: { groq: 'meta-llama/llama-4-maverick-17b-128e-instruct', openrouter: 'meta-llama/llama-4-maverick:free' }, freeDailyLimit: 50 },
   checks: { safeBrowsing: true, websiteAge: true, rememberDays: 7 },
   pictures: { maxSize: 1400, maxBatch: 10 },
   saving: { keepOriginal: true },
@@ -187,11 +187,6 @@ export const PROVIDERS: { id: Provider; name: string; paid: boolean; env: string
     { id: 'meta-llama/llama-4-maverick-17b-128e-instruct', name: 'Llama 4 Maverick', hint: 'Meta’s bigger Llama 4. Reads screenshots.', pictures: true, pdf: false },
     { id: 'openai/gpt-oss-120b', name: 'GPT-OSS 120B', hint: 'OpenAI’s open model. Texts and emails only (no pictures).', pictures: false, pdf: false },
     { id: 'meta-llama/llama-4-scout-17b-16e-instruct', name: 'Llama 4 Scout', hint: 'Smaller and faster. Reads screenshots.', pictures: true, pdf: false },
-  ] },
-  { id: 'mistral', name: 'Mistral', paid: false, env: 'MISTRAL_API_KEY', about: 'French AI company, free “Experiment” plan (console.mistral.ai). Reads screenshots. No PDFs. On the free plan Mistral may use what you send.', models: [
-    { id: 'mistral-medium-latest', name: 'Mistral Medium', hint: 'Strong and reads screenshots.', pictures: true, pdf: false },
-    { id: 'mistral-large-latest', name: 'Mistral Large', hint: 'Mistral’s biggest. Best for texts and emails.', pictures: false, pdf: false },
-    { id: 'mistral-small-latest', name: 'Mistral Small', hint: 'Fast, reads screenshots.', pictures: true, pdf: false },
   ] },
   { id: 'openrouter', name: 'OpenRouter', paid: false, env: 'OPENROUTER_API_KEY', about: 'One key for many free models (openrouter.ai). Free ones can be slow or busy, and come and go. No PDFs.', models: [
     { id: 'meta-llama/llama-4-maverick:free', name: 'Llama 4 Maverick (free)', hint: 'Reads screenshots.', pictures: true, pdf: false },

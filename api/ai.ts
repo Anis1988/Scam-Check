@@ -14,7 +14,7 @@ const AiBody = Body.extend({
   file: z.object({ mime: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']), data: z.string().max(4_300_000).regex(/^[A-Za-z0-9+/=]+$/) }).optional(),
   fresh: z.boolean().optional(), // ↻ Re-check: ask the AI again, even if an answer is remembered
   // ↻ Re-check with a model picked just for this once (Settings stay as they are).
-  model: z.object({ provider: z.enum(['claude', 'gemini', 'groq', 'mistral', 'openrouter']), id: z.string().regex(/^[A-Za-z0-9._:/-]{2,120}$/) }).optional(),
+  model: z.object({ provider: z.enum(['claude', 'gemini', 'groq', 'openrouter']), id: z.string().regex(/^[A-Za-z0-9._:/-]{2,120}$/) }).optional(),
 });
 
 /**

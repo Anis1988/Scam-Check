@@ -65,7 +65,7 @@ async function askModel(input: AiInput, cfg: AppSettings['ai'], model: string): 
   return loose(raw);
 }
 
-/** An AI's JSON, made safe: anything missing or of the wrong type gets an empty value (Gemini, Groq, Mistral…). */
+/** An AI's JSON, made safe: anything missing or of the wrong type gets an empty value (Gemini, Groq, OpenRouter…). */
 export function loose(raw: unknown): AiAnswer {
   const ok = Answer.safeParse(raw);
   if (ok.success) return ok.data;

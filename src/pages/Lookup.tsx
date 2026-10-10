@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { api } from '../lib/api';
 import { saveToHistory } from '../lib/history';
-import type { CheckResult, CompanyInfo } from '../lib/types';
+import { providerOf, type CheckResult, type CompanyInfo, type ModelChoice } from '../lib/types';
+import { ModelMenu, needsSearch } from '../components/ModelMenu';
 import { refreshStatus, useStatus } from '../lib/useStatus';
 import { CheckedBy, ResultCard } from '../components/ResultCard';
 import { Rail, Shell, toast } from '../components/ui';
@@ -11,13 +12,13 @@ const RECENT = 'sc.companies';
 const loadRecent = (): string[] => { try { return JSON.parse(localStorage.getItem(RECENT) ?? '[]') as string[]; } catch { return []; } };
 
 /** A company's real contact details: what they do, website, customer service phone and email, with sources. */
-export function CompanyCard({ c, example = false, onRefresh }: { c: CompanyInfo; example?: boolean; onRefresh?: () => void }) {
+export function CompanyCard({ c, example = false, onRefresh }: { c: CompanyInfo; example?: boolean; onRefresh?: (m: ModelChoice) => void }) {
   const when = new Date(c.checkedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const t = example ? -1 : 0;
   return (
     <article className="card rise space-y-3 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <CheckedBy ai="done" aiBy={c.aiBy ? `${c.aiBy} + Google Search` : undefined} />
+        <CheckedBy ai="done" aiBy={c.aiBy ? `${c.aiBy} + web search` : undefined} />
         {c.remembered && <span className="hud !text-[10px]">📌 From {when} (free)</span>}
       </div>
       <div>
@@ -59,12 +60,12 @@ export function CompanyCard({ c, example = false, onRefresh }: { c: CompanyInfo;
       {c.note && <p className="break-words text-xs text-stone-500">{c.note}</p>}
       {c.sources.length > 0 && (
         <div className="space-y-1">
-          <p className="label">Sources (Google Search)</p>
+          <p className="label">Sources (web search)</p>
           <ul className="space-y-0.5">{c.sources.map((s) => <li key={s.url} className="truncate text-xs"><a className="text-teal-700 underline" href={s.url} target="_blank" rel="noopener noreferrer" tabIndex={t}>{s.title || s.url}</a></li>)}</ul>
         </div>
       )}
       <p className="text-xs text-stone-500">Found by a live search: best is to also check the number on your card, bill or the company’s app.</p>
-      {onRefresh && c.remembered && <button className="btn w-full" onClick={onRefresh}>↻ Search again (uses 1 Gemini check)</button>}
+      {onRefresh && !example && <ModelMenu label="↻ Search again with another model" cannot={needsSearch} onPick={onRefresh} />}
     </article>
   );
 }
@@ -72,22 +73,27 @@ export function CompanyCard({ c, example = false, onRefresh }: { c: CompanyInfo;
 /** 🏢 Look up: a company's contact details, or just a link, phone number or email address. */
 export function Lookup() {
   const st = useStatus();
-  const ready = st?.providers?.gemini?.ready;
+  // The AI picked in Settings searches (OpenRouter's free models can't search the web).
+  const p = st?.settings.ai.provider ?? 'gemini';
+  const ready = st?.providers?.[p]?.ready && !needsSearch(p);
   const [name, setName] = useState('');
   const [company, setCompany] = useState<CompanyInfo | null>(null);
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState<{ name: string; error: string } | null>(null);
   const [recent, setRecent] = useState(loadRecent);
-  const findCompany = async (n: string, fresh = false) => {
+  const findCompany = async (n: string, fresh = false, model?: ModelChoice) => {
     if (n.trim().length < 2) return;
     setBusy(true);
+    setFailed(null);
     try {
-      const c = await api.company(n.trim(), fresh);
+      const c = await api.company(n.trim(), fresh, model);
       setCompany(c);
       const next = [c.name, ...recent.filter((x) => x.toLowerCase() !== c.name.toLowerCase())].slice(0, 8);
       setRecent(next);
       try { localStorage.setItem(RECENT, JSON.stringify(next)); } catch { /* full */ }
     } catch (e) {
-      toast('error', e instanceof Error ? e.message : String(e));
+      // e.g. today's limit reached: offer the other models right here.
+      setFailed({ name: n.trim(), error: e instanceof Error ? e.message : String(e) });
     } finally {
       setBusy(false);
       void refreshStatus();
@@ -124,17 +130,24 @@ export function Lookup() {
         <div>
           <p className="label">Company</p>
           <h1 className="text-2xl font-bold">How do I reach them?</h1>
-          <p className="text-sm text-stone-500">Type a company name: what they do, their real website, customer service phone and email, from a live Google search with sources.</p>
+          <p className="text-sm text-stone-500">Type a company name: what they do, their real website, customer service phone and email, from a live web search with sources.</p>
         </div>
-        {st && !ready && <p className="panel text-sm text-amber-800">This needs Gemini (free): add <code>GEMINI_API_KEY</code> in Vercel, then redeploy.</p>}
+        {st && <p className="hud">🤖 {st.model} + web search</p>}
+        {st && !ready && <p className="panel text-sm text-amber-800">{needsSearch(p) ? `${providerOf(p).name}’s free models can’t search the web: pick Gemini, Claude or Groq in Settings, or below.` : `${providerOf(p).name} isn’t set up: add ${providerOf(p).env} in Vercel, or pick another model in Settings.`}</p>}
         <div className="flex gap-2">
           <input className="input min-w-0 flex-1" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} placeholder="e.g. Duke Energy, Chase, Amazon" aria-label="Company name" />
-          <button className="btn-primary" disabled={busy || !ready || name.trim().length < 2}>{busy ? <span className="spinner" /> : 'Find'}</button>
+          <button className="btn-primary" disabled={busy || name.trim().length < 2}>{busy ? <span className="spinner" /> : 'Find'}</button>
         </div>
         {recent.length > 0 && <div className="-mx-1 flex flex-wrap gap-1.5 lg:hidden">{recent.slice(0, 5).map((n) => <button type="button" key={n} className="chip border-stone-200 bg-white/70 text-stone-700" onClick={() => (setName(n), void findCompany(n))}>{n}</button>)}</div>}
       </form>
       {busy && <p className="card scan text-sm text-teal-800"><span className="spinner" /> Searching the web…</p>}
-      {company && !busy && <CompanyCard key={company.checkedAt} c={company} onRefresh={() => void findCompany(company.name, true)} />}
+      {failed && !busy && (
+        <div className="card space-y-2">
+          <p className="break-words text-sm text-amber-800">{failed.error}</p>
+          <ModelMenu label="Continue with another model" primary cannot={needsSearch} onPick={(m) => void findCompany(failed.name, true, m)} />
+        </div>
+      )}
+      {company && !busy && !failed && <CompanyCard key={company.checkedAt} c={company} onRefresh={(m) => void findCompany(company.name, true, m)} />}
 
       <form className="card space-y-2" onSubmit={(e) => (e.preventDefault(), void lookup())}>
         <div>

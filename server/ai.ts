@@ -91,7 +91,7 @@ export async function askAi(input: AiInput, cfg: AppSettings['ai'], provider: Pr
     return { ...a, by, note: a.fallback ? `${aiName('gemini', cfg).replace(' (free)', '')} wasn’t available (${a.fallback}), so ${by.replace(' (free)', '')} checked it.` : undefined };
   }
   if (provider !== 'claude') {
-    // Groq, Mistral, OpenRouter: they can't read PDFs, so a PDF goes to Gemini or Claude when one is set up.
+    // Groq, OpenRouter: they can't read PDFs, so a PDF goes to Gemini or Claude when one is set up.
     if (input.file?.mime === 'application/pdf') {
       const other: Provider | null = ready('gemini') ? 'gemini' : ready('claude') ? 'claude' : null;
       if (!other) throw new Error(`${providerOf(provider).name} can’t read PDFs: pick Claude or Gemini, or take a photo of the page`);

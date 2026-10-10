@@ -1,6 +1,6 @@
 import { Redis } from '@upstash/redis';
 import type { AppSettings, Bill, BillCompare, CheckResult, ListEntry, Provider, SavedItem } from '../src/lib/types.js';
-import { DEFAULT_SETTINGS } from '../src/lib/types.js';
+import { DEFAULT_SETTINGS, PROVIDERS } from '../src/lib/types.js';
 import { LocalStore } from './localStore.js';
 
 /**
@@ -104,6 +104,8 @@ export async function getSettings(): Promise<AppSettings> {
   const start = startingSettings();
   const s = await db()?.get<Partial<AppSettings>>('sc:settings');
   const out = Object.fromEntries((Object.keys(start) as (keyof AppSettings)[]).map((k) => [k, { ...start[k], ...((s?.[k] as object) ?? {}) }])) as unknown as AppSettings;
+  // An AI that was removed (Mistral) falls back to Claude.
+  if (!PROVIDERS.some((p) => p.id === out.ai.provider)) out.ai.provider = 'claude';
   cached = { at: Date.now(), s: out };
   return out;
 }
