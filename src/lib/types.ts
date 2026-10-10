@@ -44,6 +44,7 @@ export interface CheckResult {
   brief?: Brief; // safe ones only: what it is, key info, what to do (from the same AI call)
   bill?: BillFacts; // a safe bill: who, how much, when (from the AI) -> 📅 Bills
   billCompare?: BillCompare; // the same company's previous bill
+  aiBy?: string; // which AI answered, e.g. "Gemini (free)" or "Claude Opus 5.5"
   title?: string; // who or what it is, in a few words (from the AI), e.g. "Duke Energy bill": used to name saved checks
   preview: string; // the start of the message, for the history list
   checkedAt: string;
@@ -124,6 +125,12 @@ export const MODELS: { id: string; name: string; hint: string }[] = [
   { id: 'claude-haiku-5-5', name: 'Claude Haiku 5.5', hint: 'The fastest and cheapest. Can miss clever scams.' },
 ];
 export type Effort = 'low' | 'medium' | 'high';
+export type Provider = 'claude' | 'gemini';
+/** Google's Gemini models (free with a key from Google AI Studio, within Google's own daily limits). */
+export const GEMINI_MODELS: { id: string; name: string; hint: string }[] = [
+  { id: 'gemini-flash-latest', name: 'Gemini Flash', hint: 'Good at reading screenshots and texts. Free within Google’s daily limit.' },
+  { id: 'gemini-flash-lite-latest', name: 'Gemini Flash-Lite', hint: 'Faster, with a bigger free allowance, but less careful.' },
+];
 
 /** Server settings (Settings tab): the same on the phone and the computer. They win over the Vercel variables. */
 export interface AppSettings {
@@ -134,6 +141,10 @@ export interface AppSettings {
     unlimited: boolean;
     effort: Effort; // how hard the AI thinks: more = a bit better, slower and dearer
     summaries: boolean; // the short summary of safe ones
+    provider: Provider; // which AI checks things: Claude (paid) or Gemini (free)
+    geminiModel: string;
+    geminiDailyLimit: number; // Gemini checks a day (kept under Google's free allowance)
+    privateToClaude: boolean; // with Gemini: bills and PDFs still go to Claude (free plans may keep what you send)
   };
   checks: {
     safeBrowsing: boolean; // Google's list of dangerous sites (needs GOOGLE_SAFE_BROWSING_KEY)
@@ -146,7 +157,7 @@ export interface AppSettings {
   cleanup: { enabled: boolean; days: number; what: 'files' | 'all' }; // auto clean-up of ⭐ Saved
 }
 export const DEFAULT_SETTINGS: AppSettings = {
-  ai: { mode: 'ask', model: 'claude-opus-5-5', dailyLimit: 5, unlimited: false, effort: 'low', summaries: true },
+  ai: { mode: 'ask', model: 'claude-opus-5-5', dailyLimit: 5, unlimited: false, effort: 'low', summaries: true, provider: 'claude', geminiModel: 'gemini-flash-latest', geminiDailyLimit: 50, privateToClaude: true },
   checks: { safeBrowsing: true, websiteAge: true, rememberDays: 7 },
   pictures: { maxSize: 1400, maxBatch: 10 },
   saving: { keepOriginal: true },

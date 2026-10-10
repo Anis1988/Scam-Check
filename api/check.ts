@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { CheckResult } from '../src/lib/types.js';
 import { guard, json } from '../server/guard.js';
 import { buildResult, freeChecks } from '../server/analyze.js';
-import { aiReady } from '../server/ai.js';
+import { isPrivate, noAiNote, pickAi } from '../server/ai.js';
 import { getLists, getResult, getSettings, overLimit, saveResult, storeReady } from '../server/store.js';
 import { withLists } from '../server/lists.js';
 
@@ -12,6 +12,7 @@ export const Body = z.object({
   text: z.string().max(100_000).optional(),
   from: z.string().trim().max(60).optional(),
   fileHash: z.string().regex(/^[a-f0-9]{64}$/).optional(), // SHA-256 of the picture/PDF (the file itself only goes to /api/ai)
+  pdf: z.boolean().optional(), // the file is a PDF (private: may go to Claude only, Settings → AI)
   aiMode: z.enum(['ask', 'smart', 'always', 'never']).default('ask'),
 });
 export type CheckBody = z.infer<typeof Body>;
@@ -67,14 +68,15 @@ export async function POST(req: Request): Promise<Response> {
     //    "Ask the AI" button when the free checks aren't sure.
     const wantAi = b.aiMode === 'always' || (b.aiMode !== 'never' && !!b.fileHash) || (b.aiMode === 'smart' && base.score < 65);
     // With "ask": unsure -> an "Ask the AI" button; safe -> a "Summarize" button (both: 1 AI check, only if tapped).
-    if (b.aiMode === 'ask' && !wantAi && aiReady() && storeReady()) {
+    const prov = pickAi(cfg.ai, isPrivate(b.kind, b.pdf ? 'application/pdf' : undefined));
+    if (b.aiMode === 'ask' && !wantAi && prov && storeReady()) {
       if (base.score >= 30 && base.score < 65) Object.assign(base, { aiOffer: true });
       else if (base.score < 30 && cfg.ai.summaries) Object.assign(base, { briefOffer: true });
     }
     let result: CheckResult = base;
-    if (wantAi && !aiReady()) result = { ...base, aiNote: 'The AI check is not set up (ANTHROPIC_API_KEY in Vercel).' };
+    if (wantAi && !prov) result = { ...base, aiNote: noAiNote(cfg.ai, isPrivate(b.kind, b.pdf ? 'application/pdf' : undefined)) };
     else if (wantAi && !storeReady()) result = { ...base, aiNote: 'The AI check needs the free Upstash Redis storage (Vercel → Storage) to keep its daily limit.' };
-    else if (wantAi && (await overLimit())) result = { ...base, ai: 'limit', aiNote: 'Today’s AI checks are used up (daily limit in Settings). The result below is from the free checks.' };
+    else if (wantAi && prov && (await overLimit(prov))) result = { ...base, ai: 'limit', aiNote: `Today’s ${prov === 'gemini' ? 'Gemini' : 'AI'} checks are used up (daily limit in Settings). The result below is from the free checks.` };
     else if (wantAi) return out({ ...base, ai: 'pending' });
     else if (b.aiMode === 'smart' && base.score >= 65) result = { ...base, ai: 'skipped', aiNote: 'The free checks were already sure, so no AI credit was used.' };
     await saveResult(result, cfg.checks.rememberDays).catch(() => undefined);

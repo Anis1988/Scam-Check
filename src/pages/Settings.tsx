@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { api, setCode } from '../lib/api';
 import { clearHistory, getPrefs, setPrefs, type DevicePrefs } from '../lib/history';
-import { MODELS, type AiMode, type AppSettings, type Effort, type ListEntry } from '../lib/types';
-import { aiLeft, refreshStatus, setStatusSettings, useStatus, useStatusError } from '../lib/useStatus';
+import { GEMINI_MODELS, MODELS, type AiMode, type AppSettings, type Effort, type ListEntry } from '../lib/types';
+import { refreshStatus, setStatusSettings, useStatus, useStatusError } from '../lib/useStatus';
 import { Card, Field, Rail, Shell, Toggle, toast } from '../components/ui';
 import { APP_BUILD, downloadApp, latestApp } from '../components/AppUpdate';
 import { getServer, isNative, setServer } from '../lib/native';
@@ -42,6 +42,7 @@ export function Settings() {
   const [limitText, setLimitText] = useState('');
   useEffect(() => { if (cfg) setLimitText(String(cfg.ai.dailyLimit)); }, [cfg?.ai.dailyLimit]); // eslint-disable-line react-hooks/exhaustive-deps
   const [otherModel, setOtherModel] = useState('');
+  const [otherGemini, setOtherGemini] = useState('');
 
   const save = async (next: AppSettings) => {
     const before = cfg;
@@ -88,7 +89,8 @@ export function Settings() {
       ) : !st ? <p className="text-sm text-stone-500"><span className="spinner" /> Loading…</p> : (
         <ul className="space-y-2 text-sm">
           {[
-            ['AI key', st.ai, 'ANTHROPIC_API_KEY in Vercel'],
+            ['Claude key', st.claude?.ready, 'ANTHROPIC_API_KEY in Vercel'],
+            ['Gemini key (free)', st.gemini?.ready, 'GEMINI_API_KEY (optional)'],
             ['Storage', st.store, 'Upstash Redis (Vercel → Storage)'],
             ['Google Safe Browsing key', st.safeBrowsing, 'GOOGLE_SAFE_BROWSING_KEY (optional, free)'],
             ['Free checks', true, 'Always on'],
@@ -124,7 +126,37 @@ export function Settings() {
       <div className="lg:hidden">{setupRail}</div>
       {!cfg ? <p className="card text-sm text-stone-500">{stErr ? 'Settings can’t be loaded until the server answers (see above).' : <><span className="spinner" /> Loading…</>}</p> : (
         <>
-          <Section id="ai" title="🤖 AI" subtitle={st?.ai ? `Used today: ${st.used}${st.limit === null ? '' : ` of ${st.limit}`}${aiLeft(st) === 0 ? ' (none left)' : ''}` : 'Add ANTHROPIC_API_KEY in Vercel to turn the AI on.'}>
+          <Section id="ai" title="🤖 AI" subtitle={st ? `Used today: Claude ${st.claude?.used ?? st.used}${st.claude?.limit != null ? ` of ${st.claude.limit}` : ''}${st.gemini?.ready ? ` · Gemini ${st.gemini.used} of ${st.gemini.limit}` : ''}` : ''}>
+            <div className="space-y-1.5">
+              <p className="label">Which AI</p>
+              <Segmented<'claude' | 'gemini'> label="Which AI" value={cfg.ai.provider} onChange={(v) => set('ai', { provider: v })} options={[{ id: 'claude', name: 'Claude (paid)' }, { id: 'gemini', name: 'Gemini (free)' }]} />
+              <p className="text-xs text-stone-500">{cfg.ai.provider === 'claude' ? 'Claude by Anthropic: the best at spotting tricky scams, a few cents a check. What you send is not used to train it.' : 'Gemini by Google: free within Google’s daily allowance. On the free plan Google may keep and use what you send, so keep private documents for Claude (switch below).'}</p>
+              {cfg.ai.provider === 'gemini' && !st?.gemini?.ready && <p className="panel text-sm text-amber-800">Gemini isn’t set up yet: get a free key at <b>aistudio.google.com</b> → Get API key, and add it in Vercel as <code>GEMINI_API_KEY</code>, then redeploy. Until then, nothing goes to the AI.</p>}
+            </div>
+            {cfg.ai.provider === 'gemini' && (
+              <div className="space-y-2 rounded-xl border border-stone-200/80 bg-white/50 p-3">
+                <Field label="🔒 Bills and PDFs always go to Claude" hint={cfg.ai.privateToClaude ? 'Texts, emails, screenshots and QR codes go to Gemini (free). Bills and PDFs (account numbers, amounts) go to Claude.' : 'Everything goes to Gemini, bills and PDFs too. Google may keep what you send on the free plan.'}>
+                  <Toggle on={cfg.ai.privateToClaude} label="Bills and PDFs always go to Claude" onChange={(v) => (v || window.confirm('Send your bills and PDFs to Gemini too? On the free plan Google may keep and use them.')) && set('ai', { privateToClaude: v })} />
+                </Field>
+                <div className="space-y-1.5">
+                  <p className="label">Gemini model</p>
+                  <Segmented<string> label="Gemini model" value={cfg.ai.geminiModel} onChange={(v) => set('ai', { geminiModel: v })} options={GEMINI_MODELS.some((m) => m.id === cfg.ai.geminiModel) ? GEMINI_MODELS.map((m) => ({ id: m.id, name: m.name })) : [...GEMINI_MODELS.map((m) => ({ id: m.id, name: m.name })), { id: cfg.ai.geminiModel, name: cfg.ai.geminiModel }]} />
+                  <p className="text-xs text-stone-500">{GEMINI_MODELS.find((m) => m.id === cfg.ai.geminiModel)?.hint ?? 'Your own choice.'}</p>
+                  <details className="text-sm">
+                    <summary className="cursor-pointer text-xs font-semibold text-stone-500">Another Gemini model…</summary>
+                    <div className="mt-2 flex gap-2">
+                      <input className="input min-w-0 flex-1 font-mono text-sm" value={otherGemini} onChange={(e) => setOtherGemini(e.target.value)} placeholder="e.g. gemini-2.5-flash" aria-label="Gemini model name" />
+                      <button className="btn" disabled={!/^gemini-[a-z0-9.-]{2,60}$/.test(otherGemini.trim())} onClick={() => (set('ai', { geminiModel: otherGemini.trim() }), setOtherGemini(''))}>Use it</button>
+                    </div>
+                  </details>
+                </div>
+                <Field label="Gemini checks a day" hint="Stays under Google’s free allowance. When they’re used up, you still get the free checks.">
+                  <select className="input" value={cfg.ai.geminiDailyLimit} onChange={(e) => set('ai', { geminiDailyLimit: Number(e.target.value) })} aria-label="Gemini checks a day">
+                    {[10, 25, 50, 100, 200].map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </Field>
+              </div>
+            )}
             <div className="space-y-1.5">
               <p className="label">When to use it</p>
               <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="When to use the AI">
@@ -138,7 +170,7 @@ export function Settings() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <p className="label">AI model</p>
+              <p className="label">{cfg.ai.provider === 'gemini' ? 'Claude model (for bills and PDFs)' : 'AI model'}</p>
               <div className="grid gap-2" role="radiogroup" aria-label="AI model">
                 {[...MODELS, ...(MODELS.some((m) => m.id === cfg.ai.model) ? [] : [{ id: cfg.ai.model, name: cfg.ai.model, hint: 'Your own choice (AI_MODEL or typed below).' }])].map((m) => (
                   <button key={m.id} role="radio" aria-checked={cfg.ai.model === m.id} onClick={() => set('ai', { model: m.id })}
@@ -156,7 +188,7 @@ export function Settings() {
                 </div>
               </details>
             </div>
-            <Field label="AI checks a day" hint={cfg.ai.unlimited ? 'Unlimited: every AI check is paid, with no daily stop.' : 'When they’re used up, you still get the free checks. They come back the next day.'}>
+            <Field label={cfg.ai.provider === "gemini" ? "Claude checks a day" : "AI checks a day"} hint={cfg.ai.unlimited ? 'Unlimited: every AI check is paid, with no daily stop.' : 'When they’re used up, you still get the free checks. They come back the next day.'}>
               <div className="flex items-center gap-2">
                 {!cfg.ai.unlimited && (
                   <>

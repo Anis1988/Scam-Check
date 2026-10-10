@@ -93,7 +93,7 @@ export function ResultCard({ r, example = false, onChanged }: { r: CheckResult; 
           <p className="text-xs text-stone-500">Links are only looked up, never opened.</p>
         </div>
       )}
-      <p className="text-xs text-stone-500">{KIND_LABEL[r.kind].icon} {KIND_LABEL[r.kind].text} · checked {new Date(r.checkedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}. A check can be wrong: when in doubt, contact the company yourself.</p>
+      <p className="text-xs text-stone-500">{KIND_LABEL[r.kind].icon} {KIND_LABEL[r.kind].text}{r.aiBy && r.ai === 'done' ? ` · 🤖 ${r.aiBy}` : ''} · checked {new Date(r.checkedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}. A check can be wrong: when in doubt, contact the company yourself.</p>
     </section>
   );
 }

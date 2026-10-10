@@ -1,5 +1,5 @@
 import { Redis } from '@upstash/redis';
-import type { AppSettings, Bill, BillCompare, CheckResult, ListEntry, SavedItem } from '../src/lib/types.js';
+import type { AppSettings, Bill, BillCompare, CheckResult, ListEntry, Provider, SavedItem } from '../src/lib/types.js';
 import { DEFAULT_SETTINGS } from '../src/lib/types.js';
 import { LocalStore } from './localStore.js';
 
@@ -29,32 +29,33 @@ export async function saveResult(r: CheckResult, days?: number): Promise<void> {
 }
 
 /**
- * Paid AI: never more than the daily limit (Settings; starts from AI_DAILY_LIMIT, 5 by default), unless you chose
- * "Unlimited". No storage = no AI (the limit can't be kept). null = unlimited.
+ * The AI's daily limits (Settings), one per AI: Claude (paid; starts from AI_DAILY_LIMIT, 5 by default, or
+ * "Unlimited") and Gemini (free, kept under Google's free allowance). No storage = no AI (a limit can't be kept).
+ * null = unlimited.
  */
-export const aiLimit = async (): Promise<number | null> => {
+export const aiLimit = async (p: Provider = 'claude'): Promise<number | null> => {
   const s = await getSettings();
-  return s.ai.unlimited ? null : s.ai.dailyLimit;
+  return p === 'gemini' ? s.ai.geminiDailyLimit : s.ai.unlimited ? null : s.ai.dailyLimit;
 };
-export const overLimit = async () => {
-  const limit = await aiLimit();
-  return limit !== null && (await aiUsed()) >= limit;
+export const overLimit = async (p: Provider = 'claude') => {
+  const limit = await aiLimit(p);
+  return limit !== null && (await aiUsed(p)) >= limit;
 };
-const dayKey = () => `sc:ai:${new Date().toISOString().slice(0, 10)}`;
+const dayKey = (p: Provider) => `${p === 'gemini' ? 'sc:gem' : 'sc:ai'}:${new Date().toISOString().slice(0, 10)}`;
 
-export async function aiUsed(): Promise<number> {
-  return Number((await db()?.get<number>(dayKey())) ?? 0);
+export async function aiUsed(p: Provider = 'claude'): Promise<number> {
+  return Number((await db()?.get<number>(dayKey(p))) ?? 0);
 }
 
-/** Takes one AI check from today's budget (atomic); false when the limit is reached. */
-export async function takeAi(): Promise<boolean> {
+/** Takes one AI check from today's budget of that AI (atomic); false when the limit is reached. */
+export async function takeAi(p: Provider = 'claude'): Promise<boolean> {
   const r = db();
   if (!r) return false;
-  const limit = await aiLimit();
-  const n = await r.incr(dayKey()); // counted even when unlimited, to show what was used today
-  if (n === 1) await r.expire(dayKey(), 2 * 86400);
+  const limit = await aiLimit(p);
+  const n = await r.incr(dayKey(p)); // counted even when unlimited, to show what was used today
+  if (n === 1) await r.expire(dayKey(p), 2 * 86400);
   if (limit !== null && n > limit) {
-    await r.decr(dayKey());
+    await r.decr(dayKey(p));
     return false;
   }
   return true;
