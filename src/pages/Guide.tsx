@@ -30,7 +30,7 @@ const BILLS: Bill[] = [
 ];
 
 const SAVED: SavedItem = {
-  id: 'example3', name: '1-Duke Energy', savedAt: at, checkedAt: at, note: 'Paid in the Duke Energy app on Oct 12.', kind: 'bill', verdict: 'safe', score: 6,
+  id: 'example3', name: '1-Duke Energy', aiBy: 'Claude Opus 5.5', savedAt: at, checkedAt: at, note: 'Paid in the Duke Energy app on Oct 12.', kind: 'bill', verdict: 'safe', score: 6,
   summary: 'This is a normal Duke Energy bill. Nothing suspicious.',
   links: [{ domain: 'duke-energy.com', level: 'good', note: 'Real Duke Energy website' }], phones: [],
   reasons: ['duke-energy.com is Duke Energy’s real website'],
@@ -213,7 +213,7 @@ export function Guide() {
           <li><b>Gemini (free):</b> Google’s AI, free within Google’s daily allowance. Pick <b>Gemini Pro</b> (the biggest and most careful), <b>Flash</b> or <b>Flash-Lite</b>. Pro’s free allowance is small: when it runs out, Flash takes over by itself and the result says so. The app stops at 50 Gemini checks a day to start (you can change it). On the free plan <b>Google may keep and use what you send</b>.</li>
         </ul>
         <p>Each one has its own daily limit: with Claude you set the number of paid checks (or Unlimited), with Gemini how many free checks a day.</p>
-        <p>The last line of every result says which AI checked it, e.g. “🤖 Claude Opus 5.5” in the bill example above, or “🤖 Gemini Flash (free)”.</p>
+        <p>The <b>top</b> of every result says which AI checked it, e.g. “🤖 Checked by Claude Opus 5.5” in the bill example above, or “🤖 Checked by Gemini Pro (free)”. When no AI was needed it says “🔎 Free checks only (no AI)”. It stays on the result in History and on your saved checks too.</p>
         <p><b>One-time setup for Gemini:</b> go to <b>aistudio.google.com</b>, sign in, tap <b>Get API key</b> → <b>Create API key</b>, and add it in Vercel as <code>GEMINI_API_KEY</code> (Settings → Environment Variables), then redeploy. Like your other keys, never paste it anywhere else.</p>
       </Section>
 

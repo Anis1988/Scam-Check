@@ -21,6 +21,12 @@ const SOURCE: Record<Source, { icon: string; name: string }> = {
 const LEVEL = { bad: { icon: '✗', cls: 'text-red-600' }, warn: { icon: '!', cls: 'text-amber-600' }, good: { icon: '✓', cls: 'text-emerald-600' }, info: { icon: '•', cls: 'text-stone-500' } } as const;
 
 /** One check's answer: the verdict, why, the links and numbers found, and what to do. */
+/** Which AI checked it, shown at the top of every result (or that only the free checks ran). */
+export function CheckedBy({ ai, aiBy }: { ai: CheckResult['ai']; aiBy?: string }) {
+  const text = ai === 'pending' ? '🤖 The AI is checking…' : ai === 'done' && aiBy ? `🤖 Checked by ${aiBy}` : ai === 'done' ? '🤖 Checked by the AI' : '🔎 Free checks only (no AI)';
+  return <span className="chip border-white/80 bg-white/75 font-mono !text-[10.5px] text-stone-700">{text}</span>;
+}
+
 export function ResultCard({ r, example = false, onChanged }: { r: CheckResult; example?: boolean; onChanged?: () => void }) {
   const mark = (value: string) => <MarkButtons value={value} example={example} onChanged={onChanged} />;
   const v = VERDICT_LABEL[r.verdict];
@@ -29,12 +35,13 @@ export function ResultCard({ r, example = false, onChanged }: { r: CheckResult; 
     <section className="space-y-3" aria-live="polite">
       {r.unchecked && r.ai !== 'pending' ? (
         <div className="card">
-          <p className="label">Result</p>
+          <div className="flex flex-wrap items-center justify-between gap-2"><p className="label">Result</p><CheckedBy ai={r.ai} aiBy={r.aiBy} /></div>
           <p className="font-display text-2xl font-semibold">❔ Not checked</p>
           <p className="mt-1 text-sm text-stone-600">{r.aiNote ?? r.summary} Paste the words of the message instead, so the free checks can read them.</p>
         </div>
       ) : (
         <div className={`rise rounded-2xl bg-gradient-to-br to-white/70 p-4 backdrop-blur-xl ${VERDICT_STYLE[r.verdict]}`}>
+          <div className="mb-3"><CheckedBy ai={r.ai} aiBy={r.aiBy} /></div>
           <div className="flex items-center gap-3.5">
             <ScoreRing score={r.score} verdict={r.verdict} muted={r.ai === 'pending'} />
             <div className="min-w-0">
@@ -93,7 +100,7 @@ export function ResultCard({ r, example = false, onChanged }: { r: CheckResult; 
           <p className="text-xs text-stone-500">Links are only looked up, never opened.</p>
         </div>
       )}
-      <p className="text-xs text-stone-500">{KIND_LABEL[r.kind].icon} {KIND_LABEL[r.kind].text}{r.aiBy && r.ai === 'done' ? ` · 🤖 ${r.aiBy}` : ''} · checked {new Date(r.checkedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}. A check can be wrong: when in doubt, contact the company yourself.</p>
+      <p className="text-xs text-stone-500">{KIND_LABEL[r.kind].icon} {KIND_LABEL[r.kind].text} · checked {new Date(r.checkedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}. A check can be wrong: when in doubt, contact the company yourself.</p>
     </section>
   );
 }
