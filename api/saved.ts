@@ -1,10 +1,16 @@
 import { z } from 'zod';
 import type { CheckResult, SavedItem } from '../src/lib/types.js';
 import { guard, json } from '../server/guard.js';
-import { deleteSaved, getResult, getSaved, listSaved, putSaved } from '../server/store.js';
+import { cleanUp, deleteFile, deleteSaved, getResult, getSaved, listSaved, putFile, putSaved } from '../server/store.js';
 
 const Post = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('save'), id: z.string().regex(/^[a-f0-9]{32}$/), note: z.string().trim().max(500).default('') }),
+  z.object({
+    action: z.literal('save'), id: z.string().regex(/^[a-f0-9]{32}$/), note: z.string().trim().max(500).default(''),
+    // "Keep the original": the message and the picture/PDF, so you can see (and download) them later.
+    text: z.string().max(100_000).optional(),
+    file: z.object({ mime: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']), name: z.string().max(200), data: z.string().max(4_300_000).regex(/^[A-Za-z0-9+/=]+$/) }).optional(),
+  }),
+  z.object({ action: z.literal('delete-file'), id: z.string().regex(/^[a-f0-9]{32}$/) }),
   z.object({ action: z.literal('note'), id: z.string().regex(/^[a-f0-9]{32}$/), note: z.string().trim().max(500) }),
   z.object({ action: z.literal('delete'), id: z.string().regex(/^[a-f0-9]{32}$/) }),
 ]);
@@ -30,6 +36,7 @@ export async function GET(req: Request): Promise<Response> {
   const blocked = guard(req, 'saved', 30);
   if (blocked) return blocked;
   try {
+    await cleanUp().catch(() => 0); // auto clean-up (Settings), at most once an hour
     return json(await listSaved());
   } catch (e) {
     return json({ error: (e instanceof Error ? e.message : String(e)).slice(0, 300) }, 502);
@@ -48,6 +55,14 @@ export async function POST(req: Request): Promise<Response> {
   }
   try {
     if (b.action === 'delete') return (await deleteSaved(b.id), json({ ok: true }));
+    if (b.action === 'delete-file') {
+      const item = await getSaved(b.id);
+      if (!item) return json({ error: 'Not found.' }, 404);
+      await deleteFile(b.id);
+      const next = { ...item, file: undefined, text: undefined };
+      await putSaved(next);
+      return json(next);
+    }
     if (b.action === 'note') {
       const item = await getSaved(b.id);
       if (!item) return json({ error: 'Not found.' }, 404);
@@ -58,7 +73,11 @@ export async function POST(req: Request): Promise<Response> {
     // Saved from the check's own result on the server (kept 7 days), so what is saved is what was checked.
     const r = await getResult(b.id);
     if (!r) return json({ error: 'This check is too old to save (results are kept 7 days). Check it again first.' }, 404);
-    const item = keyFacts(r, b.note);
+    const item: SavedItem = { ...keyFacts(r, b.note), text: b.text?.trim() || undefined };
+    if (b.file) {
+      await putFile(b.id, { mime: b.file.mime, name: b.file.name || 'picture', data: b.file.data });
+      item.file = { mime: b.file.mime, name: b.file.name || 'picture', size: Math.floor((b.file.data.length * 3) / 4) };
+    }
     await putSaved(item);
     return json(item);
   } catch (e) {

@@ -103,8 +103,8 @@ export function Check({ open }: { open?: CheckResult | null }) {
   const wantsFile = kind === 'bill' || kind === 'screenshot';
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
-      <section className="card space-y-3">
+    <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      <section className="card space-y-3 lg:sticky lg:top-24">
         <div>
           <h1 className="text-2xl font-extrabold">Is it a scam?</h1>
           <p className="text-sm text-stone-500">Paste it or add a picture. You get ✅ Looks safe, ⚠️ Suspicious or 🚨 Likely scam, with the reasons.</p>
@@ -153,6 +153,13 @@ export function Check({ open }: { open?: CheckResult | null }) {
         {st?.ai && st.store && <p className="text-xs text-stone-500">🤖 AI checks left today: <b className="num">{left}</b> of {st.limit}. Free checks are unlimited.</p>}
       </section>
       <div ref={resultRef} className="space-y-3">
+        {!result && (
+          <div className="hidden rounded-3xl border border-dashed border-stone-300 p-8 text-center text-stone-500 lg:block">
+            <p className="text-4xl" aria-hidden="true">🛡️</p>
+            <p className="mt-2 font-semibold">Your result will show here.</p>
+            <p className="text-sm">Paste a message or add a picture on the left, then tap Check it.</p>
+          </div>
+        )}
         {result && <ResultCard r={result} />}
         {result?.aiOffer && result.ai !== 'pending' && last && (
           <div className="card space-y-2">
@@ -172,7 +179,7 @@ export function Check({ open }: { open?: CheckResult | null }) {
             {left === 0 && <p className="text-xs text-amber-700">No AI checks left today. They come back tomorrow.</p>}
           </div>
         )}
-        {result && result.ai !== 'pending' && <SaveBox key={result.id} id={result.id} />}
+        {result && result.ai !== 'pending' && <SaveBox key={result.id} id={result.id} text={last?.text} file={last?.file} />}
       </div>
     </div>
   );

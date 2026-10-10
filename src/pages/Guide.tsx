@@ -18,21 +18,6 @@ function Section({ title, children, open: start = false }: { title: string; chil
 
 const at = '2026-10-10T14:05:00.000Z';
 // Made-up examples, to show what a result looks like.
-const SCAM: CheckResult = {
-  id: 'example1', kind: 'text', verdict: 'scam', score: 88, ai: 'done', checkedAt: at, preview: 'E-ZPass: unpaid toll…',
-  summary: 'This text pretends to be E-ZPass to get your card details. The link goes to a fake site made last week.',
-  impersonating: 'E-ZPass',
-  signals: [
-    { source: 'pattern', level: 'bad', weight: 25, title: 'Unpaid toll message', detail: 'Unpaid-toll texts are a huge scam wave.' },
-    { source: 'pattern', level: 'warn', weight: 12, title: 'Pressure to act fast', detail: 'Scammers rush you so you don’t stop to check.' },
-    { source: 'link', level: 'bad', weight: 35, title: 'Pretends to be E-ZPass', detail: 'payment-tolls.top is not E-ZPass.' },
-    { source: 'link', level: 'bad', weight: 25, title: 'payment-tolls.top was created 6 days ago', detail: 'Brand-new websites are a strong scam sign.' },
-    { source: 'ai', level: 'bad', weight: 0, title: 'Tiny fee, big late penalty', detail: 'A $4 bill with a $50 "late fee" is a classic pressure trick.' },
-  ],
-  links: [{ url: 'https://ezpass-oh.payment-tolls.top/pay', domain: 'payment-tolls.top', level: 'bad', note: 'Pretends to be E-ZPass · Unusual ending ".top"', age: 'registered 6 days ago' }],
-  phones: [],
-  whatToDo: ['Don’t tap the link or pay.', 'Check your toll balance yourself at your E-ZPass account’s real website or app.', 'Forward the text to 7726 (SPAM), then delete it.'],
-};
 const SAFE: CheckResult = {
   id: 'example2', kind: 'bill', verdict: 'safe', score: 6, ai: 'done', checkedAt: at, preview: 'Bill (picture or PDF)',
   summary: 'This is a normal Duke Energy bill. Nothing suspicious.',
@@ -48,22 +33,24 @@ const SAFE: CheckResult = {
 };
 
 const SAVED: SavedItem = {
-  id: 'example3', savedAt: at, checkedAt: at, note: 'Called Duke Energy at the number on my bill: my account is fine.', kind: 'text', verdict: 'scam', score: 91,
-  summary: 'This text pretends to be Duke Energy and demands gift cards to stop a shut-off.', impersonating: 'Duke Energy',
-  links: [], phones: [{ number: '+1 876 555 0199', note: 'In Jamaica: calling back is an expensive international call', level: 'bad' }],
-  reasons: ['Asks for gift cards', 'Utility shut-off threat', 'Pressure to act fast'],
-  whatToDo: ['Don’t call the number or pay.', 'Check your account in the Duke Energy app or at duke-energy.com.'],
-  excerpt: 'Duke Energy: your power will be disconnected in 30 minutes unless…',
+  id: 'example3', savedAt: at, checkedAt: at, note: 'Paid in the Duke Energy app on Oct 12.', kind: 'bill', verdict: 'safe', score: 6,
+  summary: 'This is a normal Duke Energy bill. Nothing suspicious.',
+  links: [{ domain: 'duke-energy.com', level: 'good', note: 'Real Duke Energy website' }], phones: [],
+  reasons: ['duke-energy.com is Duke Energy’s real website'],
+  whatToDo: [],
+  brief: SAFE.brief,
+  excerpt: 'Duke Energy · Amount due $142.18 · Due Oct 24',
 };
 
 export function Guide() {
   return (
-    <div className="mx-auto max-w-2xl space-y-3">
+    <div className="space-y-3">
       <div>
         <h1 className="text-2xl font-extrabold">Guide</h1>
         <p className="text-sm text-stone-500">How Scam Check works, in plain words.</p>
       </div>
 
+      <div className="grid items-start gap-3 lg:grid-cols-2">
       <Section title="How it works" open>
         <ol className="list-decimal space-y-1.5 pl-5">
           <li><b>Pick what you got:</b> ✉️ Email, 💬 Text, 🧾 Bill or 📱 Screenshot.</li>
@@ -72,8 +59,6 @@ export function Guide() {
             <span className="mt-1 block">✅ <b>Looks safe</b> · ⚠️ <b>Suspicious</b> (check it another way) · 🚨 <b>Likely scam</b></span>
           </li>
         </ol>
-        <p className="text-xs text-stone-500">Example (made up):</p>
-        <ResultCard r={SCAM} />
       </Section>
 
       <Section title="What it checks">
@@ -103,10 +88,19 @@ export function Guide() {
       </Section>
 
       <Section title="⭐ Saving important checks">
-        <p>Below any result, tap <b>⭐ Save this check</b> and add a note if you like ("Called my bank, all fine"). It keeps only the key facts: the verdict, who it pretended to be, the sender, phone numbers and websites, the main reasons, what to do (and the summary, for safe ones), the date and the first words of the message. Never the whole message or the picture.</p>
-        <p>Find them in the <b>⭐ Saved</b> tab, on your phone and your computer alike. Search by name, number, website or a word of your note. They stay until you delete them (History only keeps your last 50 checks, on this device).</p>
+        <p>Below any result, tap <b>⭐ Save this check</b> and add a note if you like ("Called my bank, all fine"). Leave <b>Keep the original</b> ticked to also keep the message and the picture or PDF.</p>
+        <p>In the <b>⭐ Saved</b> tab, tap a check to open it: the key facts, your note, the summary for safe ones, and the original. <b>👁 View</b> shows the picture or PDF, <b>⬇ Download</b> saves it to your phone or computer, and <b>🗑 Delete</b> removes the picture (or the whole check). Search by name, number, website or a word of your note. Saved checks are the same on your phone and your computer.</p>
         <p className="text-xs text-stone-500">Example (made up):</p>
         <SavedCard s={SAVED} example />
+      </Section>
+
+      <Section title="🧹 Automatic clean-up">
+        <p>In <b>Settings → Automatic clean-up</b>, choose to tidy up old saved checks by themselves, for example after 90 days:</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>Pictures and messages only</b>: the kept picture, PDF and message are deleted, the key facts and your note stay.</li>
+          <li><b>The whole saved check</b>: it is deleted completely.</li>
+        </ul>
+        <p>History (your last 50 checks) is on this device only and keeps itself short by itself.</p>
       </Section>
 
       <Section title="Bills and screenshots">
@@ -128,12 +122,13 @@ export function Guide() {
 
       <Section title="Privacy and cost">
         <ul className="list-disc space-y-1.5 pl-5">
-          <li>Your history is saved on <b>this device only</b>. The server keeps only the result for 7 days, so checking the same message again is instant and free (no AI credit); the message itself is never stored. ⭐ Saved checks keep only their key facts.</li>
-          <li>Pictures are made smaller on your phone before upload, and they’re only sent for the AI check, never stored.</li>
+          <li>Your history is saved on <b>this device only</b>. The server keeps only the result for 7 days, so checking the same message again is instant and free (no AI credit); the message itself is not stored, unless you ⭐ save the check with “Keep the original”.</li>
+          <li>Pictures are made smaller on your phone before upload. They are only kept if you save the check with “Keep the original”.</li>
           <li>The AI has a daily limit (set by <code>AI_DAILY_LIMIT</code>, 5 by default) and is asked for short answers to keep each check cheap. When it’s used up, you still get the free checks.</li>
           <li>No check is perfect. When in doubt, contact the company yourself using its official app, website or the number on your card.</li>
         </ul>
       </Section>
+      </div>
     </div>
   );
 }

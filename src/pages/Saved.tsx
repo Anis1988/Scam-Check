@@ -14,7 +14,7 @@ export function Saved() {
     const words = q.toLowerCase().split(/\s+/).filter(Boolean);
     if (!list || !words.length) return list ?? [];
     return list.filter((s) => {
-      const hay = [s.note, s.summary, s.excerpt, s.impersonating, s.sender?.name, s.sender?.address, ...s.phones.map((p) => p.number), ...s.links.map((l) => l.domain), ...s.reasons, s.verdict, s.kind].join(' ').toLowerCase();
+      const hay = [s.note, s.summary, s.excerpt, s.text, s.brief?.whatItIs, ...(s.brief?.keyInfo.map((k) => k.value) ?? []), s.impersonating, s.sender?.name, s.sender?.address, ...s.phones.map((p) => p.number), ...s.links.map((l) => l.domain), ...s.reasons, s.verdict, s.kind].join(' ').toLowerCase();
       return words.every((w) => hay.includes(w));
     });
   }, [list, q]);
@@ -39,17 +39,17 @@ export function Saved() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-3">
+    <div className="space-y-3">
       <div>
         <h1 className="text-2xl font-extrabold">⭐ Saved</h1>
         <p className="text-sm text-stone-500">The checks you saved: only the key facts, kept until you delete them.</p>
       </div>
       {err && <p className="card text-sm text-red-700">{err}</p>}
       {!list && !err && <p className="text-stone-500"><span className="spinner" /> Loading…</p>}
-      {list && list.length > 0 && <input className="input w-full" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search: a name, number, website, word in your note…" aria-label="Search saved checks" />}
+      {list && list.length > 0 && <input className="input w-full lg:max-w-xl" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search: a name, number, website, word in your note…" aria-label="Search saved checks" />}
       {list && !list.length && <p className="card text-sm text-stone-600">Nothing saved yet. After a check, tap <b>⭐ Save this check</b>.</p>}
       {list && list.length > 0 && !shown.length && <p className="text-sm text-stone-500">Nothing matches “{q}”.</p>}
-      <div className="space-y-2">{shown.map((s) => <SavedCard key={s.id} s={s} onNote={(n) => note(s, n)} onDelete={() => void remove(s)} />)}</div>
+      <div className="grid items-start gap-3 lg:grid-cols-2">{shown.map((s) => <SavedCard key={s.id} s={s} onNote={(n) => note(s, n)} onDelete={() => void remove(s)} onChange={(next) => setList((l) => (l ?? []).map((x) => (x.id === next.id ? next : x)))} />)}</div>
     </div>
   );
 }

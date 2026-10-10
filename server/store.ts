@@ -1,5 +1,6 @@
 import { Redis } from '@upstash/redis';
-import type { CheckResult, SavedItem } from '../src/lib/types.js';
+import type { AppSettings, CheckResult, SavedItem } from '../src/lib/types.js';
+import { DEFAULT_SETTINGS } from '../src/lib/types.js';
 import { LocalStore } from './localStore.js';
 
 /**
@@ -63,4 +64,45 @@ export async function getSaved(id: string): Promise<SavedItem | null> {
 }
 export async function deleteSaved(id: string): Promise<void> {
   await db()?.hdel(SAVED, id);
+  await deleteFile(id);
+}
+
+/** A kept picture or PDF of a saved check (base64), until the check is deleted or cleaned up. */
+export interface StoredFile { mime: string; name: string; data: string }
+const FILE = (id: string) => `sc:file:${id}`;
+export const putFile = async (id: string, f: StoredFile) => { await db()?.set(FILE(id), f); };
+export const getFile = async (id: string) => (await db()?.get<StoredFile>(FILE(id))) ?? null;
+export const deleteFile = async (id: string) => { await db()?.del(FILE(id)); };
+
+export async function getSettings(): Promise<AppSettings> {
+  const s = await db()?.get<Partial<AppSettings>>('sc:settings');
+  return { ...DEFAULT_SETTINGS, ...(s ?? {}), cleanup: { ...DEFAULT_SETTINGS.cleanup, ...(s?.cleanup ?? {}) } };
+}
+export const saveSettings = async (s: AppSettings) => { await db()?.set('sc:settings', s); };
+
+/**
+ * Auto clean-up (Settings): saved checks older than N days lose their kept picture and message ("files"),
+ * or are deleted completely ("all"). Runs at most once an hour, when the Saved list is opened.
+ */
+export async function cleanUp(force = false): Promise<number> {
+  const r = db();
+  if (!r) return 0;
+  const s = await getSettings();
+  if (!s.cleanup.enabled) return 0;
+  if (!force && (await r.get('sc:cleanup:recent'))) return 0;
+  await r.set('sc:cleanup:recent', 1, { ex: 3600 });
+  const cutoff = Date.now() - s.cleanup.days * 86400_000;
+  let n = 0;
+  for (const item of await listSaved()) {
+    if (Date.parse(item.savedAt) > cutoff) continue;
+    if (s.cleanup.what === 'all') {
+      await deleteSaved(item.id);
+      n++;
+    } else if (item.file || item.text) {
+      await deleteFile(item.id);
+      await r.hset(SAVED, { [item.id]: { ...item, file: undefined, text: undefined, cleanedAt: new Date().toISOString() } });
+      n++;
+    }
+  }
+  return n;
 }

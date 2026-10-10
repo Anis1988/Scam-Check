@@ -10,11 +10,11 @@
   body {
     @apply min-h-screen bg-cream font-sans text-stone-800 antialiased;
     overflow-x: hidden;
-    background-image: radial-gradient(48rem 28rem at 100% -10%, rgba(15, 118, 110, 0.07), transparent 60%), radial-gradient(40rem 24rem at -10% 0%, rgba(242, 107, 91, 0.06), transparent 60%);
+    background-image: radial-gradient(48rem 28rem at 100% -10%, rgba(74, 114, 109, 0.05), transparent 60%), radial-gradient(40rem 24rem at -10% 0%, rgba(201, 138, 122, 0.05), transparent 60%);
     background-attachment: fixed;
   }
   h1, h2, h3 { @apply font-display tracking-tight text-stone-900; }
-  ::selection { background: rgba(15, 118, 110, 0.18); }
+  ::selection { background: rgba(74, 114, 109, 0.18); }
 }
 
 @layer components {
@@ -26,8 +26,8 @@
 
   /* >=44px tap targets and 16px inputs on phones (16px stops iOS zooming into fields) */
   .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-800 shadow-sm transition hover:border-teal-600/50 hover:bg-teal-50/50 active:scale-95 disabled:pointer-events-none disabled:opacity-40; }
-  .btn-primary { @apply inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 py-2.5 text-base font-bold text-white shadow-[0_6px_16px_rgba(15,118,110,0.28)] transition hover:bg-teal-800 active:scale-95 disabled:pointer-events-none disabled:opacity-40; }
-  .btn-coral { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-coral px-4 py-2 text-sm font-bold text-white shadow-[0_6px_16px_rgba(242,107,91,0.28)] transition hover:brightness-95 active:scale-95 disabled:pointer-events-none disabled:opacity-40; }
+  .btn-primary { @apply inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl bg-teal-700 px-5 py-2.5 text-base font-bold text-white shadow-[0_6px_16px_rgba(74,114,109,0.18)] transition hover:bg-teal-800 active:scale-95 disabled:pointer-events-none disabled:opacity-40; }
+  .btn-coral { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-coral px-4 py-2 text-sm font-bold text-white shadow-[0_6px_16px_rgba(201,138,122,0.2)] transition hover:brightness-95 active:scale-95 disabled:pointer-events-none disabled:opacity-40; }
   .btn-ghost { @apply inline-flex items-center gap-1 rounded-xl px-2 py-1 text-sm font-semibold text-teal-700 hover:bg-teal-50 active:scale-95; }
   .input { @apply min-h-[48px] min-w-0 max-w-full rounded-2xl border border-stone-300 bg-white px-4 py-2.5 text-base text-stone-900 caret-teal-700 shadow-inner shadow-stone-900/[0.02] placeholder:text-stone-400 focus:border-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-600/15 disabled:opacity-60; }
   .toggle { @apply relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border border-stone-300 bg-stone-200 transition; }

@@ -1,4 +1,4 @@
-import type { AiMode, CheckResult, Kind, SavedItem } from './types';
+import type { AiMode, AppSettings, CheckResult, Kind, SavedItem } from './types';
 
 const CODE_KEY = 'sc.accessCode';
 export const getCode = (): string => { try { return localStorage.getItem(CODE_KEY) ?? ''; } catch { return ''; } };
@@ -51,7 +51,12 @@ export const api = {
     call<CheckResult>('/api/ai', { method: 'POST', body: JSON.stringify({ kind: b.kind, text: b.text || undefined, from: b.from || undefined, file: b.file ? { mime: b.file.mime, data: b.file.data } : undefined, aiMode: b.aiMode }) }),
   result: (id: string) => call<CheckResult>(`/api/check?id=${encodeURIComponent(id)}`),
   saved: () => call<SavedItem[]>('/api/saved'),
-  save: (id: string, note: string) => call<SavedItem>('/api/saved', { method: 'POST', body: JSON.stringify({ action: 'save', id, note }) }),
+  save: (id: string, note: string, keep?: { text?: string; file?: Upload }) =>
+    call<SavedItem>('/api/saved', { method: 'POST', body: JSON.stringify({ action: 'save', id, note, text: keep?.text?.trim() || undefined, file: keep?.file ? { mime: keep.file.mime, name: keep.file.name, data: keep.file.data } : undefined }) }),
+  file: (id: string) => call<{ mime: string; name: string; data: string }>(`/api/file?id=${encodeURIComponent(id)}`),
+  removeFile: (id: string) => call<SavedItem>('/api/saved', { method: 'POST', body: JSON.stringify({ action: 'delete-file', id }) }),
+  settings: () => call<AppSettings>('/api/settings'),
+  saveSettings: (s: AppSettings) => call<AppSettings & { cleaned: number }>('/api/settings', { method: 'POST', body: JSON.stringify(s) }),
   setNote: (id: string, note: string) => call<SavedItem>('/api/saved', { method: 'POST', body: JSON.stringify({ action: 'note', id, note }) }),
   unsave: (id: string) => call<{ ok: boolean }>('/api/saved', { method: 'POST', body: JSON.stringify({ action: 'delete', id }) }),
 };
@@ -93,3 +98,23 @@ const toBase64 = (f: File) => new Promise<string>((ok, fail) => {
   r.onerror = () => fail(new Error('The file could not be read.'));
   r.readAsDataURL(f);
 });
+
+/** A kept file (base64) -> a link the browser can show or save. */
+export function fileLink(f: { mime: string; data: string }): string {
+  const bin = atob(f.data);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return URL.createObjectURL(new Blob([bytes], { type: f.mime }));
+}
+
+/** Saves a kept file to the phone or computer (Downloads). */
+export function downloadFile(f: { mime: string; name: string; data: string }): void {
+  const href = fileLink(f);
+  const ext = f.mime === 'application/pdf' ? '.pdf' : f.mime === 'image/png' ? '.png' : '.jpg';
+  const name = /\.[a-z0-9]{2,4}$/i.test(f.name) ? f.name : `${f.name || 'scam-check'}${ext}`;
+  const a = Object.assign(document.createElement('a'), { href, download: name });
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 60_000);
+}

@@ -28,7 +28,7 @@ export function ResultCard({ r }: { r: CheckResult }) {
           <p className="mt-1 text-sm text-stone-600">{r.aiNote ?? r.summary} Paste the words of the message instead, so the free checks can read them.</p>
         </div>
       ) : (
-        <div className={`rise rounded-3xl border-2 p-4 ${VERDICT_STYLE[r.verdict]}`}>
+        <div className={`rise rounded-3xl border p-4 ${VERDICT_STYLE[r.verdict]}`}>
           <div className="flex items-center justify-between gap-2">
             <p className="font-display text-2xl font-extrabold"><span aria-hidden="true">{v.icon}</span> {v.text}</p>
             <span className="num rounded-xl bg-white/80 px-2 py-0.5 text-sm font-semibold" title="Risk score, 0 to 100">{r.score}/100</span>

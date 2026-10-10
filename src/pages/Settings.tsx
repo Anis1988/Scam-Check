@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { api, setCode, type Status } from '../lib/api';
+import { DEFAULT_SETTINGS, type AppSettings } from '../lib/types';
 import { getAiMode, setAiMode } from '../lib/history';
 import type { AiMode } from '../lib/types';
-import { Card, Field } from '../components/ui';
+import { Card, Field, Toggle, toast } from '../components/ui';
 
 const MODES: { id: AiMode; name: string; hint: string }[] = [
   { id: 'ask', name: 'Save credits (recommended)', hint: 'Photos and PDFs go to the AI automatically (it’s the only way to read them). Texts and emails only when you tap “Ask the AI”.' },
@@ -16,11 +17,25 @@ export function Settings() {
   const [st, setSt] = useState<Status | null>(null);
   const [err, setErr] = useState('');
   useEffect(() => void api.status().then(setSt, (e) => setErr(e instanceof Error ? e.message : String(e))), []);
+  // Server settings: automatic clean-up of ⭐ Saved.
+  const [cfg, setCfg] = useState<AppSettings | null>(null);
+  useEffect(() => void api.settings().then(setCfg, () => setCfg(DEFAULT_SETTINGS)), []);
+  const saveCfg = async (next: AppSettings) => {
+    const before = cfg;
+    setCfg(next);
+    try {
+      const r = await api.saveSettings(next);
+      toast('success', r.cleaned ? `Saved. ${r.cleaned} old saved check(s) cleaned up.` : 'Saved.');
+    } catch (e) {
+      setCfg(before);
+      toast('error', e instanceof Error ? e.message : String(e));
+    }
+  };
   const choose = (m: AiMode) => (setMode(m), setAiMode(m));
 
   return (
-    <div className="mx-auto max-w-2xl space-y-3">
-      <h1 className="text-2xl font-extrabold">Settings</h1>
+    <div className="grid items-start gap-3 lg:grid-cols-2">
+      <h1 className="text-2xl font-extrabold lg:col-span-2">Settings</h1>
       <Card title="AI check" subtitle="Saved on this device">
         <div className="space-y-2" role="radiogroup" aria-label="AI check">
           {MODES.map((m) => (
@@ -46,6 +61,30 @@ export function Settings() {
             <Field label="Free checks" hint="Known scam patterns, look-alike websites, how new a website is, phone number type and country, email sender checks.">
               <span className="text-sm text-emerald-700">✓ Always on</span>
             </Field>
+          </>
+        )}
+      </Card>
+      <Card title="🧹 Automatic clean-up" subtitle="For ⭐ Saved, like the clean-up in your video app">
+        {!cfg ? <p className="text-sm text-stone-500"><span className="spinner" /> Loading…</p> : (
+          <>
+            <Field label="Clean up old saved checks" hint="Runs by itself when you open ⭐ Saved (at most once an hour).">
+              <Toggle on={cfg.cleanup.enabled} label="Clean up old saved checks" onChange={(v) => void saveCfg({ cleanup: { ...cfg.cleanup, enabled: v } })} />
+            </Field>
+            {cfg.cleanup.enabled && (
+              <>
+                <Field label="After">
+                  <select className="input" value={cfg.cleanup.days} onChange={(e) => void saveCfg({ cleanup: { ...cfg.cleanup, days: Number(e.target.value) } })} aria-label="After how many days">
+                    {[7, 30, 60, 90, 180, 365].map((d) => <option key={d} value={d}>{d === 365 ? '1 year' : `${d} days`}</option>)}
+                  </select>
+                </Field>
+                <Field label="What to delete">
+                  <select className="input" value={cfg.cleanup.what} onChange={(e) => void saveCfg({ cleanup: { ...cfg.cleanup, what: e.target.value as 'files' | 'all' } })} aria-label="What to delete">
+                    <option value="files">Pictures and messages only (keep the facts)</option>
+                    <option value="all">The whole saved check</option>
+                  </select>
+                </Field>
+              </>
+            )}
           </>
         )}
       </Card>

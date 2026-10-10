@@ -88,4 +88,12 @@ export interface SavedItem {
   whatToDo: string[];
   excerpt: string;
   brief?: Brief;
+  text?: string; // the original message, when you chose to keep it
+  file?: { mime: string; name: string; size: number }; // a kept picture or PDF (the file itself: GET /api/file?id=…)
 }
+
+/** Server settings (Settings tab). */
+export interface AppSettings {
+  cleanup: { enabled: boolean; days: number; what: 'files' | 'all' }; // auto clean-up of ⭐ Saved
+}
+export const DEFAULT_SETTINGS: AppSettings = { cleanup: { enabled: false, days: 90, what: 'files' } };
