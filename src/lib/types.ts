@@ -263,8 +263,8 @@ export type DocLevel = 'high' | 'medium' | 'low';
 export interface DocResult {
   id: string;
   status: 'pending' | 'done' | 'failed';
-  mode: 'analyze' | 'compare';
-  label: string; // the file name, or "old.pdf → new.pdf"
+  mode: 'analyze' | 'compare' | 'seo';
+  label: string; // the file name, "old.pdf → new.pdf", or the website address
   checkedAt: string;
   title?: string; // what it is, in a few words
   docType?: string; // e.g. "Lease", "Insurance policy", "Job offer"
@@ -274,6 +274,7 @@ export interface DocResult {
   actions?: { task: string; when?: string }[];
   dates?: { what: string; when: string }[];
   changes?: { what: string; before?: string; after?: string; impact: 'better' | 'worse' | 'neutral' }[]; // compare only
+  seo?: SeoReport; // 🌐 website SEO only
   aiBy?: string;
   note?: string;
   error?: string;
@@ -283,4 +284,22 @@ export interface DocResult {
 
 /** 📰 Scams going around now (from this week's news, made when asked). */
 export interface ScamNews { items: { name: string; how: string; tell: string; who?: string }[]; sources: { title: string; url: string }[]; aiBy?: string; checkedAt: string }
+
+/** 🌐 Website SEO: what was read on the page (free) and the AI's view (content, keywords, competitors). */
+export type SeoLevel = 'high' | 'medium' | 'low';
+export interface SeoReport {
+  url: string; // the address after redirects
+  score: number; // 0-100
+  fetchedMs: number;
+  sizeKb: number;
+  meta: { title: string; description: string; canonical?: string; robots?: string; viewport: boolean; lang?: string; ogTitle?: string; ogDescription?: string; ogImage?: string; twitterCard?: string; schema: string[]; favicon: boolean };
+  headings: { level: number; text: string }[];
+  stats: { words: number; images: number; imagesNoAlt: number; linksInternal: number; linksExternal: number; https: boolean; robotsTxt: boolean; sitemap: boolean };
+  issues: { level: SeoLevel; what: string; fix: string }[]; // from the free checks
+  content?: { score: number; summary: string; strengths: string[]; weaknesses: string[] };
+  keywords?: { keyword: string; why: string; where: string }[];
+  competitors?: { site: string; note: string }[];
+  gaps?: { gap: string; action: string }[];
+  topFixes?: string[];
+}
 

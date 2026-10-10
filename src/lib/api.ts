@@ -67,6 +67,7 @@ export const api = {
   shareOldCompanies: (names: string[]) => call<{ synced: boolean }>('/api/company', { method: 'PUT', body: JSON.stringify({ names: names.slice(0, 20) }) }),
   /** 📄 Docs: read one document or compare two versions (1 AI check); the list every device shares. */
   doc: (b: { id: string; mode: 'analyze' | 'compare'; docs: unknown[]; model?: ModelChoice; fresh?: boolean }) => call<DocResult>('/api/doc', { method: 'POST', body: JSON.stringify(b) }),
+  seo: (b: { id: string; url: string; competitors?: string[]; model?: ModelChoice }) => call<DocResult>('/api/doc', { method: 'POST', body: JSON.stringify({ ...b, mode: 'seo' }) }),
   docResult: (id: string) => call<DocResult>(`/api/doc?id=${encodeURIComponent(id)}`),
   docs: () => call<{ synced: boolean; docs: DocResult[] }>('/api/doc'),
   deleteDoc: (id: string) => call<{ deleted: number }>(`/api/doc?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),

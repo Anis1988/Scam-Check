@@ -62,6 +62,24 @@ const NEWS: ScamNews = {
   sources: [], aiBy: 'Gemini Flash (free)', checkedAt: at,
 };
 
+// A made-up website for the 🌐 SEO example.
+const SEO_EXAMPLE: DocResult = {
+  id: 'example-seo', status: 'done', mode: 'seo', label: 'mybakery.com', checkedAt: at, title: 'Best Bakery – Springfield', docType: 'Website SEO', aiBy: 'Gemini Flash (free)',
+  summary: 'A solid start: the basics are mostly right, but the page is thin and misses the searches people make most.',
+  seo: {
+    url: 'https://mybakery.com/', score: 74, fetchedMs: 820, sizeKb: 64,
+    meta: { title: 'Best Bakery', description: 'Fresh bread daily.', viewport: true, lang: 'en', schema: ['Bakery'], favicon: true },
+    headings: [{ level: 1, text: 'Welcome' }, { level: 2, text: 'Our bread' }, { level: 3, text: 'Sourdough' }],
+    stats: { words: 420, images: 8, imagesNoAlt: 3, linksInternal: 12, linksExternal: 3, https: true, robotsTxt: true, sitemap: false },
+    issues: [{ level: 'medium', what: 'The title is short (11 characters)', fix: 'Use 30–60 characters: main keyword + what you offer + brand.' }, { level: 'medium', what: 'No sitemap found', fix: 'Create sitemap.xml and add it in Google Search Console.' }],
+    content: { score: 68, summary: 'Friendly and clear, but thin: no prices, and nothing about what makes your bread special.', strengths: ['Warm, local tone'], weaknesses: ['No prices or menu text'] },
+    keywords: [{ keyword: 'sourdough bakery near me', why: 'Lots of local searches, few strong pages', where: 'Title and H1' }],
+    competitors: [{ site: 'breadhouse.com', note: 'Full menu with prices and online ordering' }],
+    gaps: [{ gap: 'Customer reviews', action: 'Show 3–5 Google reviews on the home page' }],
+    topFixes: ['Rewrite the title: “Sourdough Bakery in Springfield | Best Bakery”', 'Add a sitemap and submit it to Google'],
+  },
+};
+
 // Made-up bills for the 📅 Bills example.
 const BILLS: Bill[] = [
   { key: 'a', id: 'a', company: 'Duke Energy', amount: 142.18, dueDate: '2026-10-24', account: '4821', checkedAt: at },
@@ -105,7 +123,7 @@ const COMPANY: CompanyInfo = {
 };
 
 const SECTIONS = [
-  ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['voicemail', '🎙️ Voicemails and calls'], ['docs', '📄 Documents'], ['news', '📰 Scams going around'], ['video', '🎬 Video: is it true?'], ['company', '🏢 Look up a company'], ['lookup', '⚡ Quick look-up'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
+  ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['voicemail', '🎙️ Voicemails and calls'], ['docs', '📄 Documents'], ['seo', '🌐 Website SEO'], ['news', '📰 Scams going around'], ['video', '🎬 Video: is it true?'], ['company', '🏢 Look up a company'], ['lookup', '⚡ Quick look-up'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
   ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Which AI'], ['search', '🔎 Search History'], ['recheck', '↻ Re-check'], ['failed', '⚠️ When an AI fails'], ['look', '🌙 Dark mode'], ['sync', '🔄 Same on phone & computer'], ['tidy', '📂 Fold & 🗑 delete'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
   ['share', 'Share from your phone'], ['android', '📱 Android app'], ['iphone', '🍏 iPhone'], ['scam', 'If it’s a scam'], ['privacy', 'Privacy and cost'],
 ] as const;
@@ -209,6 +227,18 @@ export function Guide() {
         <p>The words are taken out of the file <b>on your device</b>, so any AI can read it; a scanned PDF (only pictures) goes to Claude or Gemini as it is. Each one uses 1 AI check, and the same document again is free. About the first 40 pages are read. Old .doc or .xls files: save them as PDF first. Only the answer is kept (on your phone and computer alike), never the document. If it fails, tap <b>⚠️ It failed: try another model</b>.</p>
         <p className="text-xs text-stone-500">Example (made up):</p>
         <DocCard r={DOC} example />
+      </Section>
+
+      <Section id="seo">
+        <p>In <b>📄 Docs → 🌐 Website SEO</b>, type a website address (yours, a client’s…) to see how it does on Google and what to fix:</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>Free checks:</b> the page title and description (and their length), headings (H1, H2, H3), number of words, images without a description, links, https, phone-ready, sitemap and robots.txt, speed. Each problem comes with how to fix it.</li>
+          <li><b>With the AI</b> (1 AI check, with a web search): how good the <b>content</b> is, <b>keyword opportunities</b> (searches people make that you could win) and <b>competitor gaps</b> (what they cover that you don’t). Type up to 3 competitors, or leave it empty and the AI finds the top ones.</li>
+          <li>A <b>score out of 100</b> (technical 60%, content 40%), a <b>fix these first</b> list, and <b>⬇ Download the PDF report</b> to keep or send to your web designer.</li>
+        </ul>
+        <p>This is the only place the app opens a website: only the address you type, read as text by the server (never a link from a message). If the AI part can’t run, you still get the free part and can add the AI part with another model. Each run is kept, so you can check again after your fixes.</p>
+        <p className="text-xs text-stone-500">Example (made up; the PDF button does nothing here):</p>
+        <DocCard r={SEO_EXAMPLE} example />
       </Section>
 
       <Section id="news">

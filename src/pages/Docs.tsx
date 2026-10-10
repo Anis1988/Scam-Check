@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent } from 'react';
 import { api } from '../lib/api';
 import { DOC_ACCEPT, docId, readDoc, type DocInput } from '../lib/docs';
-import { ModelMenu, type Need } from '../components/ModelMenu';
+import { ModelMenu, needsSearch, type Need } from '../components/ModelMenu';
 import { modelName, providerOf, type DocLevel, type DocResult, type ModelChoice } from '../lib/types';
 import { refreshStatus, useStatus } from '../lib/useStatus';
 import { CheckedBy } from '../components/ResultCard';
 import { Fold, Rail, Shell, toast } from '../components/ui';
+import { SeoView, seoOverall } from '../components/SeoView';
 
 /**
  * 📄 Docs: understand any document (summary, key points, red flags, to-dos, dates), or compare two versions.
@@ -15,7 +16,7 @@ const KEY = 'sc.docs';
 let list: DocResult[] = (() => { try { return JSON.parse(localStorage.getItem(KEY) ?? '[]') as DocResult[]; } catch { return []; } })();
 const subs = new Set<() => void>();
 /** How to read a document again with another model (kept while the app is open: the document isn't kept anywhere). */
-const retries = new Map<string, { need?: Need; run: (m: ModelChoice) => void }>();
+const retries = new Map<string, { need?: Need; run: (m?: ModelChoice) => void }>();
 function setList(next: DocResult[]) {
   list = next.slice(0, 50);
   try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* full */ }
@@ -52,6 +53,22 @@ async function analyze(mode: 'analyze' | 'compare', docs: DocInput[], model?: Mo
   }
 }
 
+/** 🌐 A website's SEO (the free checks always; the AI part with a web search: 1 AI check). Each run is kept apart. */
+async function analyzeSeo(url: string, competitors: string[], model?: ModelChoice, again?: string) {
+  const id = again ?? `ds-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const label = url.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+  retries.set(id, { run: (m?: ModelChoice) => void analyzeSeo(url, competitors, m, id) });
+  put({ id, status: 'pending', mode: 'seo', label, checkedAt: new Date().toISOString() });
+  try {
+    put(await api.seo({ id, url, competitors: competitors.length ? competitors : undefined, model }));
+  } catch (e) {
+    const r = await api.docResult(id).catch(() => null);
+    put(r && r.status !== 'pending' ? r : { id, status: 'failed', mode: 'seo', label, checkedAt: new Date().toISOString(), error: e instanceof Error ? e.message : String(e) });
+  } finally {
+    void refreshStatus();
+  }
+}
+
 async function removeDoc(r: DocResult) {
   if (!window.confirm(`Delete “${r.title || r.label}”?`)) return;
   setList(list.filter((x) => x.id !== r.id));
@@ -76,9 +93,11 @@ export function DocCard({ r, example = false }: { r: DocResult; example?: boolea
       <span className="flex flex-wrap items-center gap-1.5">
         {r.status === 'pending' ? <span className="chip border-teal-200 bg-teal-50 text-teal-800"><span className="spinner" /> Reading…</span>
           : r.status === 'failed' ? <span className="chip border-amber-200 bg-amber-50 text-amber-800">⚠️ Not done</span>
+          : r.mode === 'seo' ? <span className="chip border-teal-200 bg-teal-50 text-teal-800">🌐 SEO {r.seo ? `${seoOverall(r)}/100` : ''}</span>
           : <span className="chip border-teal-200 bg-teal-50 text-teal-800">{r.mode === 'compare' ? '🔀 Compared' : '📄'} {r.docType || 'Document'}</span>}
-        {r.status === 'done' && flags.length > 0 && <span className={`chip ${FLAG[flags[0].level].cls}`}>{FLAG[flags[0].level].icon} {flags.length} red flag{flags.length > 1 ? 's' : ''}</span>}
-        {r.status === 'done' && !flags.length && <span className="chip border-emerald-200 bg-emerald-50 text-emerald-800">✅ No red flags</span>}
+        {r.status === 'done' && r.mode === 'seo' && r.seo && <span className="chip border-stone-200 bg-white/70 text-stone-700">{r.seo.issues.length} issue{r.seo.issues.length === 1 ? '' : 's'}</span>}
+        {r.status === 'done' && r.mode !== 'seo' && flags.length > 0 && <span className={`chip ${FLAG[flags[0].level].cls}`}>{FLAG[flags[0].level].icon} {flags.length} red flag{flags.length > 1 ? 's' : ''}</span>}
+        {r.status === 'done' && r.mode !== 'seo' && !flags.length && <span className="chip border-emerald-200 bg-emerald-50 text-emerald-800">✅ No red flags</span>}
       </span>
       <span className="mt-1 block truncate text-sm font-semibold text-stone-900">{r.title || r.label}</span>
       <span className="hud block truncate !text-[10px]">{r.label} · {when}{r.remembered ? ' · 📌 remembered (free)' : ''}</span>
@@ -86,11 +105,15 @@ export function DocCard({ r, example = false }: { r: DocResult; example?: boolea
   );
   return (
     <Fold title={head} defaultOpen={example || r.status !== 'done'} className={r.status === 'pending' ? 'scan' : ''}>
+      {r.status === 'done' && r.mode === 'seo' && r.seo && <SeoView r={r} example={example} />}
+      {r.status === 'done' && r.mode === 'seo' && !r.seo?.content?.summary && retry && !example && <ModelMenu label="🤖 Add the AI part with another model" primary={!!r.tried} tried={r.tried} cannot={needsSearch} onPick={retry.run} />}
+      {r.status === 'done' && r.mode === 'seo' && r.seo?.content?.summary && retry && !example && <ModelMenu label="↻ Check again with another model" cannot={needsSearch} onPick={retry.run} />}
       {r.status === 'pending' && <p className="text-xs text-stone-500">Long documents can take a minute. You can switch tabs or close the app: the answer will be here.</p>}
       {r.status === 'failed' && <p className="break-words text-sm text-amber-800">{r.error}</p>}
-      {r.status === 'failed' && retry && !example && <ModelMenu label="⚠️ It failed: try another model" primary need={retry.need} tried={r.tried} onPick={retry.run} />}
+      {r.status === 'failed' && retry && !example && r.mode === 'seo' && <button className="btn-primary w-full" onClick={() => retry.run()}>↻ Try again</button>}
+      {r.status === 'failed' && retry && !example && r.mode !== 'seo' && <ModelMenu label="⚠️ It failed: try another model" primary need={retry.need} tried={r.tried} onPick={retry.run} />}
       {r.status === 'failed' && !retry && <p className="text-xs text-stone-500">To try again, add the document again.</p>}
-      {r.status === 'done' && (
+      {r.status === 'done' && r.mode !== 'seo' && (
         <div className="space-y-3 text-sm">
           <CheckedBy ai="done" aiBy={r.aiBy} />
           {r.summary && <p className="text-stone-800">{r.summary}</p>}
@@ -167,7 +190,15 @@ function DocDrop({ label, hint, picked, onFiles, disabled }: { label: string; hi
 export function Docs() {
   const st = useStatus();
   const docs = useDocs();
-  const [mode, setMode] = useState<'analyze' | 'compare'>('analyze');
+  const [mode, setMode] = useState<'analyze' | 'compare' | 'seo'>('analyze');
+  const [site, setSite] = useState('');
+  const [rivals, setRivals] = useState(['', '', '']);
+  const seo = () => {
+    const url = site.trim();
+    if (!/^(https?:\/\/)?[a-z0-9-]+(\.[a-z0-9-]+)+(:\d+)?(\/\S*)?$/i.test(url)) return toast('error', 'Type a website address, like example.com or https://example.com/page.');
+    void analyzeSeo(url, rivals.map((x) => x.trim()).filter(Boolean), pick);
+    setSite('');
+  };
   const [reading, setReading] = useState(false);
   const [pair, setPair] = useState<[DocInput | null, DocInput | null]>([null, null]);
   const [pick, setPick] = useState<ModelChoice | undefined>();
@@ -240,11 +271,11 @@ export function Docs() {
       <section className="card space-y-3">
         <div>
           <p className="label">Documents</p>
-          <h1 className="text-2xl font-bold">What does this document say?</h1>
+          <h1 className="text-2xl font-bold">{mode === 'seo' ? 'How does this website do on Google?' : 'What does this document say?'}</h1>
           <p className="text-sm text-stone-500">Contracts, leases, insurance, letters, terms… You get a short summary, the key points, red flags, what to do and the dates. Or compare two versions to see what changed.</p>
         </div>
-        <div className="grid grid-cols-2 gap-1.5" role="tablist" aria-label="What do you want to do?">
-          {([['analyze', '📖 Read one'], ['compare', '🔀 Compare two']] as const).map(([m, name]) => (
+        <div className="grid grid-cols-3 gap-1.5" role="tablist" aria-label="What do you want to do?">
+          {([['analyze', '📖 Read one'], ['compare', '🔀 Compare'], ['seo', '🌐 Website SEO']] as const).map(([m, name]) => (
             <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => setMode(m)}
               className={`min-h-[44px] rounded-xl border text-sm font-semibold transition ${mode === m ? 'border-teal-500/70 bg-white text-teal-900 shadow-[0_0_0_3px_rgba(74,146,155,0.12)]' : 'border-stone-200/80 bg-white/50 text-stone-600'}`}>{name}</button>
           ))}
@@ -258,7 +289,20 @@ export function Docs() {
         )}
         {pick && <button type="button" className="btn-ghost text-xs" onClick={() => setPick(undefined)}>✕ Back to the Settings model</button>}
         {reading && <p className="panel scan text-sm text-teal-800"><span className="spinner" /> Reading the file on your device…</p>}
-        {mode === 'analyze' ? (
+        {mode === 'seo' ? (
+          <form className="space-y-2" onSubmit={(e) => (e.preventDefault(), seo())}>
+            <input className="input w-full" value={site} onChange={(e) => setSite(e.target.value)} inputMode="url" autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder="Website, e.g. mybakery.com" aria-label="Website address" />
+            <details className="panel">
+              <summary className="cursor-pointer text-sm font-semibold text-stone-700">Competitors (optional, up to 3)</summary>
+              <div className="mt-2 space-y-1.5">
+                {rivals.map((v, i) => <input key={i} className="input w-full" value={v} onChange={(e) => setRivals((x) => x.map((y, j) => (j === i ? e.target.value : y)))} inputMode="url" autoCapitalize="off" spellCheck={false} placeholder={`Competitor ${i + 1}, e.g. otherbakery.com`} aria-label={`Competitor ${i + 1}`} />)}
+                <p className="text-xs text-stone-500">Leave empty and the AI finds the top competitors with a web search.</p>
+              </div>
+            </details>
+            <button className="btn-primary w-full" disabled={!site.trim()}>🌐 Analyze (1 AI check)</button>
+            <p className="text-xs text-stone-500">The free checks (meta tags, headings, images, links, speed, sitemap) always run; the AI adds content quality, keyword opportunities and competitor gaps. Only the address you type is read, by the server, as text.</p>
+          </form>
+        ) : mode === 'analyze' ? (
           <DocDrop label="Add a document" hint="PDF, Word (.docx), text, or up to 6 photos of the pages · drag & drop works too" onFiles={(f) => void one(f)} disabled={!ready || left === 0 || reading} />
         ) : (
           <>
@@ -269,9 +313,9 @@ export function Docs() {
             <button className="btn-primary w-full" disabled={!pair[0] || !pair[1] || !ready || left === 0} onClick={compare}>🔀 Compare (1 AI check)</button>
           </>
         )}
-        <p className="text-xs text-stone-500">Long documents: about the first 40 pages are read. Old .doc or .xls files: save them as PDF first. Only the answer is kept (on your phone and computer), never the document.</p>
+        {mode !== 'seo' && <p className="text-xs text-stone-500">Long documents: about the first 40 pages are read. Old .doc or .xls files: save them as PDF first. Only the answer is kept (on your phone and computer), never the document.</p>}
       </section>
-      {docs.length > 0 && <p className="label">Your documents</p>}
+      {docs.length > 0 && <p className="label">Your documents and websites</p>}
       <div className="space-y-2">{docs.map((r) => <DocCard key={`${r.id}${r.status}`} r={r} />)}</div>
     </Shell>
   );
