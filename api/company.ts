@@ -142,12 +142,12 @@ export async function POST(req: Request): Promise<Response> {
     // The app's own free checks on what was found: is the website the real one, how old, what kind of phone number.
     const site = str(o.website, 200);
     const links = site ? (await checkLinks([site], cfg.checks)).links : [];
-    const ph = checkPhones(phones.map((p) => p.number)).phones;
     const by = g.by;
     const info: CompanyInfo = {
       name: str(o.name, 100) || b.name, whatTheyDo: str(o.whatTheyDo, 400),
       website: links[0] ? { url: /^https?:\/\//.test(site) ? site : `https://${site}`, domain: links[0].domain, level: links[0].level, note: links[0].note } : undefined,
-      phones: phones.map((p, i) => ({ ...p, note: ph[i]?.note, level: ph[i]?.level })),
+      // One number at a time, so a number that can't be read never shifts the notes onto the wrong number.
+      phones: phones.map((p) => { const r = checkPhones([p.number]).phones[0]; return { ...p, note: r?.note, level: r?.level }; }),
       emails, contactPage: /^https?:\/\//.test(str(o.contactPage, 300)) ? str(o.contactPage, 300) : undefined,
       hours: str(o.hours, 160) || undefined, address: str(o.address, 200) || undefined, scamWarning: str(o.scamWarning, 300) || undefined,
       sources: g.sources, aiBy: by, note: g.note,

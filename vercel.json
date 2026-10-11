@@ -5,13 +5,13 @@
   "outputDirectory": "build",
   "functions": {
     "api/ai.ts": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "api/video.ts": {
       "maxDuration": 300
     },
     "api/company.ts": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "api/doc.ts": {
       "maxDuration": 300

@@ -212,14 +212,17 @@ async function run(b: z.infer<typeof Post>, base: DocResult): Promise<DocResult>
     tried = modelName(p, modelFor(cfg.ai, p));
     if (!ready(p)) throw new Error(`${name} isn’t set up (${providerOf(p).env} in Vercel): pick another model`);
     const notes: string[] = [];
+    // At most 8 photos in all, in order: each document says how many of its photos were really sent.
+    let room = 8;
+    const sent = b.docs.map((d) => { const n = Math.min(d.images?.length ?? 0, room); room -= n; return n; });
     const parts = b.docs.map((d, i) => {
       const t = (d.text ?? '').trim();
       if (t.length > MAX) notes.push(`${d.name} is long: only its first part (about 40 pages) was read.`);
       const tag = b.mode === 'compare' ? (i === 0 ? 'OLD VERSION' : 'NEW VERSION') : 'DOCUMENT';
-      return t ? `===== ${tag}: ${d.name} =====\n${t.slice(0, MAX)}` : `===== ${tag}: ${d.name} (attached as ${d.pdf ? 'a PDF' : `${d.images?.length ?? 0} photo(s) of its pages, in order`}) =====`;
+      return t ? `===== ${tag}: ${d.name} =====\n${t.slice(0, MAX)}` : `===== ${tag}: ${d.name} (attached as ${d.pdf ? 'a PDF' : `${sent[i]} photo(s) of its pages, in order${sent[i] < (d.images?.length ?? 0) ? ` (only the first ${sent[i]} of ${d.images!.length} pages)` : ''}`}) =====`;
     });
     const pdf = b.docs.find((d) => d.pdf)?.pdf;
-    const images = b.docs.flatMap((d) => d.images ?? []).slice(0, 8);
+    const images = b.docs.flatMap((d, i) => (d.images ?? []).slice(0, sent[i]));
     if (!(await takeAi(p))) throw new Error(`Today’s ${name} checks are used up (daily limit in Settings): pick another model to continue`);
     const g = await askWithSearch(p, cfg.ai, { instructions: b.mode === 'compare' ? COMPARE : ANALYZE, text: parts.join('\n\n'), pdf, images, search: false });
     if (g.note) notes.push(g.note);

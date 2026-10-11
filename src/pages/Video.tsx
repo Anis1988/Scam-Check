@@ -18,6 +18,8 @@ const subs = new Set<() => void>();
 const progress = new Map<string, number>(); // upload progress (0-1) while sending
 /** How to check a video again with another model (kept while the app is open). */
 const retries = new Map<string, (m: ModelChoice) => void>();
+/** Checks this device is still sending (pictures being taken from the video, upload): the server doesn't know them yet. */
+const sending = new Set<string>();
 function put(r: VideoResult) {
   list = [r, ...list.filter((x) => x.id !== r.id)].slice(0, 20);
   try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* full */ }
@@ -37,7 +39,7 @@ async function syncVideos() {
   const r = await api.videos().catch(() => null);
   if (!r?.synced) return;
   const known = new Set(r.videos.map((v) => v.id));
-  const next = [...list.filter((v) => !known.has(v.id) && v.status === 'pending' && progress.has(v.id)), ...r.videos].slice(0, 50);
+  const next = [...list.filter((v) => !known.has(v.id) && ((v.status === 'pending' && (progress.has(v.id) || sending.has(v.id))) || (v.status === 'failed' && retries.has(v.id)))), ...r.videos].slice(0, 50);
   if (JSON.stringify(next) === JSON.stringify(list)) return;
   list = next;
   try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* full */ }
@@ -69,7 +71,9 @@ const isVideoLink = (s: string) => /^https?:\/\/([a-z0-9-]+\.)*(youtube\.com|you
 
 async function checkVideo(label: string, from: VideoResult['from'], send: (id: string) => Promise<Omit<Parameters<typeof api.videoCheck>[0], 'id' | 'label'>>) {
   const id = newId();
-  put({ id, status: 'pending', from, label, checkedAt: new Date().toISOString() });
+  const start: VideoResult = { id, status: 'pending', from, label, checkedAt: new Date().toISOString() };
+  put(start);
+  sending.add(id);
   try {
     const b = await send(id);
     put(await api.videoCheck({ ...b, id, label }));
@@ -77,8 +81,9 @@ async function checkVideo(label: string, from: VideoResult['from'], send: (id: s
     // The connection dropped while the server works: it is picked up later (see the polling below).
     const msg = e instanceof Error ? e.message : String(e);
     const r = await api.video(id).catch(() => null);
-    put(r ?? { ...list.find((x) => x.id === id)!, status: 'failed', error: msg });
+    put(r ?? { ...(list.find((x) => x.id === id) ?? start), status: 'failed', error: msg });
   } finally {
+    sending.delete(id);
     progress.delete(id);
     void refreshStatus();
   }
