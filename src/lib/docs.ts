@@ -11,7 +11,13 @@ export interface DocInput { name: string; text?: string; pdf?: string; images?: 
 const ext = (name: string) => name.split('.').pop()?.toLowerCase() ?? '';
 export const DOC_ACCEPT = '.pdf,.docx,.odt,.pptx,.txt,.md,.csv,.html,.htm,.rtf,.json,.xml,image/*,application/pdf';
 
+/** The server reads about the first 40 pages; very long text is cut here so it is never refused for its size. */
 export async function readDoc(files: File[]): Promise<DocInput> {
+  const d = await readDocFull(files);
+  return d.text && d.text.length > 390_000 ? { ...d, text: d.text.slice(0, 390_000) } : d;
+}
+
+async function readDocFull(files: File[]): Promise<DocInput> {
   // Photos of the pages of one paper document (up to 6), in the order picked.
   if (files.every((f) => f.type.startsWith('image/') || /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name))) {
     if (files.length > 6) throw new Error('Up to 6 photos (pages) per document.');
@@ -37,12 +43,10 @@ export async function readDoc(files: File[]): Promise<DocInput> {
     return { name: f.name, text: slides.map(([n, x], i) => `--- Slide ${i + 1} (${n}) ---\n${xmlText(x, 'a:p', 'a:t')}`).join('\n\n') };
   }
   if (e === 'doc' || e === 'xls' || e === 'xlsx' || e === 'pages' || e === 'ppt') throw new Error(`.${e} files can’t be read here: save it as PDF (or .docx) and try again.`);
-  if (/^(txt|md|csv|tsv|json|xml|log)$/.test(e) || f.type.startsWith('text/')) {
-    const raw = await f.text();
-    return { name: f.name, text: e === 'html' || e === 'htm' || f.type === 'text/html' ? htmlText(raw) : raw };
-  }
-  if (e === 'html' || e === 'htm') return { name: f.name, text: htmlText(await f.text()) };
-  if (e === 'rtf') return { name: f.name, text: rtfText(await f.text()) };
+  // RTF and web pages first: some computers call them "text/…", and their code must be cleaned out.
+  if (e === 'rtf' || f.type === 'text/rtf' || f.type === 'application/rtf') return { name: f.name, text: rtfText(await f.text()) };
+  if (e === 'html' || e === 'htm' || f.type === 'text/html') return { name: f.name, text: htmlText(await f.text()) };
+  if (/^(txt|md|csv|tsv|json|xml|log)$/.test(e) || f.type.startsWith('text/')) return { name: f.name, text: await f.text() };
   throw new Error('Choose a PDF, Word (.docx), text file, or photos of the pages.');
 }
 

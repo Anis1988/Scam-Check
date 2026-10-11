@@ -1,5 +1,7 @@
 import { lookup } from 'node:dns/promises';
+import { lookup as dnsLookup, type LookupAddress } from 'node:dns';
 import { isIP } from 'node:net';
+import { Agent, fetch as uFetch } from 'undici';
 import { parse, type HTMLElement } from 'node-html-parser';
 import type { SeoReport } from '../src/lib/types.js';
 
@@ -14,8 +16,16 @@ const MAX_BYTES = 3_000_000;
 function privateIp(ip: string): boolean {
   if (isIP(ip) === 6) {
     const x = ip.toLowerCase();
-    if (x.startsWith('::ffff:')) return privateIp(x.slice(7));
-    return x === '::1' || x === '::' || x.startsWith('fc') || x.startsWith('fd') || x.startsWith('fe80') || x.startsWith('64:ff9b');
+    if (x.startsWith('::ffff:')) {
+      const rest = x.slice(7);
+      if (isIP(rest) === 4) return privateIp(rest);
+      // "::ffff:7f00:1" is 127.0.0.1 written in hex.
+      const g = rest.split(':').map((h) => parseInt(h, 16));
+      if (g.length !== 2 || g.some((n) => !(n >= 0 && n <= 0xffff))) return true;
+      return privateIp(`${g[0] >> 8}.${g[0] & 255}.${g[1] >> 8}.${g[1] & 255}`);
+    }
+    // "::" in front (IPv4-compatible, loopback, unspecified), unique-local, link-local, site-local, NAT64: never public.
+    return x.startsWith('::') || x.startsWith('fc') || x.startsWith('fd') || /^fe[89ab]/.test(x) || /^fe[c-f]/.test(x) || x.startsWith('64:ff9b');
   }
   const [a, b] = ip.split('.').map(Number);
   return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
@@ -33,12 +43,29 @@ async function safeUrl(raw: string): Promise<URL> {
   return u;
 }
 
+/**
+ * Every connection re-checks the address it actually connects to, so a name that changes to a private address
+ * between the check above and the fetch (DNS rebinding) is still refused.
+ */
+const guarded = new Agent({
+  connect: {
+    lookup: (host: string, opts: object, cb: (err: Error | null, address: string | LookupAddress[], family?: number) => void) => {
+      dnsLookup(host, opts as never, (err: NodeJS.ErrnoException | null, address: string | LookupAddress[], family?: number) => {
+        if (err) return cb(err, '');
+        const list = Array.isArray(address) ? address.map((a) => a.address) : [address];
+        if (!list.length || list.some(privateIp)) return cb(new Error('This address is not a public website.'), '');
+        cb(null, address, family);
+      });
+    },
+  },
+});
+
 /** GET a public page as text (following up to 5 redirects, each checked). */
 export async function fetchPage(raw: string): Promise<{ url: string; status: number; html: string; ms: number; bytes: number; type: string }> {
   let u = await safeUrl(raw);
   const t0 = Date.now();
   for (let hop = 0; hop < 6; hop++) {
-    const res = await fetch(u, { redirect: 'manual', headers: { 'User-Agent': UA, Accept: 'text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.5' }, signal: AbortSignal.timeout(12_000) })
+    const res = await uFetch(u, { dispatcher: guarded, redirect: 'manual', headers: { 'User-Agent': UA, Accept: 'text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.5' }, signal: AbortSignal.timeout(12_000) })
       .catch(() => { throw new Error(`${u.hostname} didn’t answer (it may be down or block robots).`); });
     if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
       u = await safeUrl(new URL(res.headers.get('location')!, u).toString());
@@ -61,6 +88,26 @@ export async function fetchPage(raw: string): Promise<{ url: string; status: num
   throw new Error('Too many redirects.');
 }
 
+/** Does the group for every robot ("User-agent: *") say "Disallow: /"? Groups for other robots (e.g. AI bots) don't count. */
+export function robotsBlocksAll(robots: string): boolean {
+  let star = false, inAgents = false;
+  for (const raw of robots.split(/\r?\n/)) {
+    const line = raw.replace(/#.*/, '').trim();
+    const m = line.match(/^([a-z-]+)\s*:\s*(.*)$/i);
+    if (!m) continue;
+    const key = m[1].toLowerCase(), val = m[2].trim();
+    if (key === 'user-agent') {
+      if (!inAgents) star = false; // a new group starts
+      inAgents = true;
+      if (val === '*') star = true;
+      continue;
+    }
+    inAgents = false;
+    if (star && key === 'disallow' && val === '/') return true;
+  }
+  return false;
+}
+
 /** robots.txt and the sitemap: there or not (and the sitemap address robots.txt gives). */
 async function siteFiles(base: URL): Promise<{ robotsTxt: boolean; sitemap: boolean; blocksAll: boolean }> {
   const get = async (path: string) => {
@@ -72,7 +119,7 @@ async function siteFiles(base: URL): Promise<{ robotsTxt: boolean; sitemap: bool
   const robots = await get('/robots.txt');
   const smUrl = robots.match(/^\s*sitemap:\s*(\S+)/im)?.[1];
   const sitemap = await get(smUrl && /^https?:\/\//i.test(smUrl) ? smUrl : '/sitemap.xml');
-  const blocksAll = /user-agent:\s*\*\s*[\r\n]+(?:[^\r\n]*[\r\n]+)*?\s*disallow:\s*\/\s*$/im.test(robots);
+  const blocksAll = robotsBlocksAll(robots);
   return { robotsTxt: !!robots, sitemap: /<(urlset|sitemapindex)/i.test(sitemap), blocksAll };
 }
 

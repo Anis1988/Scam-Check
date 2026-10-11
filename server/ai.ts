@@ -5,6 +5,12 @@ import type { AppSettings, FreeProvider, Kind, Provider, Signal } from '../src/l
 import { modelFor, modelName, providerOf } from '../src/lib/types.js';
 import { askGemini } from './gemini.js';
 import { askOpenAI, transcribe } from './openai.js';
+import { takeAi } from './store.js';
+
+/** Another AI steps in (it can read what the picked one can't): that one's daily limit counts too. */
+async function useOther(other: Provider): Promise<void> {
+  if (!(await takeAi(other))) throw new Error(`Today’s ${providerOf(other).name} checks are used up (daily limit in Settings): pick another model to continue`);
+}
 
 /** An AI can be used when its key is in Vercel (ANTHROPIC_API_KEY, GEMINI_API_KEY, GROQ_API_KEY…). */
 export const ready = (p: Provider) => !!process.env[providerOf(p).env]?.trim();
@@ -98,6 +104,7 @@ export async function askAi(input: AiInput, cfg: AppSettings['ai'], provider: Pr
       return { ...a, readText: a.readText || words, note: [`Groq Whisper turned the recording into words (free), then ${a.by} checked them.`, a.note].filter(Boolean).join(' ') };
     }
     if (ready('gemini')) {
+      await useOther('gemini');
       const a = await askAi(input, cfg, 'gemini');
       return { ...a, note: `${providerOf(provider).name} can’t listen to recordings, so ${a.by} did.` };
     }
@@ -108,6 +115,7 @@ export async function askAi(input: AiInput, cfg: AppSettings['ai'], provider: Pr
     if (input.file?.mime === 'application/pdf') {
       const other: Provider | null = ready('gemini') ? 'gemini' : ready('claude') ? 'claude' : null;
       if (!other) throw new Error(`${providerOf(provider).name} can’t read PDFs: pick Claude or Gemini, or take a photo of the page`);
+      await useOther(other);
       const a = await askAi(input, cfg, other);
       return { ...a, note: `${providerOf(provider).name} can’t read PDFs, so ${a.by} checked it.` };
     }

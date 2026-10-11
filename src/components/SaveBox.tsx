@@ -4,7 +4,7 @@ import { useStatus } from '../lib/useStatus';
 import { toast } from './ui';
 
 /** ⭐ Save a check: its key facts, your note and (if you keep them) the original message and picture. */
-export function SaveBox({ id, text, file, example = false, savedName }: { id: string; text?: string; file?: Upload; example?: boolean; savedName?: string }) {
+export function SaveBox({ id, text, file, example = false, savedName, onSaved }: { id: string; text?: string; file?: Upload; example?: boolean; savedName?: string; onSaved?: (name: string) => void }) {
   const st = useStatus();
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
@@ -19,6 +19,7 @@ export function SaveBox({ id, text, file, example = false, savedName }: { id: st
     try {
       const s = await api.save(id, note, keepIt ? { text, file } : undefined);
       setName(s.name ?? 'Saved');
+      onSaved?.(s.name ?? 'Saved'); // so "Save all" knows this one is done
       toast('success', `Saved as “${s.name ?? 'this check'}”. Find it in ⭐ Saved.`);
     } catch (e) {
       toast('error', e instanceof Error ? e.message : String(e));

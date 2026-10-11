@@ -30,7 +30,8 @@ async function syncDocs() {
   const r = await api.docs().catch(() => null);
   if (!r?.synced) return;
   const known = new Set(r.docs.map((d) => d.id));
-  const mine = list.filter((d) => !known.has(d.id) && d.status === 'pending' && retries.has(d.id));
+  // Ones only this device knows (still sending, or failed before the server kept anything) stay, with their error.
+  const mine = list.filter((d) => !known.has(d.id) && (d.status === 'pending' || d.status === 'failed') && retries.has(d.id));
   const next = [...mine, ...r.docs];
   if (JSON.stringify(next) !== JSON.stringify(list)) setList(next);
 }
@@ -253,6 +254,11 @@ export function Docs() {
   const compare = () => {
     if (!pair[0] || !pair[1]) return;
     if (pair[0].pdf && pair[1].pdf) return toast('error', 'Both PDFs are scanned (pictures only): take photos of the pages of one of them instead.');
+    // The AI gets at most 8 photos in all, and a request can't be over about 4 MB.
+    const photos = (pair[0].images?.length ?? 0) + (pair[1].images?.length ?? 0);
+    if (photos > 8) return toast('error', `That’s ${photos} photos in all: up to 8 for both versions together (e.g. 4 pages each).`);
+    const size = [pair[0], pair[1]].reduce((t, d) => t + (d.pdf?.length ?? 0) + (d.images ?? []).reduce((s, i) => s + i.data.length, 0), 0);
+    if (size > 4_000_000) return toast('error', 'These photos are too big together: use fewer pages, or a PDF or Word file for one version.');
     void analyze('compare', [pair[0], pair[1]], pick);
     setPair([null, null]);
   };

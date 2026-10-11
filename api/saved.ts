@@ -91,7 +91,9 @@ export async function POST(req: Request): Promise<Response> {
     // Saving the same check again keeps its name.
     const before = await getSaved(b.id);
     const name = before?.name ?? `${await nextSavedNumber()}-${titleOf(r)}`;
-    const item: SavedItem = { ...keyFacts(r, b.note), name, text: b.text?.trim() || undefined };
+    // Saving again (e.g. "Save all") keeps the note and the original already saved with it.
+    const item: SavedItem = { ...keyFacts(r, b.note || before?.note || ''), name, text: b.text?.trim() || before?.text || undefined };
+    if (!b.file && before?.file) item.file = before.file;
     if (b.file) {
       const fname = fileName(name, b.file.mime);
       await putFile(b.id, { mime: b.file.mime, name: fname, data: b.file.data });

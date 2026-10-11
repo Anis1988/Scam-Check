@@ -239,7 +239,7 @@ export function Check() {
       {it.result && <ResultCard r={it.result} onChanged={() => reload(it)} />}
       {offers(it)}
       {it.result && !stuck(it.result) && recheckBar(it)}
-      {it.result && it.result.ai !== 'pending' && <SaveBox key={`${it.result.id}${it.savedName ?? ''}`} id={it.result.id} text={it.input?.text} file={it.input?.file} savedName={it.savedName} />}
+      {it.result && it.result.ai !== 'pending' && <SaveBox key={`${it.result.id}${it.savedName ?? ''}`} id={it.result.id} text={it.input?.text} file={it.input?.file} savedName={it.savedName} onSaved={(n) => patch(it.key, { savedName: n })} />}
       {it.result && it.result.ai !== 'pending' && <button className="btn w-full" onClick={() => removeCheck(it.result!)}>🗑 Delete this check</button>}
     </div>
   );

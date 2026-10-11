@@ -2,7 +2,7 @@ import { parse } from 'tldts';
 import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
 import type { CheckResult, ListEntry, ListKind, Signal } from '../src/lib/types.js';
 import { verdictOf } from '../src/lib/types.js';
-import { defaultSteps } from './analyze.js';
+import { defaultSteps, scoreOf } from './analyze.js';
 
 /** "(513) 555-0100", "513.555.0100" -> "+1 513 555 0100"; "https://www.Chase.com/x" -> "chase.com"; emails lowercased. */
 export function normalize(raw: string): { kind: ListKind; value: string } | null {
@@ -48,7 +48,8 @@ export function withLists(r: CheckResult, lists: ListEntry[]): CheckResult {
     ...blocked.map((e) => ({ source: 'list' as const, level: 'bad' as const, weight: 60, hard: true, title: `You marked ${e.value} as a scam` })),
     ...trusted.map((e) => ({ source: 'list' as const, level: 'good' as const, weight: -20, title: `${e.value} is on your trusted list` })),
   ];
-  const strong = r.signals.some((s) => s.hard || s.weight >= 25);
+  // The same "strong free warning" as merge.ts: one big sign, or many small ones adding up to 45.
+  const strong = r.signals.some((s) => s.hard || s.weight >= 25) || scoreOf(r.signals.filter((s) => s.source !== 'list')) >= 45;
   const score = blocked.length ? Math.max(r.score, 92) : strong ? Math.max(Math.min(r.score, 35), r.score - 20) : Math.max(0, r.score - 20);
   const verdict = verdictOf(score);
   const changed = verdict !== r.verdict;
