@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Toasts } from './components/ui';
+import { useEffect, useRef, useState } from 'react';
+import { Slide, Toasts } from './components/ui';
 import { Check } from './pages/Check';
 import { History } from './pages/History';
 import { Saved } from './pages/Saved';
@@ -29,7 +29,7 @@ function sharedVideoLink(): string {
 
 function Logo() {
   return (
-    <svg viewBox="0 0 512 512" width="36" height="36" aria-hidden="true" className="drop-shadow-[0_0_10px_rgba(74,146,155,0.35)]">
+    <svg viewBox="0 0 512 512" width="36" height="36" aria-hidden="true" className="drop-shadow-[0_0_10px_rgb(var(--c-glow)/0.35)]">
       <defs>
         <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#4A929B" /><stop offset="1" stopColor="#6C65A9" /></linearGradient>
       </defs>
@@ -46,7 +46,7 @@ function ThemeButton() {
   const [dark, setDark] = useState(() => getPrefs().theme === 'dark');
   useEffect(() => { const upd = () => setDark(getPrefs().theme === 'dark'); window.addEventListener('sc-prefs', upd); return () => window.removeEventListener('sc-prefs', upd); }, []);
   return (
-    <button type="button" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-stone-200/80 bg-white/60 text-lg transition hover:shadow-[0_0_0_3px_rgba(74,146,155,0.15)] active:scale-95"
+    <button type="button" className="tap flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-stone-200/80 bg-white/60 text-lg shadow-[inset_0_1px_0_rgb(var(--c-shine)/var(--shine))]"
       onClick={() => setPrefs({ ...getPrefs(), theme: dark ? 'light' : 'dark' })} aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'} title={dark ? 'Light mode' : 'Dark mode'}>
       <span aria-hidden="true">{dark ? '☀️' : '🌙'}</span>
     </button>
@@ -59,8 +59,8 @@ function AiMeter() {
   if (!st?.ai || !st.store) return null;
   const left = aiLeft(st);
   return (
-    <span className="hidden items-center gap-1.5 rounded-full border border-white/80 bg-white/60 px-2.5 py-1 font-mono text-[11px] text-stone-600 sm:inline-flex" title="AI checks left today">
-      <span className={`pulse-glow h-1.5 w-1.5 rounded-full ${left === 0 ? 'bg-amber-400' : 'bg-teal-500 shadow-[0_0_6px_#4A929B]'}`} />
+    <span className="hidden items-center gap-1.5 rounded-full border border-white/80 bg-white/60 px-2.5 py-1.5 font-mono text-[11px] text-stone-600 shadow-[inset_0_1px_0_rgb(var(--c-shine)/var(--shine))] sm:inline-flex" title="AI checks left today">
+      <span className={`pulse-glow h-1.5 w-1.5 rounded-full ${left === 0 ? 'bg-amber-400' : 'bg-teal-500 shadow-[0_0_6px_rgb(var(--c-glow))]'}`} />
       AI {left === null ? '∞' : `${left}/${st.limit}`}
     </span>
   );
@@ -97,6 +97,14 @@ export default function App() {
     window.addEventListener('sc-unauthorized', off);
     return () => window.removeEventListener('sc-unauthorized', off);
   }, [hasCode]);
+  // The open tab scrolls into the middle of the tab row on phones.
+  const nav = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const row = nav.current?.querySelector<HTMLElement>('.slide');
+    const on = row?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!row || !on || row.scrollWidth <= row.clientWidth) return;
+    row.scrollTo({ left: on.offsetLeft - (row.clientWidth - on.offsetWidth) / 2, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }, [tab]);
   const go = (t: Tab) => {
     setTab(t);
     if (!window.location.pathname.startsWith('/share')) window.history.replaceState(null, '', t === 'Check' ? '/' : `/${t.toLowerCase()}`);
@@ -104,9 +112,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
+      {/* Soft light beams drifting under a misty grid. */}
+      <div className="backdrop" aria-hidden="true"><span className="beam beam-a" /><span className="beam beam-b" /><span className="beam beam-c" /><span className="beam-ray" /><span className="grid-lines" /></div>
       <Toasts />
-      <header className="sticky top-0 z-40 border-b border-white/70 bg-mist/75 backdrop-blur-xl" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-1 px-4 pt-2 md:flex-nowrap md:py-2.5">
+      <header className="sticky top-0 z-40 border-b border-white/70 bg-mist/85 shadow-[0_8px_24px_-18px_rgb(var(--c-ink)/0.4)] backdrop-blur-2xl backdrop-saturate-150" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div ref={nav} className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-1 pt-2 md:flex-nowrap md:py-2.5" style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
           <div className="flex min-w-0 flex-1 items-center gap-2.5 md:flex-none">
             <Logo />
             <div className="min-w-0 leading-tight">
@@ -115,21 +125,24 @@ export default function App() {
             </div>
           </div>
           <span className="flex items-center gap-2 md:order-last"><AiMeter /><ThemeButton /></span>
-          {/* Tabs with icons, at the top. */}
-          <nav className="-mx-2 grid w-[calc(100%+1rem)] grid-cols-8 md:mx-auto md:flex md:w-auto md:gap-1 md:rounded-2xl md:border md:border-white/80 md:bg-white/50 md:p-1 md:shadow-[0_0_0_1px_rgba(31,66,71,0.05)]" aria-label="Main">
-            {TABS.map((t) => (
-              <button key={t} onClick={() => go(t)} aria-current={tab === t ? 'page' : undefined}
-                className={`relative flex min-h-[48px] min-w-0 flex-col items-center justify-center gap-0.5 px-0 py-1.5 text-[10px] font-semibold tracking-tight transition md:min-h-0 md:flex-row md:gap-1.5 md:rounded-xl md:px-3.5 md:py-1.5 md:text-sm ${tab === t ? 'text-teal-800 md:bg-white md:shadow-[0_0_0_1px_rgba(74,146,155,0.25),0_4px_14px_-4px_rgba(74,146,155,0.45)]' : 'text-stone-500 hover:text-stone-800'}`}>
-                <span className={`text-lg transition md:text-base ${tab === t ? 'drop-shadow-[0_0_6px_rgba(74,146,155,0.6)]' : 'opacity-80 grayscale-[35%]'}`} aria-hidden="true">{TAB_ICON[t]}</span>
-                {TAB_LABEL[t] ?? t}
-                {tab === t && <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-gradient-to-r from-teal-500 to-iris-500 shadow-[0_0_8px_rgba(74,146,155,0.8)] md:hidden" />}
-              </button>
-            ))}
+          {/* Tabs with icons, at the top: a row that scrolls sideways on phones, with a glowing bar sliding under the open tab. */}
+          <nav className="-mx-4 w-[calc(100%+2rem)] md:mx-auto md:w-auto" aria-label="Main">
+            <Slide thumb="tab-thumb" className="no-scrollbar edge-fade flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain px-2 md:snap-none md:gap-1 md:overflow-visible md:rounded-2xl md:border md:border-white/80 md:bg-white/50 md:p-1 md:shadow-[0_0_0_1px_rgb(var(--c-ink)/0.05),inset_0_1px_0_rgb(var(--c-shine)/var(--shine))]">
+              {TABS.map((t) => (
+                <button key={t} onClick={() => go(t)} aria-current={tab === t ? 'page' : undefined}
+                  className={`tap flex min-h-[54px] min-w-[66px] flex-1 shrink-0 snap-center flex-col items-center justify-center gap-0.5 rounded-xl px-2 pb-2 pt-1.5 text-[11px] font-semibold tracking-tight md:min-h-[38px] md:min-w-0 md:flex-none md:flex-row md:gap-1.5 md:px-3.5 md:py-1.5 md:text-sm ${tab === t ? 'text-teal-800' : 'text-stone-500 hover:text-stone-800'}`}>
+                  <span className={`text-[1.2rem] leading-none transition-transform duration-500 md:text-base ${tab === t ? '-translate-y-px scale-110 drop-shadow-[0_0_6px_rgb(var(--c-glow)/0.6)] md:translate-y-0 md:scale-100' : 'opacity-75 grayscale-[35%]'}`} aria-hidden="true">{TAB_ICON[t]}</span>
+                  <span className="whitespace-nowrap">{TAB_LABEL[t] ?? t}</span>
+                </button>
+              ))}
+            </Slide>
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 pb-16 pt-5" style={{ paddingBottom: 'max(4rem, env(safe-area-inset-bottom))' }}>
-        {tab === 'Guide' ? <Guide /> : !hasCode ? <AccessGate onDone={() => setHasCode(true)} /> : tab === 'Check' ? <Check /> : tab === 'Docs' ? <Docs /> : tab === 'Video' ? <Video sharedLink={videoLink} /> : tab === 'Lookup' ? <Lookup /> : tab === 'Saved' ? <Saved /> : tab === 'History' ? <History /> : <Settings />}
+      <main className="mx-auto max-w-7xl px-4 pb-16 pt-5" style={{ paddingBottom: 'max(4rem, calc(env(safe-area-inset-bottom) + 2rem))', paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
+        <div key={tab} className="page-in">
+          {tab === 'Guide' ? <Guide /> : !hasCode ? <AccessGate onDone={() => setHasCode(true)} /> : tab === 'Check' ? <Check /> : tab === 'Docs' ? <Docs /> : tab === 'Video' ? <Video sharedLink={videoLink} /> : tab === 'Lookup' ? <Lookup /> : tab === 'Saved' ? <Saved /> : tab === 'History' ? <History /> : <Settings />}
+        </div>
       </main>
     </div>
   );

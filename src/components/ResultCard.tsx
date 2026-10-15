@@ -6,9 +6,9 @@ import { BillStrip } from './bills';
 import { Fold, ScoreRing, toast } from './ui';
 
 const VERDICT_STYLE = {
-  safe: 'from-emerald-50/90 text-emerald-900 shadow-[0_0_0_1px_rgba(94,140,110,0.25),0_12px_30px_-14px_rgba(94,140,110,0.5)]',
-  suspicious: 'from-amber-50/90 text-amber-900 shadow-[0_0_0_1px_rgba(163,132,75,0.25),0_12px_30px_-14px_rgba(163,132,75,0.5)]',
-  scam: 'from-red-50/90 text-red-900 shadow-[0_0_0_1px_rgba(163,104,95,0.25),0_12px_30px_-14px_rgba(163,104,95,0.5)]',
+  safe: { cls: 'from-emerald-50/90 text-emerald-900', v: 'var(--c-emerald-600)' },
+  suspicious: { cls: 'from-amber-50/90 text-amber-900', v: 'var(--c-amber-600)' },
+  scam: { cls: 'from-red-50/90 text-red-900', v: 'var(--c-red-600)' },
 } as const;
 const SOURCE: Record<Source, { icon: string; name: string }> = {
   pattern: { icon: '🔎', name: 'Known scam patterns' },
@@ -40,10 +40,10 @@ export function ResultCard({ r, example = false, onChanged }: { r: CheckResult; 
           <p className="mt-1 break-words text-sm text-stone-600">{r.aiNote ?? r.summary}{r.kind === 'voicemail' ? '' : ' Paste the words of the message instead, so the free checks can read them.'}</p>
         </div>
       ) : (
-        <div className={`rise rounded-2xl bg-gradient-to-br to-white/70 p-4 backdrop-blur-xl ${VERDICT_STYLE[r.verdict]}`}>
+        <div className={`verdict-panel rise rounded-[1.25rem] bg-gradient-to-br to-white/70 p-4 backdrop-blur-xl sm:p-5 ${VERDICT_STYLE[r.verdict].cls}`} style={{ ['--v' as string]: VERDICT_STYLE[r.verdict].v }}>
           <div className="mb-3"><CheckedBy ai={r.ai} aiBy={r.aiBy} /></div>
-          <div className="flex items-center gap-3.5">
-            <ScoreRing score={r.score} verdict={r.verdict} muted={r.ai === 'pending'} />
+          <div className="flex items-center gap-4">
+            <ScoreRing score={r.score} verdict={r.verdict} size={76} muted={r.ai === 'pending'} />
             <div className="min-w-0">
               <p className="label !text-current opacity-70">{r.ai === 'pending' ? 'Free checks · AI coming' : 'Safety score'}</p>
               <p className="font-display text-2xl font-bold leading-tight"><span aria-hidden="true">{v.icon}</span> {v.text}</p>
@@ -159,7 +159,7 @@ export function BriefCard({ b }: { b: Brief }) {
           <ol className="mt-1 space-y-1.5">
             {b.steps.map((s, i) => (
               <li key={i} className="flex gap-2.5 text-sm text-stone-800">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-600 to-iris-600 font-mono text-xs font-semibold text-white shadow-[0_0_8px_rgba(74,146,155,0.5)]">{i + 1}</span>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-600 to-iris-600 font-mono text-xs font-semibold text-white shadow-[0_0_8px_rgb(var(--c-glow)/0.5)]">{i + 1}</span>
                 <span className="pt-0.5">{s}</span>
               </li>
             ))}

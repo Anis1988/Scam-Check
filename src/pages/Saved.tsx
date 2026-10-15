@@ -3,7 +3,7 @@ import { api } from '../lib/api';
 import { VERDICT_LABEL, type SavedItem, type Verdict } from '../lib/types';
 import { useStatus } from '../lib/useStatus';
 import { SavedCard } from '../components/SavedCard';
-import { Rail, Shell, toast } from '../components/ui';
+import { Empty, Rail, Shell, Skeleton, Slide, toast } from '../components/ui';
 import { Bills } from './Bills';
 
 type Filter = 'all' | Verdict | 'files';
@@ -12,12 +12,12 @@ type Filter = 'all' | Verdict | 'files';
 export function Saved() {
   const [view, setView] = useState<'saved' | 'bills'>(() => (window.location.pathname.startsWith('/bills') ? 'bills' : 'saved'));
   const tabs = (
-    <div className="flex gap-1 rounded-xl border border-stone-200/80 bg-white/50 p-1" role="tablist" aria-label="Saved or bills">
+    <Slide className="flex gap-1 rounded-2xl border border-stone-200/80 bg-white/50 p-1" role="tablist" aria-label="Saved or bills">
       {([['saved', '⭐ Saved checks'], ['bills', '📅 Bills']] as const).map(([id, name]) => (
         <button key={id} role="tab" aria-selected={view === id} onClick={() => setView(id)}
-          className={`min-h-[40px] flex-1 rounded-lg px-3 text-sm font-semibold transition ${view === id ? 'bg-white text-teal-800 shadow-[0_0_0_1px_rgba(74,146,155,0.35),0_0_12px_-3px_rgba(74,146,155,0.5)]' : 'text-stone-500 hover:text-stone-800'}`}>{name}</button>
+          className={`tap min-h-[44px] flex-1 rounded-xl px-3 text-sm font-semibold ${view === id ? 'text-teal-800' : 'text-stone-500 hover:text-stone-800'}`}>{name}</button>
       ))}
-    </div>
+    </Slide>
   );
   if (view === 'bills') return <Bills tabs={tabs} />;
   return <SavedChecks tabs={tabs} />;
@@ -69,7 +69,7 @@ function SavedChecks({ tabs }: { tabs: ReactNode }) {
     <div className={vertical ? 'flex flex-col gap-1' : '-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1'} role="radiogroup" aria-label="Show">
       {FILTERS.map((f) => (
         <button key={f.id} role="radio" aria-checked={filter === f.id} onClick={() => setFilter(f.id)}
-          className={`flex shrink-0 items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-sm font-semibold transition ${filter === f.id ? 'bg-white text-teal-800 shadow-[0_0_0_1px_rgba(74,146,155,0.35)]' : 'text-stone-600 hover:bg-white/70'} ${vertical ? '' : 'border border-stone-200/80 bg-white/50'}`}>
+          className={`flex shrink-0 items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-sm font-semibold transition ${filter === f.id ? 'bg-white text-teal-800 shadow-[0_0_0_1px_rgb(var(--c-glow)/0.35)]' : 'text-stone-600 hover:bg-white/70'} ${vertical ? '' : 'border border-stone-200/80 bg-white/50'}`}>
           <span className="whitespace-nowrap">{f.name}</span><span className="num text-xs text-stone-400">{count(f.id)}</span>
         </button>
       ))}
@@ -94,14 +94,14 @@ function SavedChecks({ tabs }: { tabs: ReactNode }) {
         <p className="text-sm text-stone-500">Each one is named with a number and what it is, like “1-Duke Energy”. Kept until you delete it.</p>
       </div>
       {err && <p className="card text-sm text-red-700">{err}</p>}
-      {!list && !err && <p className="text-stone-500"><span className="spinner" /> Loading…</p>}
+      {!list && !err && <div className="card space-y-3"><p className="text-sm text-stone-500"><span className="spinner" /> Loading…</p><Skeleton /></div>}
       {list && list.length > 0 && (
         <>
           <input className="input w-full" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search: a name, number, website, word in your note…" aria-label="Search saved checks" />
           <div className="xl:hidden">{chips(false)}</div>
         </>
       )}
-      {list && !list.length && <p className="card text-sm text-stone-600">Nothing saved yet. After a check, tap <b>⭐ Save this check</b>.</p>}
+      {list && !list.length && <Empty icon="⭐">Nothing saved yet. After a check, tap <b>⭐ Save this check</b>.</Empty>}
       {list && list.length > 0 && !shown.length && <p className="text-sm text-stone-500">Nothing matches.</p>}
       <div className="grid items-start gap-3 2xl:grid-cols-2">{shown.map((s) => <SavedCard key={`${s.id}${s.name ?? ''}`} s={s} onNote={(n, name) => note(s, n, name)} onDelete={() => void remove(s)} onChange={(next) => setList((l) => (l ?? []).map((x) => (x.id === next.id ? next : x)))} />)}</div>
     </Shell>

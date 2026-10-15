@@ -3,7 +3,7 @@ import { ResultCard } from '../components/ResultCard';
 import { SavedCard } from '../components/SavedCard';
 import { BillRow } from './Bills';
 import { RecheckBar } from '../components/Recheck';
-import { Fold, Rail, ScoreRing, Shell, VerdictChip } from '../components/ui';
+import { Empty, Fold, FoldBody, Rail, ScoreRing, Shell, Skeleton, Slide, VerdictChip } from '../components/ui';
 import type { Bill, CheckResult, CompanyInfo, DocResult, SavedItem, ScamNews, Verdict, VideoResult } from '../lib/types';
 import { DocCard } from './Docs';
 import { NewsList } from '../components/ScamNews';
@@ -123,7 +123,7 @@ const COMPANY: CompanyInfo = {
 
 const SECTIONS = [
   ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['voicemail', '🎙️ Voicemails and calls'], ['docs', '📄 Documents'], ['seo', '🌐 Website SEO'], ['news', '📰 Scams going around'], ['video', '🎬 Video: is it true?'], ['company', '🏢 Look up a company'], ['lookup', '⚡ Quick look-up'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
-  ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Which AI'], ['search', '🔎 Search History'], ['recheck', '↻ Re-check'], ['failed', '⚠️ When an AI fails'], ['look', '🌙 Dark mode'], ['sync', '🔄 Same on phone & computer'], ['tidy', '📂 Fold & 🗑 delete'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
+  ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Which AI'], ['search', '🔎 Search History'], ['recheck', '↻ Re-check'], ['failed', '⚠️ When an AI fails'], ['look', '🌙 Dark mode'], ['feel', '✨ Look and feel'], ['sync', '🔄 Same on phone & computer'], ['tidy', '📂 Fold & 🗑 delete'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
   ['share', 'Share from your phone'], ['iphone', '🍏 iPhone'], ['scam', 'If it’s a scam'], ['privacy', 'Privacy and cost'],
 ] as const;
 type Id = (typeof SECTIONS)[number][0];
@@ -131,12 +131,33 @@ type Id = (typeof SECTIONS)[number][0];
 function GuideSection({ id, open, onToggle, children }: { id: Id; open: boolean; onToggle: () => void; children: ReactNode }) {
   return (
     <section id={`g-${id}`} className="card scroll-mt-28">
-      <button className="flex w-full items-center justify-between gap-2 text-left" onClick={onToggle} aria-expanded={open}>
+      <button className="flex min-h-[40px] w-full items-center justify-between gap-2 text-left" onClick={onToggle} aria-expanded={open}>
         <h2 className="text-lg font-semibold">{SECTIONS.find((x) => x[0] === id)![1]}</h2>
-        <span className="text-stone-500" aria-hidden="true">{open ? '−' : '+'}</span>
+        <span className={`chev flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-stone-200/80 bg-white/60 text-xs text-stone-500 ${open ? 'rotate-180' : ''}`} aria-hidden="true">▾</span>
       </button>
-      {open && <div className="mt-3 space-y-3 text-sm text-stone-600">{children}</div>}
+      <FoldBody open={open} className="mt-3 space-y-3 text-sm text-stone-600">{children}</FoldBody>
     </section>
+  );
+}
+
+/** ✨ Look and feel example: a sliding choice (it only moves here), the "checking" shimmer and an empty page. */
+function FeelDemo() {
+  const [pick, setPick] = useState<'a' | 'b' | 'c'>('a');
+  return (
+    <div className="space-y-3">
+      <Slide className="grid grid-cols-3 gap-1.5" role="tablist" aria-label="Example choice">
+        {([['a', '📖 Read one'], ['b', '🔀 Compare'], ['c', '🌐 Website']] as const).map(([id, name]) => (
+          <button key={id} type="button" role="tab" aria-selected={pick === id} onClick={() => setPick(id)}
+            className={`tap min-h-[44px] rounded-xl border px-1 text-sm font-semibold ${pick === id ? 'border-transparent text-teal-900' : 'border-stone-200/80 bg-white/40 text-stone-600'}`}>{name}</button>
+        ))}
+      </Slide>
+      <div className="card space-y-3 text-sm text-teal-800"><p><span className="spinner" /> Checking…</p><Skeleton ring /></div>
+      <div className="card flex items-center gap-3">
+        <ScoreRing score={6} verdict="safe" size={52} />
+        <span className="min-w-0"><VerdictChip verdict="safe" /><span className="mt-0.5 block truncate text-sm font-medium text-stone-900">Duke Energy bill</span></span>
+      </div>
+      <Empty icon="⭐">Nothing saved yet. After a check, tap <b>⭐ Save this check</b>.</Empty>
+    </div>
   );
 }
 
@@ -148,7 +169,7 @@ export function Guide() {
 
   return (
     <Shell
-      left={<Rail title="Contents"><nav className="flex flex-col">{SECTIONS.map(([id, name]) => <button key={id} onClick={() => jump(id)} className="rounded-lg px-2 py-1.5 text-left text-sm font-semibold text-stone-600 hover:bg-white/80 hover:text-teal-800">{name}</button>)}</nav></Rail>}
+      left={<Rail title="Contents"><nav className="flex flex-col">{SECTIONS.map(([id, name]) => <button key={id} onClick={() => jump(id)} className="tap rounded-lg px-2 py-1.5 text-left text-sm font-semibold text-stone-600 hover:bg-white/80 hover:text-teal-800">{name}</button>)}</nav></Rail>}
       right={
         <Rail title="The three answers">
           <ul className="space-y-2 text-sm">
@@ -163,8 +184,8 @@ export function Guide() {
         <h1 className="text-2xl font-bold">Guide</h1>
         <p className="text-sm text-stone-500">How Scam Check works, in plain words.</p>
       </div>
-      <div className="xl:hidden -mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1">
-        {SECTIONS.map(([id, name]) => <button key={id} onClick={() => jump(id)} className="shrink-0 whitespace-nowrap rounded-lg border border-stone-200/80 bg-white/50 px-2.5 py-1.5 text-xs font-semibold text-stone-600">{name}</button>)}
+      <div className="no-scrollbar xl:hidden -mx-4 flex gap-1.5 overflow-x-auto px-4 py-1">
+        {SECTIONS.map(([id, name]) => <button key={id} onClick={() => jump(id)} className="tap min-h-[36px] shrink-0 whitespace-nowrap rounded-full border border-stone-200/80 bg-white/50 px-3 py-1.5 text-xs font-semibold text-stone-600">{name}</button>)}
       </div>
 
       <Section id="how">
@@ -399,6 +420,14 @@ export function Guide() {
             </div>
           ))}
         </div>
+      </Section>
+
+      <Section id="feel">
+        <p>The app is made to feel smooth on a phone. The <b>tabs at the top</b> slide sideways if they don’t all fit, and a glowing bar slides under the one you’re on. Every button <b>sinks a little and glows</b> when you tap it, then springs back. Choices like <b>📖 Read one / 🔀 Compare</b> have a glass marker that slides to the one you pick, and folds open and close gently.</p>
+        <p>While something is being checked you see <b>shimmering grey lines</b> where the answer will appear. An empty page shows a small glowing circle with what to do next. Each answer always says <b>✅ Looks safe</b>, <b>⚠️ Suspicious</b> or <b>🚨 Likely scam</b> in words, next to its colour and score ring.</p>
+        <p>If your phone is set to <b>reduce motion</b>, all of this movement stops; everything still works the same.</p>
+        <p className="text-xs text-stone-500">Examples (made up; the choices only move the marker here):</p>
+        <FeelDemo />
       </Section>
 
       <Section id="sync">

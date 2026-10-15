@@ -61,7 +61,7 @@ export function ModelMenu({ label, onPick, cannot, need, tried, example = false,
         <>
           <button className="fixed inset-0 z-[60] cursor-default" aria-label="Close" tabIndex={-1} onClick={() => setOpen(false)} />
           <ul ref={menu} role="menu" aria-label="Pick a model" style={{ left: pos.left, width: pos.width, top: pos.top, bottom: pos.bottom, maxHeight: Math.max(160, pos.max) }}
-            className="rise fixed z-[61] overflow-auto overscroll-contain rounded-xl border border-white bg-white/95 p-1 shadow-[0_0_0_1px_rgba(31,66,71,0.08),0_16px_40px_-12px_rgba(31,66,71,0.35)] backdrop-blur-xl">
+            className="rise fixed z-[61] overflow-auto overscroll-contain rounded-xl border border-white bg-white/95 p-1 shadow-[0_0_0_1px_rgb(var(--c-ink)/0.08),0_16px_40px_-12px_rgb(var(--c-ink)/0.35)] backdrop-blur-xl">
             {options.map((o, i) => {
               const u = st?.providers?.[o.provider];
               const ok = st ? !!u?.ready : true;

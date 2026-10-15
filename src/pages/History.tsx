@@ -8,7 +8,7 @@ import { SaveBox } from '../components/SaveBox';
 import { RecheckBar, needOf, stuck } from '../components/Recheck';
 import { getInput } from '../lib/inputs';
 import { refreshStatus } from '../lib/useStatus';
-import { toast } from '../components/ui';
+import { toast, Slide, Empty } from '../components/ui';
 import type { CheckInput } from '../lib/api';
 import { Rail, ScoreRing, Shell, VerdictChip } from '../components/ui';
 
@@ -118,28 +118,28 @@ export function History() {
         </div>
         {list.length > 0 && <button className="btn" onClick={() => window.confirm(`Delete all ${list.length} checks? They’re removed from all your devices. ⭐ Saved checks stay.`) && void deleteAllChecks().then(() => toast('success', 'All deleted.'), () => undefined)}>🗑 Delete all</button>}
       </div>
-      {!list.length && <p className="card text-sm text-stone-600">Nothing checked yet. Your checks will show here.</p>}
+      {!list.length && <Empty icon="🕘">Nothing checked yet. Your checks will show here.</Empty>}
       {list.length > 0 && (
         <div className="card space-y-2">
           <input className="input w-full" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔎 Search a word, company or number" aria-label="Search History" />
-          <div className="-mx-1 flex flex-wrap gap-1.5">
+          <Slide className="-mx-1 flex flex-wrap gap-1.5">
             {VERDICT_FILTERS.map(([id, name]) => (
               <button key={id} type="button" aria-pressed={verdict === id} onClick={() => setVerdict(id)}
-                className={`chip min-h-[32px] px-2.5 ${verdict === id ? 'border-teal-500/70 bg-white text-teal-900 shadow-[0_0_0_2px_rgba(74,146,155,0.15)]' : 'border-stone-200 bg-white/60 text-stone-600'}`}>{name}</button>
+                className={`chip tap min-h-[36px] px-3 ${verdict === id ? 'border-transparent !shadow-none text-teal-900' : 'border-stone-200 bg-white/60 text-stone-600'}`}>{name}</button>
             ))}
-            <select className="chip min-h-[32px] border-stone-200 bg-white/60 px-2 text-stone-700" value={kind} onChange={(e) => setKind(e.target.value as Kind | '')} aria-label="Kind">
+            <select className="chip relative z-[1] min-h-[36px] border-stone-200 bg-white/60 px-2 text-stone-700" value={kind} onChange={(e) => setKind(e.target.value as Kind | '')} aria-label="Kind">
               <option value="">All kinds</option>
               {(Object.keys(KIND_LABEL) as Kind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k].icon} {KIND_LABEL[k].text}</option>)}
             </select>
-          </div>
+          </Slide>
           {(q || verdict || kind) && <p className="hud !text-[10px]">{shown.length} of {list.length} · <button className="underline" onClick={() => (setQ(''), setVerdict(''), setKind(''))}>show all</button></p>}
         </div>
       )}
-      {list.length > 0 && !shown.length && <p className="card text-sm text-stone-600">Nothing matches. Try another word, or show all.</p>}
+      {list.length > 0 && !shown.length && <Empty icon="🔎">Nothing matches. Try another word, or show all.</Empty>}
       <ul className="space-y-2">
         {shown.map((r) => (
           <li key={r.id} className="flex items-stretch gap-2">
-            <button className="card flex min-w-0 flex-1 items-center gap-3 text-left transition hover:shadow-[0_0_0_1px_rgba(74,146,155,0.35),0_10px_30px_-12px_rgba(74,146,155,0.45)]" onClick={() => open(r)}>
+            <button className="card flex min-w-0 flex-1 items-center gap-3 text-left hover:shadow-[0_0_0_1px_rgb(var(--c-glow)/0.35),0_10px_30px_-12px_rgb(var(--c-glow)/0.45)]" onClick={() => open(r)}>
               {r.unchecked ? <span className="flex h-11 w-11 shrink-0 items-center justify-center text-2xl" aria-hidden="true">{KIND_LABEL[r.kind].icon}</span> : <ScoreRing score={r.score} verdict={r.verdict} size={44} muted={r.ai === "pending"} />}
               <span className="min-w-0 flex-1">
                 {r.ai === 'pending' ? <span className="chip border-teal-200 bg-teal-50 text-teal-800"><span className="spinner" /> AI checking…</span> : <VerdictChip verdict={r.verdict} unchecked={r.unchecked} />}

@@ -6,7 +6,7 @@ import { providerOf, type CheckResult, type CompanyInfo, type ModelChoice } from
 import { ModelMenu, needsSearch } from '../components/ModelMenu';
 import { refreshStatus, useStatus } from '../lib/useStatus';
 import { CheckedBy, ResultCard } from '../components/ResultCard';
-import { Rail, Shell, toast } from '../components/ui';
+import { Rail, Shell, Skeleton, toast } from '../components/ui';
 
 const DOT = { bad: 'text-red-600', warn: 'text-amber-600', good: 'text-emerald-600', info: 'text-stone-400' } as const;
 const RECENT = 'sc.companies';
@@ -179,7 +179,7 @@ export function Lookup() {
           </span>
         ))}</div>}
       </form>
-      {busy && <p className="card scan text-sm text-teal-800"><span className="spinner" /> Searching the web…</p>}
+      {busy && <div className="card scan space-y-3 text-sm text-teal-800"><p><span className="spinner" /> Searching the web…</p><Skeleton lines={4} /></div>}
       {failed && !busy && (
         <div className="card space-y-2">
           <p className="break-words text-sm text-amber-800">{failed.error}</p>
