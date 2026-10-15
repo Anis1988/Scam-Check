@@ -2,8 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-/* "Light futuristic": a misty cool page with a faint grid and soft cyan/violet light, frosted-glass panels with a thin
-   glowing top edge, mono "HUD" labels, a score ring and a scanning line while checking. Muted colours throughout.
+/* "Light futuristic 2.0": a misty cool page with a faint grid over slow, soft cyan/violet light beams, frosted-glass
+   panels with a subtle shine and a thin glowing top edge, mono "HUD" labels, score rings and a scanning line while
+   checking. Muted colours throughout. Every tap sinks, glows softly and springs back. Motion = transform/opacity only,
+   and it all stops under prefers-reduced-motion.
    Verdict colours are fixed: green = looks safe, amber = suspicious, red = likely scam (always with an icon and words). */
 @layer base {
   /* The palette (tailwind.config.js reads these). 🌙 Dark: the same muted colours, light and dark swapped. */
@@ -16,6 +18,12 @@
     --c-emerald-50: 239 245 241; --c-emerald-200: 207 225 212; --c-emerald-500: 118 164 134; --c-emerald-600: 94 140 110; --c-emerald-700: 77 118 91; --c-emerald-800: 63 96 74; --c-emerald-900: 49 75 58;
     --c-amber-50: 248 244 234; --c-amber-200: 231 218 185; --c-amber-400: 205 175 111; --c-amber-600: 163 132 75; --c-amber-700: 135 109 61; --c-amber-800: 108 87 50; --c-amber-900: 84 68 40;
     --c-red-50: 247 239 238; --c-red-200: 230 208 204; --c-red-500: 188 127 118; --c-red-600: 163 104 95; --c-red-700: 138 86 78; --c-red-800: 112 70 64; --c-red-900: 88 56 51;
+    /* Effects: glow (cyan), glow2 (violet), ink (shadows), shine (the glass highlight), grid lines, beams. */
+    --c-glow: 74 146 155; --c-glow2: 130 123 192; --c-ink: 31 66 71; --c-shine: 255 255 255; --shine: 0.55;
+    --c-grid: 49 106 114; --grid: 0.05; --beam: 0.16;
+    /* The main button: the same deep teal → violet in both looks, with white words. */
+    --c-accent-1: 59 126 135; --c-accent-2: 49 106 114; --c-accent-3: 108 101 169; --c-on-accent: 255 255 255;
+    --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   }
   .dark {
     color-scheme: dark;
@@ -27,47 +35,63 @@
     --c-emerald-50: 19 36 26; --c-emerald-200: 40 66 49; --c-emerald-500: 118 164 134; --c-emerald-600: 141 185 156; --c-emerald-700: 158 197 171; --c-emerald-800: 180 212 190; --c-emerald-900: 207 227 213;
     --c-amber-50: 42 35 21; --c-amber-200: 75 62 35; --c-amber-400: 205 175 111; --c-amber-600: 202 168 104; --c-amber-700: 213 186 128; --c-amber-800: 225 204 154; --c-amber-900: 235 221 187;
     --c-red-50: 44 27 25; --c-red-200: 79 48 44; --c-red-500: 196 135 126; --c-red-600: 204 148 139; --c-red-700: 214 164 156; --c-red-800: 226 185 178; --c-red-900: 235 211 207;
+    --c-glow: 106 176 184; --c-glow2: 150 144 208; --c-ink: 0 0 0; --c-shine: 255 255 255; --shine: 0.06;
+    --c-grid: 130 193 200; --grid: 0.055; --beam: 0.22;
   }
-  html { -webkit-tap-highlight-color: transparent; color-scheme: light; }
+  html { -webkit-tap-highlight-color: transparent; color-scheme: light; text-size-adjust: 100%; }
   html.text-large { font-size: 112.5%; }
   body {
     @apply min-h-screen bg-mist font-sans text-stone-800 antialiased;
     overflow-x: hidden;
-    background-image:
-      radial-gradient(52rem 30rem at 105% -8%, rgba(74, 146, 155, 0.13), transparent 62%),
-      radial-gradient(44rem 28rem at -8% 4%, rgba(130, 123, 192, 0.11), transparent 62%),
-      linear-gradient(rgba(49, 106, 114, 0.045) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(49, 106, 114, 0.045) 1px, transparent 1px);
-    background-size: auto, auto, 32px 32px, 32px 32px;
-    background-attachment: fixed;
+    font-feature-settings: 'cv11', 'ss01';
   }
-  /* 🌙 A deep night-teal page: the same grid and cyan/violet light, a bit brighter so it glows. */
-  html.dark body {
-    background-image:
-      radial-gradient(52rem 30rem at 105% -8%, rgba(74, 146, 155, 0.2), transparent 62%),
-      radial-gradient(44rem 28rem at -8% 4%, rgba(130, 123, 192, 0.16), transparent 62%),
-      linear-gradient(rgba(130, 193, 200, 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(130, 193, 200, 0.05) 1px, transparent 1px);
-  }
-  h1, h2, h3 { @apply font-display tracking-tight text-stone-900; }
-  ::selection { background: rgba(74, 146, 155, 0.2); }
+  h1, h2, h3 { @apply font-display tracking-tight text-stone-900; text-wrap: balance; }
+  h1 { letter-spacing: -0.02em; }
+  ::selection { background: rgb(var(--c-glow) / 0.2); }
+  :focus-visible { outline: 2px solid rgb(var(--c-teal-500)); outline-offset: 2px; }
+  /* Every button sinks a little when pressed and springs back. */
+  button { transition: transform 0.45s var(--spring), opacity 0.2s ease; }
+  button:not(:disabled):active { transform: scale(0.97); transition-duration: 0.08s; }
 }
 
+/* The page behind everything: soft light beams drifting slowly under a misty grid (fixed, never scrolls). */
+.backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.beam { position: absolute; border-radius: 9999px; will-change: transform; }
+.beam-a { width: 70rem; height: 40rem; right: -30rem; top: -18rem; opacity: var(--beam);
+  background: radial-gradient(closest-side, rgb(var(--c-glow)), transparent); animation: drift-a 26s ease-in-out infinite alternate; }
+.beam-b { width: 60rem; height: 38rem; left: -28rem; top: -6rem; opacity: calc(var(--beam) * 0.85);
+  background: radial-gradient(closest-side, rgb(var(--c-glow2)), transparent); animation: drift-b 32s ease-in-out infinite alternate; }
+.beam-c { width: 46rem; height: 30rem; left: 20%; bottom: -22rem; opacity: calc(var(--beam) * 0.6);
+  background: radial-gradient(closest-side, rgb(var(--c-glow)), transparent); animation: drift-a 38s ease-in-out infinite alternate-reverse; }
+/* A thin diagonal light beam sweeping very slowly. */
+.beam-ray { position: absolute; left: -50%; top: -10%; width: 200%; height: 9rem; opacity: calc(var(--beam) * 0.9); will-change: transform;
+  background: linear-gradient(180deg, transparent, rgb(var(--c-glow) / 0.5) 45%, rgb(var(--c-glow2) / 0.45) 55%, transparent);
+  transform: rotate(-14deg); animation: ray 22s ease-in-out infinite alternate; }
+.grid-lines { position: absolute; inset: 0;
+  background-image: linear-gradient(rgb(var(--c-grid) / var(--grid)) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--c-grid) / var(--grid)) 1px, transparent 1px);
+  background-size: 32px 32px;
+  -webkit-mask-image: radial-gradient(120% 85% at 50% 0%, #000 40%, transparent 100%);
+  mask-image: radial-gradient(120% 85% at 50% 0%, #000 40%, transparent 100%); }
+@keyframes drift-a { to { transform: translate3d(-8rem, 6rem, 0) scale(1.12); } }
+@keyframes drift-b { to { transform: translate3d(9rem, 4rem, 0) scale(0.92); } }
+@keyframes ray { from { transform: translate3d(0, 0, 0) rotate(-14deg); } to { transform: translate3d(0, 55vh, 0) rotate(-9deg); } }
+
 @layer components {
-  /* Frosted glass panel with a thin cyan→violet light along the top edge. */
+  /* Frosted glass panel with a subtle shine and a thin cyan→violet light along the top edge. */
   .card {
-    @apply relative rounded-2xl border border-white/80 bg-white/70 p-4 backdrop-blur-xl;
-    box-shadow: 0 0 0 1px rgba(31, 66, 71, 0.06), 0 10px 30px -12px rgba(31, 66, 71, 0.18);
+    @apply relative rounded-[1.25rem] border border-white/80 bg-white/70 p-4 backdrop-blur-xl sm:p-5;
+    background-image: linear-gradient(155deg, rgb(var(--c-shine) / var(--shine)), rgb(var(--c-shine) / 0) 42%);
+    box-shadow: inset 0 1px 0 rgb(var(--c-shine) / calc(var(--shine) * 1.2)), 0 0 0 1px rgb(var(--c-ink) / 0.06), 0 1px 2px rgb(var(--c-ink) / 0.05), 0 14px 34px -16px rgb(var(--c-ink) / 0.22);
   }
   .card::before {
     content: ''; position: absolute; left: 1.25rem; right: 1.25rem; top: -1px; height: 1px; pointer-events: none;
-    background: linear-gradient(90deg, transparent, rgba(74, 146, 155, 0.55), rgba(130, 123, 192, 0.55), transparent);
+    background: linear-gradient(90deg, transparent, rgb(var(--c-teal-500) / 0.6), rgb(var(--c-iris-500) / 0.6), transparent);
   }
   .dark .card:not(.light .card) {
-    border-color: rgba(130, 193, 200, 0.14);
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 12px 32px -12px rgba(0, 0, 0, 0.6), 0 0 24px -12px rgba(74, 146, 155, 0.25);
+    border-color: rgb(var(--c-teal-700) / 0.14);
+    box-shadow: inset 0 1px 0 rgb(var(--c-shine) / 0.05), 0 0 0 1px rgb(0 0 0 / 0.3), 0 14px 34px -14px rgb(0 0 0 / 0.65), 0 0 26px -12px rgb(var(--c-glow) / 0.28);
   }
-  .dark .card:not(.light .card)::before { background: linear-gradient(90deg, transparent, rgba(106, 176, 184, 0.8), rgba(150, 144, 208, 0.8), transparent); }
+  .dark .card:not(.light .card)::before { background: linear-gradient(90deg, transparent, rgb(var(--c-teal-600) / 0.85), rgb(var(--c-iris-500) / 0.85), transparent); }
   .panel { @apply rounded-xl border border-stone-200/80 bg-white/60 p-3; }
   .num { @apply font-mono tabular-nums; }
   .label { @apply font-mono text-[10.5px] font-semibold uppercase tracking-[0.18em] text-teal-700/80; }
@@ -75,47 +99,126 @@
   .hud { @apply font-mono text-[11px] uppercase tracking-[0.14em] text-stone-500; }
 
   /* >=44px tap targets and 16px inputs on phones (16px stops iOS zooming into fields) */
-  .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-stone-300/80 bg-white/75 px-4 py-2 text-sm font-semibold text-stone-800 backdrop-blur transition hover:border-teal-500/60 hover:shadow-[0_0_0_3px_rgba(74,146,155,0.12)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40; }
+  .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-stone-300/80 bg-white/75 px-4 py-2 text-sm font-semibold text-stone-800 backdrop-blur hover:border-teal-500/60 disabled:pointer-events-none disabled:opacity-40;
+    box-shadow: inset 0 1px 0 rgb(var(--c-shine) / var(--shine)), 0 1px 2px rgb(var(--c-ink) / 0.06); }
   .btn-primary {
-    @apply inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-display text-base font-semibold tracking-wide transition active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40;
-    color: #fff; /* white in both modes (the palette's "white" turns dark in 🌙) */
-    background: linear-gradient(120deg, #3B7E87, #316A72 45%, #6C65A9);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25) inset, 0 8px 22px -8px rgba(49, 106, 114, 0.55), 0 0 18px -6px rgba(108, 101, 169, 0.45);
+    @apply inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-display text-base font-semibold tracking-wide disabled:pointer-events-none disabled:opacity-40;
+    color: rgb(var(--c-on-accent)); /* white in both modes (the palette's "white" turns dark in 🌙) */
+    background: linear-gradient(120deg, rgb(var(--c-accent-1)), rgb(var(--c-accent-2)) 45%, rgb(var(--c-accent-3)));
+    box-shadow: 0 0 0 1px rgb(var(--c-on-accent) / 0.25) inset, 0 1px 0 rgb(var(--c-on-accent) / 0.3) inset, 0 8px 22px -8px rgb(var(--c-accent-2) / 0.6), 0 0 18px -6px rgb(var(--c-accent-3) / 0.5);
   }
-  .btn-primary:hover { filter: brightness(1.06); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3) inset, 0 10px 26px -8px rgba(49, 106, 114, 0.6), 0 0 24px -4px rgba(108, 101, 169, 0.5); }
-  .btn-ghost { @apply inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-teal-700 hover:bg-teal-50 active:scale-95; }
-  .input { @apply min-h-[48px] min-w-0 max-w-full rounded-xl border border-stone-300/80 bg-white/80 px-4 py-2.5 text-base text-stone-900 caret-teal-600 placeholder:text-stone-400 focus:border-teal-500 focus:outline-none focus:ring-4 focus:ring-teal-500/15 disabled:opacity-60; }
-  .chip { @apply inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold; }
-  .toggle { @apply relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border border-stone-300 bg-stone-200 transition; }
-  .toggle[aria-checked='true'] { @apply border-teal-600; background: linear-gradient(120deg, #3B7E87, #6C65A9); box-shadow: 0 0 12px -2px rgba(74, 146, 155, 0.55); }
-  .toggle > span { @apply inline-block h-5 w-5 translate-x-1 rounded-full bg-white shadow transition; }
+  .btn-primary:hover { filter: brightness(1.06); }
+  .btn-ghost { @apply inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-teal-700 hover:bg-teal-50; }
+  /* Tap feedback: sink, a soft glow, then spring back (transform + opacity only). Built into the buttons; add .tap elsewhere. */
+  .btn, .btn-primary, .btn-ghost, .tap, button.card { position: relative; transition: transform 0.5s var(--spring), opacity 0.2s ease; -webkit-user-select: none; user-select: none; }
+  .btn::after, .btn-primary::after, .btn-ghost::after, .tap::after, button.card::after {
+    content: ''; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity 0.55s ease;
+    box-shadow: 0 0 0 3px rgb(var(--c-glow) / 0.2), 0 0 22px 2px rgb(var(--c-glow) / 0.35);
+  }
+  .btn:not(:disabled):active, .btn-primary:not(:disabled):active, .btn-ghost:active, .tap:active, button.card:not(:disabled):active { transform: scale(0.96); transition-duration: 0.09s; }
+  .btn:active::after, .btn-primary:active::after, .btn-ghost:active::after, .tap:active::after, button.card:active::after { opacity: 1; transition-duration: 0.05s; }
+  .input { @apply min-h-[48px] min-w-0 max-w-full rounded-xl border border-stone-300/80 bg-white/80 px-4 py-2.5 text-base text-stone-900 caret-teal-600 placeholder:text-stone-400 focus:border-teal-500 focus:outline-none focus:ring-4 focus:ring-teal-500/15 disabled:opacity-60;
+    box-shadow: inset 0 1px 2px rgb(var(--c-ink) / 0.05); }
+  .chip { @apply inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold;
+    box-shadow: inset 0 1px 0 rgb(var(--c-shine) / calc(var(--shine) * 0.8)); }
+  /* The switch: the thumb springs across, the colour fades in. */
+  .toggle { @apply relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center overflow-hidden rounded-full border border-stone-300 bg-stone-200; }
+  .toggle::before { content: ''; position: absolute; inset: 0; border-radius: inherit; opacity: 0; transition: opacity 0.3s ease;
+    background: linear-gradient(120deg, rgb(var(--c-accent-1)), rgb(var(--c-accent-3))); }
+  .toggle[aria-checked='true'] { @apply border-teal-600; box-shadow: 0 0 12px -2px rgb(var(--c-glow) / 0.55); }
+  .toggle[aria-checked='true']::before { opacity: 1; }
+  .toggle > span { @apply relative inline-block h-5 w-5 translate-x-1 rounded-full shadow; background: rgb(var(--c-on-accent)); transition: transform 0.45s var(--spring); }
   .toggle[aria-checked='true'] > span { @apply translate-x-6; }
-  .dark .toggle > span { background: #E6EDF0; }
+  .dark .toggle > span { background: rgb(var(--c-stone-900)); }
   /* The dashed drop area (pictures, PDFs). */
-  .dropzone { @apply relative flex w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl border-2 border-dashed border-teal-400/50 bg-teal-50/40 px-4 py-6 text-center transition; }
-  .dropzone:hover, .dropzone[data-over='true'] { @apply border-teal-500 bg-teal-50/80; box-shadow: 0 0 0 4px rgba(74, 146, 155, 0.12), 0 0 30px -8px rgba(74, 146, 155, 0.5) inset; }
+  .dropzone { @apply relative flex w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl border-2 border-dashed border-teal-400/50 bg-teal-50/40 px-4 py-6 text-center; }
+  .dropzone:hover, .dropzone[data-over='true'] { @apply border-teal-500 bg-teal-50/80; box-shadow: 0 0 0 4px rgb(var(--c-glow) / 0.12), 0 0 30px -8px rgb(var(--c-glow) / 0.5) inset; }
+
+  /* Sliding segmented controls: one glass "thumb" glides under the picked choice (see Slide in ui.tsx). */
+  .slide { position: relative; isolation: isolate; }
+  .slide > button { position: relative; z-index: 1; }
+  .slide-thumb {
+    position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; border-radius: 0.75rem;
+    width: var(--w, 0); height: var(--h, 0); transform: translate3d(var(--x, 0), var(--y, 0), 0); opacity: var(--o, 0);
+    transition: transform 0.5s var(--spring), opacity 0.2s ease;
+    background-color: rgb(var(--c-white));
+    background-image: linear-gradient(160deg, rgb(var(--c-shine) / var(--shine)), transparent 60%);
+    box-shadow: 0 0 0 1px rgb(var(--c-teal-500) / 0.55), 0 0 0 4px rgb(var(--c-glow) / 0.1), 0 6px 18px -6px rgb(var(--c-glow) / 0.55);
+  }
+  .slide-thumb[data-still] { transition: none; }
+  /* The top tabs on phones: a glowing bar slides under the open tab. From md: a glass pill. */
+  .tab-thumb {
+    position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; opacity: var(--o, 0);
+    width: var(--w, 0); height: 3px; transform: translate3d(var(--x, 0), calc(var(--y, 0px) + var(--h, 0px) - 3px), 0);
+    transition: transform 0.5s var(--spring), opacity 0.2s ease;
+  }
+  .tab-thumb::before { content: ''; position: absolute; inset: 0 14px; border-radius: 9999px;
+    background: linear-gradient(90deg, rgb(var(--c-teal-500)), rgb(var(--c-iris-500))); box-shadow: 0 0 10px rgb(var(--c-glow) / 0.9); }
+  .tab-thumb[data-still] { transition: none; }
+  @media (min-width: 768px) {
+    .tab-thumb { height: var(--h, 0); transform: translate3d(var(--x, 0), var(--y, 0), 0); border-radius: 0.75rem;
+      background-color: rgb(var(--c-white)); box-shadow: 0 0 0 1px rgb(var(--c-glow) / 0.25), 0 4px 14px -4px rgb(var(--c-glow) / 0.45); }
+    .tab-thumb::before { display: none; }
+  }
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  /* Soft fade at the edges of the scrolling tab row. */
+  .edge-fade { -webkit-mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 22px), transparent); }
+  @media (min-width: 768px) { .edge-fade { -webkit-mask-image: none; mask-image: none; } }
+
+  /* The big verdict panel: tinted glass in the verdict colour (--v), a glowing top edge and a slow breathing light. */
+  .verdict-panel {
+    position: relative; isolation: isolate; overflow: hidden;
+    box-shadow: inset 0 1px 0 rgb(var(--c-shine) / var(--shine)), 0 0 0 1px rgb(var(--v) / 0.28), 0 16px 36px -18px rgb(var(--v) / 0.6);
+  }
+  .verdict-panel::before { content: ''; position: absolute; left: 1rem; right: 1rem; top: 0; height: 2px; border-radius: 9999px;
+    background: linear-gradient(90deg, transparent, rgb(var(--v)), transparent); opacity: 0.8; }
+  .verdict-panel::after { content: ''; position: absolute; z-index: -1; width: 16rem; height: 16rem; left: -5rem; top: -6rem; border-radius: 9999px;
+    background: radial-gradient(closest-side, rgb(var(--v) / 0.28), transparent); animation: breathe 5s ease-in-out infinite; }
+
+  /* Skeleton lines with a shimmer while something is being checked. */
+  .skel { position: relative; overflow: hidden; border-radius: 9999px; background: rgb(var(--c-stone-300) / 0.45); height: 0.7rem; }
+  .skel::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgb(var(--c-shine) / calc(var(--shine) + 0.12)), transparent); animation: shimmer 1.5s ease-in-out infinite; }
+  /* Empty states: a glowing glass orb with an icon. */
+  .orb { @apply relative mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-white/80 bg-white/70 text-3xl;
+    box-shadow: inset 0 1px 0 rgb(var(--c-shine) / var(--shine)), 0 0 0 6px rgb(var(--c-glow) / 0.06), 0 0 30px -6px rgb(var(--c-glow) / 0.55); }
+  .orb::after { content: ''; position: absolute; inset: -10px; border-radius: 9999px; border: 1px dashed rgb(var(--c-teal-500) / 0.35); animation: spin 24s linear infinite; }
 }
 
 @keyframes toast-in { from { opacity: 0; transform: translateY(-12px) scale(0.97); } to { opacity: 1; transform: none; } }
-.toast-in { animation: toast-in 0.18s ease-out; }
+.toast-in { animation: toast-in 0.32s var(--spring); }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-.rise { animation: rise 0.28s ease-out both; }
+.rise { animation: rise 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+/* A new tab slides in gently. */
+@keyframes page-in { from { opacity: 0; transform: translateY(10px) scale(0.995); } to { opacity: 1; transform: none; } }
+.page-in { animation: page-in 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+/* Folds open and close smoothly. */
+@keyframes fold-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes fold-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-6px); } }
+.fold-in { animation: fold-in 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) both; transform-origin: top; }
+.fold-out { animation: fold-out 0.18s ease-in both; transform-origin: top; }
+.chev { transition: transform 0.4s var(--spring); }
 .spinner { width: 1em; height: 1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; vertical-align: -0.125em; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes shimmer { to { transform: translateX(100%); } }
+@keyframes breathe { 50% { opacity: 0.55; transform: scale(1.12); } }
 /* A light line sweeping down a picture while it is being checked. */
 .scan { position: relative; overflow: hidden; }
 .scan::after {
-  content: ''; position: absolute; inset-inline: 0; top: -30%; height: 30%; pointer-events: none;
-  background: linear-gradient(180deg, transparent, rgba(102, 169, 177, 0.35) 70%, rgba(156, 150, 210, 0.9) 98%, transparent);
+  content: ''; position: absolute; inset-inline: 0; top: 0; height: 30%; pointer-events: none; transform: translateY(-100%);
+  background: linear-gradient(180deg, transparent, rgb(var(--c-teal-400) / 0.35) 70%, rgb(var(--c-iris-400) / 0.9) 98%, transparent);
   animation: scan 1.6s ease-in-out infinite;
 }
-@keyframes scan { to { top: 100%; } }
+@keyframes scan { to { transform: translateY(340%); } }
 /* The score ring fills in once. */
 @keyframes ring { from { stroke-dashoffset: var(--full); } }
 .ring-fill { animation: ring 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 @keyframes glow { 50% { opacity: 0.55; } }
 .pulse-glow { animation: glow 2.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .spinner, .toast-in, .rise, .ring-fill, .pulse-glow { animation: none; }
-  .scan::after { animation: none; top: 0; height: 100%; opacity: 0.25; }
+  *, *::before, *::after { transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+  .spinner, .toast-in, .rise, .page-in, .fold-in, .fold-out, .ring-fill, .pulse-glow, .beam, .beam-ray, .orb::after, .verdict-panel::after, .skel::after { animation: none !important; }
+  .scan::after { animation: none; transform: none; height: 100%; opacity: 0.25; }
+  button:not(:disabled):active, .tap:active { transform: none !important; }
 }

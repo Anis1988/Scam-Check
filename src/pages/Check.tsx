@@ -12,7 +12,7 @@ import { RecheckBar, needOf, stuck } from '../components/Recheck';
 import { ModelMenu } from '../components/ModelMenu';
 import { ScamNewsFold } from '../components/ScamNews';
 import { SaveBox } from '../components/SaveBox';
-import { Rail, ScoreRing, Shell, VerdictChip, toast } from '../components/ui';
+import { Rail, ScoreRing, Shell, VerdictChip, toast, Slide, Skeleton, Empty } from '../components/ui';
 import { dueText } from '../components/bills';
 
 // No typing on Check (owner's choice): pictures, PDFs, email files and QR codes. Texts shared from other apps still work.
@@ -307,7 +307,7 @@ export function Check() {
           <ul className="space-y-1">
             {recent.map((r) => (
               <li key={r.id} className="flex items-start gap-1">
-                <button className="min-w-0 flex-1 rounded-lg px-1.5 py-1.5 text-left transition hover:bg-white/80" onClick={() => reopen(r)}>
+                <button className="tap min-w-0 flex-1 rounded-lg px-1.5 py-1.5 text-left hover:bg-white/80" onClick={() => reopen(r)}>
                   <VerdictChip verdict={r.verdict} unchecked={r.unchecked} />
                   <span className="mt-0.5 block truncate text-xs text-stone-700">{r.title || r.preview || KIND_LABEL[r.kind].text}</span>
                 </button>
@@ -341,18 +341,18 @@ export function Check() {
             <h1 className="text-2xl font-bold">Is it a scam?</h1>
             <p className="text-sm text-stone-500">Add screenshots, photos or PDFs of bills, a voicemail, an email file or a QR code. Each one gets ✅ Looks safe, ⚠️ Suspicious or 🚨 Likely scam, with the reasons.</p>
           </div>
-          <div className="grid grid-cols-5 gap-1.5" role="tablist" aria-label="What are you checking?">
+          <Slide className="grid grid-cols-5 gap-1.5" role="tablist" aria-label="What are you checking?">
             {KINDS.map((k) => (
               <button key={k} role="tab" aria-selected={kind === k} onClick={() => setKind(k)}
-                className={`flex min-w-0 flex-col items-center gap-1 rounded-xl border px-0 py-2.5 text-[10.5px] font-semibold leading-tight transition sm:text-xs ${kind === k ? 'border-teal-500/70 bg-white text-teal-900 shadow-[0_0_0_3px_rgba(74,146,155,0.12),0_0_16px_-4px_rgba(74,146,155,0.5)]' : 'border-stone-200/80 bg-white/50 text-stone-600 hover:bg-white/80'}`}>
-                <span className="text-lg" aria-hidden="true">{KIND_LABEL[k].icon}</span>{KIND_LABEL[k].text}
+                className={`tap flex min-h-[60px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-0 py-2.5 text-[10.5px] font-semibold leading-tight tracking-tight sm:text-xs ${kind === k ? 'border-transparent text-teal-900' : 'border-stone-200/80 bg-white/40 text-stone-600 hover:bg-white/70'}`}>
+                <span className={`text-lg transition-transform duration-500 ${kind === k ? 'scale-110' : ''}`} aria-hidden="true">{KIND_LABEL[k].icon}</span>{KIND_LABEL[k].text}
               </button>
             ))}
-          </div>
+          </Slide>
           <p className="text-xs text-stone-500">{KIND_LABEL[kind].hint}</p>
 
           <input ref={fileInput} type="file" multiple className="hidden" accept={kind === 'email' ? '.eml,message/rfc822' : kind === 'qr' ? 'image/*' : kind === 'voicemail' ? 'audio/*,.m4a,.amr,.3gp,.opus' : 'image/*,application/pdf,.eml,audio/*'} onChange={(e) => { void addFiles([...(e.target.files ?? [])]); e.target.value = ''; }} />
-          <button type="button" className="dropzone" onClick={() => fileInput.current?.click()}>
+          <button type="button" className="dropzone tap" onClick={() => fileInput.current?.click()}>
             <span className="text-3xl" aria-hidden="true">{kind === 'bill' ? '🧾' : kind === 'qr' ? '🔳' : kind === 'email' ? '📧' : kind === 'voicemail' ? '🎙️' : '📷'}</span>
             <span className="font-display font-semibold text-teal-900">{kind === 'bill' ? 'Add photos or PDFs of bills' : kind === 'qr' ? 'Take or choose photos of QR codes' : kind === 'email' ? 'Add the email file (.eml)' : kind === 'voicemail' ? 'Add a voicemail or call recording' : 'Add screenshots'}</span>
             <span className="text-xs text-stone-500">{kind === 'email' ? 'In Gmail: ⋮ → Download message. In Outlook: Save as. Then tap here or drag it in.' : kind === 'voicemail' ? 'From your phone: open the voicemail → Share or Save, then add it here · up to 3 minutes each' : `Tap to choose, or drag & drop here · up to ${maxBatch} at once · each gets its own result`}</span>
@@ -362,7 +362,7 @@ export function Check() {
               <p className="hud mb-1.5">{files.length} file{files.length > 1 ? 's' : ''}{files.length > 1 ? ' · each checked on its own' : ''}</p>
               <ul className="grid grid-cols-4 gap-2 sm:grid-cols-5">
                 {files.map((f) => (
-                  <li key={f.key} className={`relative aspect-square overflow-hidden rounded-xl border border-white bg-white/70 shadow-[0_0_0_1px_rgba(31,66,71,0.08)] ${busy ? 'scan' : ''}`}>
+                  <li key={f.key} className={`relative aspect-square overflow-hidden rounded-xl border border-white bg-white/70 shadow-[0_0_0_1px_rgb(var(--c-ink)/0.08)] ${busy ? 'scan' : ''}`}>
                     {f.qr && <span className="absolute bottom-1 left-1 rounded-md bg-stone-900/65 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur">🔳 QR</span>}
                     {f.preview ? <img src={f.preview} alt={f.name} className="h-full w-full object-cover" /> : <span className="flex h-full flex-col items-center justify-center gap-1 p-1 text-center"><span className="text-2xl" aria-hidden="true">{fileIcon(f)}</span><span className="w-full truncate text-[10px] text-stone-600">{f.name}</span></span>}
                     {!busy && <button className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-stone-900/60 text-sm text-white backdrop-blur" onClick={() => setFiles((x) => x.filter((y) => y.key !== f.key))} aria-label={`Remove ${f.name}`}>✕</button>}
@@ -398,13 +398,9 @@ export function Check() {
 
         <div ref={resultRef} className="scroll-mt-28 space-y-3">
           {!items.length && (
-            <div className="hidden rounded-2xl border border-dashed border-teal-400/40 bg-white/30 p-8 text-center text-stone-500 lg:block">
-              <p className="text-4xl" aria-hidden="true">🛡️</p>
-              <p className="mt-2 font-display font-semibold text-stone-700">Your results will show here.</p>
-              <p className="text-sm">Paste a message or drop pictures above, then tap Check it.</p>
-            </div>
+            <Empty icon="🛡️" title="Your results will show here." className="hidden border-dashed lg:block">Paste a message or drop pictures above, then tap Check it.</Empty>
           )}
-          {items.length === 1 && (items[0].result ? full(items[0]) : items[0].error ? <p className="card text-sm text-red-700">{items[0].error}</p> : <p className="card scan text-sm text-teal-800"><span className="spinner" /> Checking…</p>)}
+          {items.length === 1 && (items[0].result ? full(items[0]) : items[0].error ? <p className="card text-sm text-red-700">{items[0].error}</p> : <div className="card scan space-y-3 text-sm text-teal-800"><p><span className="spinner" /> Checking…</p><Skeleton ring /></div>)}
           {items.length > 1 && (
             <>
               <div className="card flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -430,7 +426,7 @@ export function Check() {
                   const open = openKey === it.key;
                   return (
                     <li key={it.key} className="rise" style={{ animationDelay: `${i * 40}ms` }}>
-                      <button className="card flex w-full items-center gap-3 text-left transition hover:shadow-[0_0_0_1px_rgba(74,146,155,0.35),0_10px_30px_-12px_rgba(74,146,155,0.45)]" onClick={() => setOpenKey(open ? '' : it.key)} aria-expanded={open} disabled={!r}>
+                      <button className="card flex w-full items-center gap-3 text-left transition hover:shadow-[0_0_0_1px_rgb(var(--c-glow)/0.35),0_10px_30px_-12px_rgb(var(--c-glow)/0.45)]" onClick={() => setOpenKey(open ? '' : it.key)} aria-expanded={open} disabled={!r}>
                         <span className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white bg-white/70 ${!r || r.ai === 'pending' ? 'scan' : ''}`}>
                           {f?.preview ? <img src={f.preview} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full items-center justify-center text-2xl" aria-hidden="true">{f ? fileIcon(f) : KIND_LABEL[it.input?.kind ?? 'text'].icon}</span>}
                         </span>

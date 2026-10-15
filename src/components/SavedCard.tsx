@@ -98,7 +98,7 @@ function Original({ s, example, onRemoved }: { s: SavedItem; example: boolean; o
       {url && (isRec ? <audio controls src={url} className="w-full" /> : isPdf
         ? (isNative() ? <button className="btn-ghost" onClick={() => void run('dl', async () => { const f = await load(); await downloadFile(s.name ? { ...f, name: s.name } : f); })}>Open the PDF ↗</button>
           : <a className="btn-ghost" href={url} target="_blank" rel="noopener noreferrer">Open the PDF ↗</a>)
-        : <img src={url} alt="The saved picture" className="rise max-h-[70vh] w-full rounded-xl border border-white bg-white object-contain shadow-[0_0_0_1px_rgba(31,66,71,0.08)]" />)}
+        : <img src={url} alt="The saved picture" className="rise max-h-[70vh] w-full rounded-xl border border-white bg-white object-contain shadow-[0_0_0_1px_rgb(var(--c-ink)/0.08)]" />)}
       <div className="flex flex-wrap gap-2">
         {!url && <button className="btn" disabled={!!busy} onClick={() => void run('show', async () => setUrl(fileLink(await load())))}>{busy === 'show' ? <><span className="spinner" /> Loading…</> : isPdf ? '👁 View the PDF' : isRec ? '▶ Play the recording' : '👁 View the picture'}</button>}
         <button className="btn" disabled={!!busy} onClick={() => void run('dl', async () => { const f = await load(); await downloadFile(s.name ? { ...f, name: s.name } : f); })}>{busy === 'dl' ? <><span className="spinner" /> …</> : isNative() ? '⬇ Save / share' : '⬇ Download'}</button>

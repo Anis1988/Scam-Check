@@ -3,7 +3,7 @@ import { api } from '../lib/api';
 import { money, type Bill } from '../lib/types';
 import { useStatus } from '../lib/useStatus';
 import { daysUntil, dueLabel, dueText } from '../components/bills';
-import { Rail, Shell, toast } from '../components/ui';
+import { Empty, Rail, Shell, Skeleton, toast } from '../components/ui';
 
 /** One bill: who, how much, when; mark it paid or remove it. */
 export function BillRow({ b, onPaid, onDelete, example = false }: { b: Bill; onPaid?: (paid: boolean) => void; onDelete?: () => void; example?: boolean }) {
@@ -104,8 +104,8 @@ export function Bills({ tabs }: { tabs: ReactNode }) {
       </div>
       {st && !st.settings.bills.track && <p className="panel text-sm text-stone-600">Bill tracking is off (Settings → Saving). New bills aren’t added.</p>}
       {err && <p className="card text-sm text-red-700">{err}</p>}
-      {!list && !err && <p className="text-stone-500"><span className="spinner" /> Loading…</p>}
-      {list && !list.length && <p className="card text-sm text-stone-600">No bills yet. Check a photo or PDF of a bill: when it looks safe, it shows up here with its due date.</p>}
+      {!list && !err && <div className="card space-y-3"><p className="text-sm text-stone-500"><span className="spinner" /> Loading…</p><Skeleton /></div>}
+      {list && !list.length && <Empty icon="📅">No bills yet. Check a photo or PDF of a bill: when it looks safe, it shows up here with its due date.</Empty>}
       {list && list.length > 0 && <p className="panel text-sm lg:hidden">To pay: <b className="num">{money(total)}</b> · {unpaid.length} bill{unpaid.length === 1 ? '' : 's'}</p>}
       {unpaid.length > 0 && (
         <section className="space-y-2">

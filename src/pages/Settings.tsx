@@ -4,7 +4,7 @@ import { getPrefs, setPrefs, type DevicePrefs } from '../lib/history';
 import { deleteAllChecks } from '../lib/batch';
 import { PROVIDERS, modelFor, pickModel, providerOf, type AiMode, type AppSettings, type Effort, type ListEntry } from '../lib/types';
 import { refreshStatus, setStatusSettings, useStatus, useStatusError } from '../lib/useStatus';
-import { Field, Fold, Rail, Shell, Toggle, openFold, toast } from '../components/ui';
+import { Field, Fold, Rail, Shell, Toggle, openFold, toast, Slide } from '../components/ui';
 import { APP_BUILD, downloadApp, latestApp } from '../components/AppUpdate';
 import { getServer, isNative, setServer } from '../lib/native';
 
@@ -19,14 +19,14 @@ const SECTIONS = [['ai', '🤖 AI'], ['checks', '🔎 Free checks'], ['pictures'
 /** A row of choices, one picked (like radio buttons). */
 function Segmented<T extends string | number>({ value, options, onChange, label }: { value: T; options: { id: T; name: string }[]; onChange: (v: T) => void; label: string }) {
   return (
-    <div className="flex flex-wrap gap-1 rounded-xl border border-stone-200/80 bg-white/50 p-1" role="radiogroup" aria-label={label}>
+    <Slide className="flex flex-wrap gap-1 rounded-2xl border border-stone-200/80 bg-white/50 p-1" role="radiogroup" aria-label={label}>
       {options.map((o) => (
         <button key={String(o.id)} type="button" role="radio" aria-checked={value === o.id} onClick={() => onChange(o.id)}
-          className={`min-h-[40px] flex-1 rounded-lg px-3 text-sm font-semibold transition ${value === o.id ? 'bg-white text-teal-800 shadow-[0_0_0_1px_rgba(74,146,155,0.35),0_0_12px_-3px_rgba(74,146,155,0.5)]' : 'text-stone-500 hover:text-stone-800'}`}>
+          className={`tap min-h-[44px] flex-1 rounded-xl px-3 text-sm font-semibold ${value === o.id ? 'text-teal-800' : 'text-stone-500 hover:text-stone-800'}`}>
           {o.name}
         </button>
       ))}
-    </div>
+    </Slide>
   );
 }
 
@@ -150,7 +150,7 @@ export function Settings() {
                         const on = cfg.ai.provider === pr.id && chosen === m.id;
                         return (
                           <button key={m.id} role="radio" aria-checked={on} onClick={() => set('ai', pickModel(cfg.ai, pr.id, m.id))}
-                            className={`flex items-center gap-3 rounded-xl border p-3 text-left transition ${on ? 'border-teal-500/70 bg-white shadow-[0_0_0_3px_rgba(74,146,155,0.12)]' : 'border-stone-200/80 bg-white/50'}`}>
+                            className={`tap flex items-center gap-3 rounded-xl border p-3 text-left ${on ? 'border-teal-500/70 bg-white shadow-[0_0_0_3px_rgb(var(--c-glow)/0.12)]' : 'border-stone-200/80 bg-white/50'}`}>
                             <span className="text-sm">{on ? '◉' : '○'}</span>
                             <span className="min-w-0"><span className="block text-sm font-semibold">{m.name}</span><span className="block text-xs text-stone-500">{m.hint}{!m.pictures ? ' 🚫📷' : ''}</span></span>
                           </button>
@@ -174,7 +174,7 @@ export function Settings() {
               <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="When to use the AI">
                 {MODES.map((m) => (
                   <button key={m.id} role="radio" aria-checked={cfg.ai.mode === m.id} onClick={() => set('ai', { mode: m.id })}
-                    className={`rounded-xl border p-3 text-left transition ${cfg.ai.mode === m.id ? 'border-teal-500/70 bg-white shadow-[0_0_0_3px_rgba(74,146,155,0.12)]' : 'border-stone-200/80 bg-white/50'}`}>
+                    className={`tap rounded-xl border p-3 text-left ${cfg.ai.mode === m.id ? 'border-teal-500/70 bg-white shadow-[0_0_0_3px_rgb(var(--c-glow)/0.12)]' : 'border-stone-200/80 bg-white/50'}`}>
                     <p className="text-sm font-semibold">{cfg.ai.mode === m.id ? '◉' : '○'} {m.name}</p>
                     <p className="text-xs text-stone-500">{m.hint}</p>
                   </button>

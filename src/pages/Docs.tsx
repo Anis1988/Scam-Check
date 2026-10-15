@@ -5,7 +5,7 @@ import { ModelMenu, needsSearch, type Need } from '../components/ModelMenu';
 import { modelName, providerOf, type DocLevel, type DocResult, type ModelChoice } from '../lib/types';
 import { refreshStatus, useStatus } from '../lib/useStatus';
 import { CheckedBy } from '../components/ResultCard';
-import { Fold, Rail, Shell, toast } from '../components/ui';
+import { Fold, Rail, Shell, toast, Slide } from '../components/ui';
 import { SeoView, seoOverall } from '../components/SeoView';
 
 /**
@@ -280,12 +280,12 @@ export function Docs() {
           <h1 className="text-2xl font-bold">{mode === 'seo' ? 'How does this website do on Google?' : 'What does this document say?'}</h1>
           <p className="text-sm text-stone-500">Contracts, leases, insurance, letters, terms… You get a short summary, the key points, red flags, what to do and the dates. Or compare two versions to see what changed.</p>
         </div>
-        <div className="grid grid-cols-3 gap-1.5" role="tablist" aria-label="What do you want to do?">
+        <Slide className="grid grid-cols-3 gap-1.5" role="tablist" aria-label="What do you want to do?">
           {([['analyze', '📖 Read one'], ['compare', '🔀 Compare'], ['seo', '🌐 Website SEO']] as const).map(([m, name]) => (
             <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => setMode(m)}
-              className={`min-h-[44px] rounded-xl border text-sm font-semibold transition ${mode === m ? 'border-teal-500/70 bg-white text-teal-900 shadow-[0_0_0_3px_rgba(74,146,155,0.12)]' : 'border-stone-200/80 bg-white/50 text-stone-600'}`}>{name}</button>
+              className={`tap min-h-[48px] rounded-xl border px-1 text-sm font-semibold leading-tight ${mode === m ? 'border-transparent text-teal-900' : 'border-stone-200/80 bg-white/40 text-stone-600'}`}>{name}</button>
           ))}
-        </div>
+        </Slide>
         {st && <p className="hud">🤖 {pick ? modelName(pick.provider, pick.id) : st.model}{left !== null && ready ? ` · uses 1 of ${left} checks left today` : ''}</p>}
         {st && (!ready || left === 0) && (
           <div className="panel space-y-2 text-sm text-amber-800">
