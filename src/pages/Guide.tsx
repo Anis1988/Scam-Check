@@ -123,7 +123,7 @@ const COMPANY: CompanyInfo = {
 
 const SECTIONS = [
   ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['voicemail', '🎙️ Voicemails and calls'], ['docs', '📄 Documents'], ['seo', '🌐 Website SEO'], ['news', '📰 Scams going around'], ['video', '🎬 Video: is it true?'], ['company', '🏢 Look up a company'], ['lookup', '⚡ Quick look-up'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
-  ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Which AI'], ['search', '🔎 Search History'], ['recheck', '↻ Re-check'], ['failed', '⚠️ When an AI fails'], ['look', '🌙 Dark mode'], ['feel', '✨ Look and feel'], ['sync', '🔄 Same on phone & computer'], ['tidy', '📂 Fold & 🗑 delete'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
+  ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Which AI'], ['search', '🔎 Search History'], ['recheck', '↻ Re-check'], ['failed', '⚠️ When an AI fails'], ['look', '🌙 Dark mode'], ['feel', '✨ Look and feel'], ['sync', '🔄 Same on phone & computer'], ['myapps', '📊 On your “My apps” page'], ['tidy', '📂 Fold & 🗑 delete'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
   ['share', 'Share from your phone'], ['iphone', '🍏 iPhone'], ['scam', 'If it’s a scam'], ['privacy', 'Privacy and cost'],
 ] as const;
 type Id = (typeof SECTIONS)[number][0];
@@ -137,6 +137,19 @@ function GuideSection({ id, open, onToggle, children }: { id: Id; open: boolean;
       </button>
       <FoldBody open={open} className="mt-3 space-y-3 text-sm text-stone-600">{children}</FoldBody>
     </section>
+  );
+}
+
+/** 📊 What the "My apps" page shows for Scam Check (made-up numbers). */
+function MyAppsDemo() {
+  return (
+    <div className="card space-y-2 text-sm">
+      <p className="label">Scam Check</p>
+      <p>🛡️ 3 checks today</p>
+      <p className="flex flex-wrap items-center gap-1.5">Last: <VerdictChip verdict="scam" /> <span className="text-stone-600">(Fake parcel fee)</span></p>
+      <p>🚨 2 likely scams this week</p>
+      <p className="hud border-t border-stone-200/80 pt-2">AI today 3 · about $0.15 · week 11 · month 40 (estimate)</p>
+    </div>
   );
 }
 
@@ -434,6 +447,13 @@ export function Guide() {
         <p>Your phone (the app) and your computer (the website) show the <b>same</b> things: <b>🕘 History</b> (your last 100 checks), <b>🎬 video checks</b>, <b>🏢 recent companies</b>, <b>⭐ Saved</b>, <b>📅 Bills</b>, your <b>trusted / blocked</b> lists, <b>Settings</b> and today’s AI checks left. A check made on one shows on the other when you open the app again or switch back to it. Deleting one deletes it on both.</p>
         <p>Only a few things stay per device: light or dark look, text size, and the access code.</p>
         <p>The first time each device opens this version, the checks it had before are added to the shared list, so nothing is lost.</p>
+      </Section>
+
+      <Section id="myapps">
+        <p>Your <b>“My apps”</b> page (the one that shows all your apps on one screen) has a card for Scam Check: how many checks today, the last answer, how many likely scams this week, and how many AI checks were used today, this week and this month, with what Claude cost.</p>
+        <p>It asks with your <b>same access code</b>, and only that page may ask; it can only read, never change anything. The cost is an <b>estimate</b> (a few cents per Claude check, depending on the model picked in Settings); the free AIs count as $0. The week and month numbers count from Oct 16, 2026, when the app started keeping each day’s AI count.</p>
+        <p className="text-xs text-stone-500">Example (made up):</p>
+        <MyAppsDemo />
       </Section>
 
       <Section id="tidy">

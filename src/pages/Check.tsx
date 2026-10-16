@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { api, isAudio, readUpload, type CheckInput, type Upload } from '../lib/api';
 import { readQr } from '../lib/qr';
+import { sharedParams, sharedText, sharedVideoLink, shareUsed } from '../lib/shareIn';
 import { getInput } from '../lib/inputs';
 import { loadHistory, saveToHistory } from '../lib/history';
 import { askAgain, deleteChecks, newKey, patchItem, runBatch, setBatch, showOne, useBatch, type Item } from '../lib/batch';
@@ -25,12 +26,10 @@ const TIPS = [
   'Call back on the number on your card or a past bill, not the one in the message.',
 ];
 
-/** Something shared to the app from the phone's Share menu (/share?text=…). */
+/** Something shared to the app from the phone's Share menu (/share?text=…; read once in lib/shareIn). A video link goes to 🎬 Video. */
 function takeShare(): string {
-  if (!window.location.pathname.startsWith('/share')) return '';
-  const q = new URLSearchParams(window.location.search);
-  window.history.replaceState(null, '', '/');
-  return [q.get('title'), q.get('text'), q.get('url')].filter(Boolean).join('\n').slice(0, 20_000);
+  const q = sharedParams('check');
+  return sharedVideoLink(q) ? '' : sharedText(q);
 }
 
 /** One thing being checked: its input (to ask the AI later) and its result. */
@@ -44,6 +43,7 @@ export function Check() {
   const maxBatch = cfg?.pictures.maxBatch ?? 10;
   const left = aiLeft(st);
   const [shared] = useState(takeShare);
+  useEffect(() => shareUsed('check'), []); // shown once: coming back to Check later starts empty
   const [kind, setKind] = useState<Kind>(shared ? 'text' : 'screenshot');
   const [emlName, setEmlName] = useState('');
   const [text, setText] = useState(shared);

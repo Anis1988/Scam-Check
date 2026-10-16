@@ -12,20 +12,12 @@ import { getCode, setCode } from './lib/api';
 import { aiLeft, refreshStatus, useStatus } from './lib/useStatus';
 import { syncHistory } from './lib/batch';
 import { getPrefs, setPrefs } from './lib/history';
+import { sharedParams, sharedVideoLink } from './lib/shareIn';
 
 const TABS = ['Check', 'Docs', 'Video', 'Lookup', 'Saved', 'History', 'Guide', 'Settings'] as const;
 type Tab = (typeof TABS)[number];
 const TAB_ICON: Record<Tab, string> = { Check: '🛡️', Docs: '📄', Video: '🎬', Lookup: '🏢', Saved: '⭐', History: '🕘', Guide: '📖', Settings: '⚙️' };
 const TAB_LABEL: Partial<Record<Tab, string>> = { Lookup: 'Look up' };
-
-/** A YouTube or TikTok link shared to the app (Share → Scam Check) opens the Video tab with it. */
-function sharedVideoLink(): string {
-  if (!window.location.pathname.startsWith('/share')) return '';
-  const q = new URLSearchParams(window.location.search);
-  const link = [q.get('url'), ...(q.get('text') ?? '').split(/\s+/)].find((x) => x && /^https?:\/\/([a-z0-9-]+\.)*(youtube\.com|youtu\.be|tiktok\.com)\//i.test(x)) ?? '';
-  if (link) window.history.replaceState(null, '', '/video');
-  return link;
-}
 
 function Logo() {
   return (
@@ -79,8 +71,10 @@ function AccessGate({ onDone }: { onDone: () => void }) {
 }
 
 export default function App() {
-  const [videoLink] = useState(sharedVideoLink);
-  const [tab, setTab] = useState<Tab>(() => (TABS.find((t) => t !== 'Check' && window.location.pathname.toLowerCase().startsWith(`/${t.toLowerCase()}`)) ?? 'Check'));
+  // A YouTube or TikTok link shared to the app (Share → Scam Check) opens the Video tab with it.
+  const [videoLink] = useState(() => sharedVideoLink(sharedParams('video')));
+  const [tab, setTab] = useState<Tab>(() => videoLink ? 'Video' : (TABS.find((t) => t !== 'Check' && window.location.pathname.toLowerCase().startsWith(`/${t.toLowerCase()}`)) ?? 'Check'));
+  useEffect(() => { if (videoLink) window.history.replaceState(null, '', '/video'); }, [videoLink]);
   const [hasCode, setHasCode] = useState(!!getCode());
   // 🔄 History is the same on every device: fetched at start and each time you come back to the app.
   useEffect(() => {
@@ -107,7 +101,7 @@ export default function App() {
   }, [tab]);
   const go = (t: Tab) => {
     setTab(t);
-    if (!window.location.pathname.startsWith('/share')) window.history.replaceState(null, '', t === 'Check' ? '/' : `/${t.toLowerCase()}`);
+    window.history.replaceState(null, '', t === 'Check' ? '/' : `/${t.toLowerCase()}`);
   };
 
   return (

@@ -19,6 +19,10 @@
   },
   "rewrites": [
     {
+      "source": "/api/summary",
+      "destination": "/api/status?summary=1"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

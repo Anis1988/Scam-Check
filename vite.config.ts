@@ -1,18 +1,29 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import type { IncomingMessage } from 'node:http';
+import { readFileSync } from 'node:fs';
 
 /**
  * `npm run dev` runs the server functions too (api/*.ts, the same files Vercel runs), so the whole app works
  * locally without Vercel. Keys go in .env.local (never committed).
  */
 function localApi(): Plugin {
+  // vercel.json rewrites into api/ (e.g. /api/summary -> api/status.ts: Vercel's plan allows 12 functions), here too.
+  const alias: Record<string, string> = {};
+  try {
+    for (const r of JSON.parse(readFileSync('vercel.json', 'utf8')).rewrites ?? []) {
+      const from = String(r.source).match(/^\/api\/([a-z-]+)$/)?.[1];
+      const to = String(r.destination).match(/^\/api\/([a-z-]+)/)?.[1];
+      if (from && to) alias[from] = to;
+    }
+  } catch { /* no rewrites */ }
   return {
     name: 'local-api',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        const name = req.url?.match(/^\/api\/([a-z-]+)\/?(?:\?|$)/)?.[1];
-        if (!name) return next();
+        const asked = req.url?.match(/^\/api\/([a-z-]+)\/?(?:\?|$)/)?.[1];
+        if (!asked) return next();
+        const name = alias[asked] ?? asked;
         try {
           const mod = await server.ssrLoadModule(`/api/${name}.ts`);
           const method = req.method ?? 'GET';

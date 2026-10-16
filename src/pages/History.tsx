@@ -111,12 +111,12 @@ export function History() {
   return (
     <Shell right={stats}>
       <div className="flex items-end justify-between gap-2">
-        <div>
+        <div className="min-w-0">
           <p className="label">Timeline</p>
           <h1 className="text-2xl font-bold">History</h1>
           <p className="text-sm text-stone-500">Your last checks, the same on your phone and computer.</p>
         </div>
-        {list.length > 0 && <button className="btn" onClick={() => window.confirm(`Delete all ${list.length} checks? They’re removed from all your devices. ⭐ Saved checks stay.`) && void deleteAllChecks().then(() => toast('success', 'All deleted.'), () => undefined)}>🗑 Delete all</button>}
+        {list.length > 0 && <button className="btn shrink-0 whitespace-nowrap !px-3" onClick={() => window.confirm(`Delete all ${list.length} checks? They’re removed from all your devices. ⭐ Saved checks stay.`) && void deleteAllChecks().then(() => toast('success', 'All deleted.'), () => undefined)}>🗑 Delete all</button>}
       </div>
       {!list.length && <Empty icon="🕘">Nothing checked yet. Your checks will show here.</Empty>}
       {list.length > 0 && (

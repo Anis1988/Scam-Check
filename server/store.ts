@@ -80,7 +80,17 @@ export const overLimit = async (p: Provider = 'claude') => {
   const limit = await aiLimit(p);
   return limit !== null && (await aiUsed(p)) >= limit;
 };
-const dayKey = (p: Provider) => `${p === 'gemini' ? 'sc:gem' : p === 'claude' ? 'sc:ai' : `sc:${p}`}:${new Date().toISOString().slice(0, 10)}`;
+const dayKey = (p: Provider, day = new Date().toISOString().slice(0, 10)) => `${p === 'gemini' ? 'sc:gem' : p === 'claude' ? 'sc:ai' : `sc:${p}`}:${day}`;
+/** Each day's AI counts are kept 95 days (they were kept 2 days before the "My apps" summary), so week and month add up. */
+const KEEP_DAYS = 95;
+
+/** AI checks per day (UTC "YYYY-MM-DD") for one AI, in one round trip. Missing days are 0. */
+export async function aiUsedOn(p: Provider, days: string[]): Promise<number[]> {
+  const r = db();
+  if (!r || !days.length) return days.map(() => 0);
+  const got = await r.mget<(number | string | null)[]>(...days.map((d) => dayKey(p, d)));
+  return got.map((n) => Number(n ?? 0) || 0);
+}
 
 export async function aiUsed(p: Provider = 'claude'): Promise<number> {
   return Number((await db()?.get<number>(dayKey(p))) ?? 0);
@@ -92,7 +102,7 @@ export async function takeAi(p: Provider = 'claude'): Promise<boolean> {
   if (!r) return false;
   const limit = await aiLimit(p);
   const n = await r.incr(dayKey(p)); // counted even when unlimited, to show what was used today
-  if (n === 1) await r.expire(dayKey(p), 2 * 86400);
+  await r.expire(dayKey(p), KEEP_DAYS * 86400); // every time, so today's count also outlives the old 2-day expiry
   if (limit !== null && n > limit) {
     await r.decr(dayKey(p));
     return false;
