@@ -31,6 +31,7 @@ export class LocalStore {
   async incr(key: string) { const n = Number(this.live(key)?.v ?? 0) + 1; this.data[key] = { ...this.data[key], v: n }; this.save(); return n; }
   async decr(key: string) { const n = Number(this.live(key)?.v ?? 0) - 1; this.data[key] = { ...this.data[key], v: n }; this.save(); return n; }
   async expire(key: string, s: number) { if (this.data[key]) { this.data[key].exp = Date.now() + s * 1000; this.save(); } return 1; }
+  async mget<T>(...keys: string[]): Promise<T> { return keys.map((k) => this.live(k)?.v ?? null) as T; }
   async hgetall<T>(key: string): Promise<T | null> { return this.hash(key) as T; }
   async hget<T>(key: string, f: string): Promise<T | null> { return (this.hash(key)[f] as T) ?? null; }
   async hexists(key: string, f: string) { return f in this.hash(key) ? 1 : 0; }

@@ -5,7 +5,7 @@ import { deleteAllChecks } from '../lib/batch';
 import { PROVIDERS, modelFor, pickModel, providerOf, type AiMode, type AppSettings, type Effort, type ListEntry } from '../lib/types';
 import { refreshStatus, setStatusSettings, useStatus, useStatusError } from '../lib/useStatus';
 import { Field, Fold, Rail, Shell, Toggle, openFold, toast, Slide } from '../components/ui';
-import { APP_BUILD, downloadApp, latestApp } from '../components/AppUpdate';
+import { APP_BUILD, installUpdate, latestApp } from '../components/AppUpdate';
 import { getServer, isNative, setServer } from '../lib/native';
 
 const MODES: { id: AiMode; name: string; hint: string }[] = [
@@ -278,7 +278,7 @@ export function Settings() {
               <button className="btn" onClick={() => void latestApp().then((r) => {
                 if (!r) toast('error', 'Could not reach the download page. Try again in a minute.');
                 else if (r.build <= APP_BUILD) toast('success', 'You have the latest version.');
-                else void downloadApp(r.url);
+                else void installUpdate(r.url);
               }, () => toast('error', 'Could not reach the download page. Try again in a minute.'))}>Check for updates</button>
             </Field>
             <Field label="Your site’s address" hint={getServer()}>

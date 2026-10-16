@@ -39,6 +39,29 @@ function sameOrigin(req: Request): boolean {
   }
 }
 
+/**
+ * For GET /api/summary (the owner's "My apps" page on another site): only that page's origin may read it from a
+ * browser (CORS), and it still needs the same access code as the app (X-Access-Token). Every answer carries the
+ * CORS headers, so the page can show "wrong code" too.
+ */
+export function corsFor(req: Request, allowed: string): Record<string, string> {
+  const origin = req.headers.get('origin');
+  return origin === allowed
+    ? { 'Access-Control-Allow-Origin': allowed, 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Access-Control-Allow-Headers': 'X-Access-Token', 'Access-Control-Max-Age': '600', Vary: 'Origin' }
+    : { Vary: 'Origin' };
+}
+export function summaryGuard(req: Request, allowed: string): Response | null {
+  const cors = corsFor(req, allowed);
+  const origin = req.headers.get('origin');
+  if (origin && origin !== allowed && !sameOrigin(req)) return json({ error: 'Cross-origin requests are not allowed.' }, 403, cors);
+  const token = process.env.APP_ACCESS_TOKEN;
+  if (!token) return json({ error: 'APP_ACCESS_TOKEN is not set.' }, 503, cors);
+  if (!safeEqual(req.headers.get('x-access-token') ?? '', token)) return json({ error: 'Missing or wrong access code.' }, 401, cors);
+  const limited = rateLimited(req, 'summary', 20);
+  if (limited) return json({ error: 'Too many requests, slow down.' }, 429, { ...cors, 'Retry-After': '30' });
+  return null;
+}
+
 /** For the app's own calls: same origin + APP_ACCESS_TOKEN (required) + rate limit. */
 export function guard(req: Request, name: string, maxPerMinute = 30): Response | null {
   if (!sameOrigin(req)) return json({ error: 'Cross-origin requests are not allowed.' }, 403);

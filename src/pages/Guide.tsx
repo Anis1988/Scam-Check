@@ -124,7 +124,7 @@ const COMPANY: CompanyInfo = {
 
 const SECTIONS = [
   ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['voicemail', '🎙️ Voicemails and calls'], ['docs', '📄 Documents'], ['seo', '🌐 Website SEO'], ['news', '📰 Scams going around'], ['video', '🎬 Video: is it true?'], ['company', '🏢 Look up a company'], ['lookup', '⚡ Quick look-up'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
-  ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Which AI'], ['search', '🔎 Search History'], ['recheck', '↻ Re-check'], ['failed', '⚠️ When an AI fails'], ['look', '🌙 Dark mode'], ['feel', '✨ Look and feel'], ['sync', '🔄 Same on phone & computer'], ['tidy', '📂 Fold & 🗑 delete'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
+  ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Which AI'], ['search', '🔎 Search History'], ['recheck', '↻ Re-check'], ['failed', '⚠️ When an AI fails'], ['look', '🌙 Dark mode'], ['feel', '✨ Look and feel'], ['sync', '🔄 Same on phone & computer'], ['myapps', '📊 On your “My apps” page'], ['tidy', '📂 Fold & 🗑 delete'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
   ['share', 'Share from your phone'], ['android', '📱 Android app'], ['iphone', '🍏 iPhone'], ['scam', 'If it’s a scam'], ['privacy', 'Privacy and cost'],
 ] as const;
 type Id = (typeof SECTIONS)[number][0];
@@ -138,6 +138,19 @@ function GuideSection({ id, open, onToggle, children }: { id: Id; open: boolean;
       </button>
       <FoldBody open={open} className="mt-3 space-y-3 text-sm text-stone-600">{children}</FoldBody>
     </section>
+  );
+}
+
+/** 📊 What the "My apps" page shows for Scam Check (made-up numbers). */
+function MyAppsDemo() {
+  return (
+    <div className="card space-y-2 text-sm">
+      <p className="label">Scam Check</p>
+      <p>🛡️ 3 checks today</p>
+      <p className="flex flex-wrap items-center gap-1.5">Last: <VerdictChip verdict="scam" /> <span className="text-stone-600">(Fake parcel fee)</span></p>
+      <p>🚨 2 likely scams this week</p>
+      <p className="hud border-t border-stone-200/80 pt-2">AI today 3 · about $0.15 · week 11 · month 40 (estimate)</p>
+    </div>
   );
 }
 
@@ -437,6 +450,13 @@ export function Guide() {
         <p>The first time each device opens this version, the checks it had before are added to the shared list, so nothing is lost.</p>
       </Section>
 
+      <Section id="myapps">
+        <p>Your <b>“My apps”</b> page (the one that shows all your apps on one screen) has a card for Scam Check: how many checks today, the last answer, how many likely scams this week, and how many AI checks were used today, this week and this month, with what Claude cost.</p>
+        <p>It asks with your <b>same access code</b>, and only that page may ask; it can only read, never change anything. The cost is an <b>estimate</b> (a few cents per Claude check, depending on the model picked in Settings); the free AIs count as $0. The week and month numbers count from Oct 16, 2026, when the app started keeping each day’s AI count.</p>
+        <p className="text-xs text-stone-500">Example (made up):</p>
+        <MyAppsDemo />
+      </Section>
+
       <Section id="tidy">
         <p><b>Fold:</b> anything with a <b>▾</b> opens and closes when you tap its title. In <b>⚙️ Settings</b> every section starts <b>closed</b>, so the page stays short: tap the one you need, or <b>▾ Open all</b> / <b>▴ Close all</b>. In a result, <b>Why</b> and <b>Found in the message</b> start closed too (What to do stays open).</p>
         <p><b>Delete:</b> tap <b>🗑</b> to delete any check, everywhere it shows:</p>
@@ -503,7 +523,7 @@ export function Guide() {
           <li><b>Install:</b> on your phone, open the GitHub page <b>Scam-Check → Releases → android-latest</b> and tap <b>ScamCheck.apk</b>. The first time, Android asks to allow installing apps from your browser: allow it once. Then enter your access code (and check your site’s address).</li>
           <li><b>Share straight to it:</b> in Messages, WhatsApp or Gmail, long-press a message → <b>Share</b> → <b>Scam Check</b>. The app opens with the words already filled in.</li>
           <li><b>From your gallery or files:</b> pick one or <b>several</b> screenshots, photos, PDFs or voicemail recordings → <b>Share</b> → <b>Scam Check</b>. They are checked <b>right away</b>, each with its own answer (up to 10 at once). Share a <b>video</b> and it opens 🎬 Video and checks it.</li>
-          <li><b>Updates:</b> a banner shows at the top of the app. Tap <b>Update</b>, then <b>Install</b>; your data stays. <b>Later</b> hides it until the next version. Or check in <b>Settings → This device</b>.</li>
+          <li><b>Updates:</b> a banner shows at the top of the app. Tap <b>Update</b>: the app downloads the new version itself (you see it in the notifications) and Android’s installer opens: tap <b>Update</b> there; your data stays. The very first time, Android asks to <b>allow Scam Check to install updates</b>: switch it on, come back and tap Update again. If that can’t work on your phone, the download opens in your browser instead: tap the downloaded file. <b>Later</b> hides it until the next version. Or check in <b>Settings → This device</b>.</li>
           <li><b>Save / share</b> on a saved picture or PDF opens the phone’s Share menu: save it to Files or Drive, or open it in a PDF reader.</li>
           <li>The phone’s back button goes back to Check, then closes the app.</li>
         </ul>

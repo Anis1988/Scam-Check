@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { api, isAudio, readUpload, type CheckInput, type Upload } from '../lib/api';
 import { readQr } from '../lib/qr';
 import { openShared, sharedFiles, type SharedFile } from '../lib/share';
+import { sharedParams, sharedText, sharedVideoLink, shareUsed } from '../lib/shareIn';
 import { getInput } from '../lib/inputs';
 import { loadHistory, saveToHistory } from '../lib/history';
 import { askAgain, deleteChecks, newKey, patchItem, runBatch, setBatch, showOne, useBatch, type Item } from '../lib/batch';
@@ -27,17 +28,13 @@ const TIPS = [
 ];
 
 /**
- * Something shared to the app from the phone's Share menu: /share?text=… (the website and the Android app), or
- * /share?files=a,b&mimes=x,y (pictures, PDFs or recordings the Android app copied into its own cache; videos go to 🎬 Video).
+ * Something shared to the app from the phone's Share menu (read once in lib/shareIn): /share?text=… (the website and
+ * the Android app), or /share?files=a,b&mimes=x,y (pictures, PDFs or recordings the Android app copied into its own
+ * cache). A video link or video file goes to 🎬 Video.
  */
 function takeShare(): { text: string; files: SharedFile[] } {
-  if (!window.location.pathname.startsWith('/share')) return { text: '', files: [] };
-  const q = new URLSearchParams(window.location.search);
-  window.history.replaceState(null, '', '/');
-  return {
-    text: [q.get('title'), q.get('text'), q.get('url')].filter(Boolean).join('\n').slice(0, 20_000),
-    files: sharedFiles(q).filter((f) => !f.mime.startsWith('video/')),
-  };
+  const q = sharedParams('check');
+  return { text: sharedVideoLink(q) ? '' : sharedText(q), files: q ? sharedFiles(q).filter((f) => !f.mime.startsWith('video/')) : [] };
 }
 
 /** One thing being checked: its input (to ask the AI later) and its result. */
@@ -51,6 +48,7 @@ export function Check() {
   const maxBatch = cfg?.pictures.maxBatch ?? 10;
   const left = aiLeft(st);
   const [shared] = useState(takeShare);
+  useEffect(() => shareUsed('check'), []); // shown once: coming back to Check later starts empty
   const [kind, setKind] = useState<Kind>(shared.text ? 'text' : 'screenshot');
   const [emlName, setEmlName] = useState('');
   const [text, setText] = useState(shared.text);

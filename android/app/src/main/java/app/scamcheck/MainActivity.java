@@ -21,6 +21,7 @@ import java.util.List;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(UpdatePlugin.class); // ⬆️ the update banner's Update button
         super.onCreate(savedInstanceState);
         handleShare(getIntent());
     }

@@ -63,4 +63,6 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- ⬆️ Update: the app downloads its new version and opens Android's installer (UpdatePlugin.java). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>
