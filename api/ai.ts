@@ -51,7 +51,7 @@ async function work(b: z.infer<typeof AiBody>, id: string, text: string, cached:
     const saved = await getSettings();
     const pick = b.fresh ? b.model : undefined;
     const cfg = !pick ? saved : { ...saved, ai: { ...saved.ai, ...pickModel(saved.ai, pick.provider, pick.id) } };
-    const free = text ? await freeChecks(text, { from: b.from, check: cfg.checks }) : { text: '', signals: [], links: [], phones: [] };
+    const free = text ? await freeChecks(text, { from: b.from, check: cfg.checks, zip: cfg.place.zip }) : { text: '', signals: [], links: [], phones: [] };
     const base = buildResult(id, b.kind, text || (b.kind === 'bill' ? 'Bill (picture or PDF)' : b.kind === 'voicemail' ? 'Voicemail' : 'Screenshot'), free, 'pending');
     // Claude or Gemini (Settings → AI); bills and PDFs may be kept for Claude only.
     const priv = isPrivate(b.kind, b.file?.mime ?? (b.pdf ? 'application/pdf' : undefined));
@@ -64,7 +64,7 @@ async function work(b: z.infer<typeof AiBody>, id: string, text: string, cached:
     if (!(await takeAi(prov))) return keep(over, { ...base, ai: 'limit', aiNote: over, aiTried: tried, unchecked: !text || undefined });
     let result: CheckResult;
     try {
-      const a = await askAi({ kind: b.kind, text: text || undefined, file: b.file, from: b.from, signals: free.signals }, cfg.ai, prov);
+      const a = await askAi({ kind: b.kind, text: text || undefined, file: b.file, from: b.from, signals: free.signals, zip: cfg.place.zip }, cfg.ai, prov);
       // A picture or PDF: the free checks also run on what the AI read in it (its links and phone numbers too).
       const all = text ? free : await freeChecks(a.readText, { from: b.from, links: a.links, phones: a.phones, check: cfg.checks });
       result = { ...mergeAi(base, all, a, cfg.ai.summaries), aiBy: a.by, aiNote: a.note };

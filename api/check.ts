@@ -96,7 +96,7 @@ export async function POST(req: Request): Promise<Response> {
 
     // 1. Free checks first: patterns, links, phone numbers, email sender.
     const cfg = await getSettings();
-    const free = text ? await freeChecks(text, { from: b.from, check: cfg.checks }) : { text: '', signals: [], links: [], phones: [] };
+    const free = text ? await freeChecks(text, { from: b.from, check: cfg.checks, zip: cfg.place.zip }) : { text: '', signals: [], links: [], phones: [] };
     const base = buildResult(id, b.kind, text || (b.kind === 'bill' ? 'Bill (picture or PDF)' : b.kind === 'voicemail' ? 'Voicemail' : 'Screenshot'), free, 'off');
     if (b.fileHash && !text) Object.assign(base, { unchecked: true, summary: b.kind === 'voicemail' ? 'Recordings are listened to by the AI check.' : 'Pictures and PDFs are read by the AI check.' });
 

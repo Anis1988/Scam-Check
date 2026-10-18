@@ -1,5 +1,6 @@
 import { findPhoneNumbersInText, parsePhoneNumberFromString } from 'libphonenumber-js/max';
 import type { PhoneInfo, Signal } from '../src/lib/types.js';
+import { areaState, zipState } from '../src/lib/place.js';
 
 /**
  * Phone lookup, free (Google's phone number rules, built in): country, type (mobile, landline, internet/VoIP,
@@ -21,7 +22,9 @@ export function findPhones(text: string, extra: string[] = []): string[] {
   return [...new Set([...typed, ...found])].slice(0, 6);
 }
 
-export function checkPhones(numbers: string[]): { phones: PhoneInfo[]; signals: Signal[] } {
+/** zip = 📍 your ZIP code: each number also says if it is from your state (a note only, never a warning). */
+export function checkPhones(numbers: string[], zip?: string): { phones: PhoneInfo[]; signals: Signal[] } {
+  const home = zip ? zipState(zip) : null;
   const phones: PhoneInfo[] = [];
   const signals: Signal[] = [];
   for (const raw of numbers) {
@@ -43,7 +46,9 @@ export function checkPhones(numbers: string[]): { phones: PhoneInfo[]; signals: 
     if (type === 'PREMIUM_RATE') add({ level: 'bad', weight: 25, title: `${shown} is a premium-rate number`, detail: 'Calling it can cost a lot per minute.' });
     if (type === 'VOIP') add({ level: 'warn', weight: 6, title: `${shown} is an internet (VoIP) number`, detail: 'Anyone can get one in minutes, so it is often used by scammers.' });
     if (type === 'TOLL_FREE' && !notes.length) notes.push('Toll-free: check it matches the number on the company’s real website or your card');
-    phones.push({ number: shown, level, note: notes.join(' · ') || [p.country, type ? TYPE[type] ?? type.toLowerCase() : ''].filter(Boolean).join(' · ') || 'Nothing known against it' });
+    const st = p.country === 'US' && type !== 'TOLL_FREE' ? areaState(area) : null;
+    const where = st && home ? (st === home ? `Local (${st})` : `From ${st}, not your state`) : st ?? '';
+    phones.push({ number: shown, level, note: [notes.join(' · '), where].filter(Boolean).join(' · ') || [p.country, type ? TYPE[type] ?? type.toLowerCase() : ''].filter(Boolean).join(' · ') || 'Nothing known against it' });
   }
   return { phones, signals };
 }

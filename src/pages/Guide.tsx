@@ -56,9 +56,10 @@ const DOC: DocResult = {
 const NEWS: ScamNews = {
   items: [
     { name: 'Fake toll texts', how: 'A text says you owe a small toll and links to a payment page.', tell: 'Toll agencies don’t text links: check in your toll account’s app.', who: 'drivers' },
+    { name: 'Fake county court fines', how: 'A text says you missed jury duty in your county and must pay a fine today.', tell: 'Courts send letters, not payment links: call the court’s number from its website.', local: true },
     { name: 'Package “delivery problem”', how: 'A message asks you to confirm your address and pay a small fee.', tell: 'Track the package on the shipper’s own app instead.' },
   ],
-  sources: [], aiBy: 'Gemini Flash (free)', checkedAt: at,
+  sources: [], aiBy: 'Gemini Flash (free)', zip: '45245', checkedAt: at,
 };
 
 // A made-up website for the 🌐 SEO example.
@@ -117,12 +118,13 @@ const COMPANY: CompanyInfo = {
   website: { url: 'https://www.duke-energy.com', domain: 'duke-energy.com', level: 'good', note: 'Real Duke Energy website' },
   phones: [{ label: 'Customer service', number: '800-555-0123', note: 'toll-free', level: 'info' }], emails: [],
   contactPage: 'https://www.duke-energy.com/contact-us', hours: 'Mon–Fri 7 am – 7 pm',
+  nearYou: { place: 'Payment center, Eastgate', address: '100 Sample Rd, Cincinnati, OH 45245', phone: '513-555-0142', phoneNote: 'Local (Ohio)', phoneLevel: 'info', hours: 'Mon–Sat 9 am – 6 pm', zip: '45245' },
   scamWarning: 'Scammers call threatening to cut your power unless you pay by gift card or app: Duke Energy never does that.',
   sources: [{ title: 'duke-energy.com', url: 'https://www.duke-energy.com' }], aiBy: 'Gemini Flash (free)', checkedAt: at,
 };
 
 const SECTIONS = [
-  ['how', 'How it works'], ['many', '📥 Drag & drop, several at once'], ['voicemail', '🎙️ Voicemails and calls'], ['docs', '📄 Documents'], ['seo', '🌐 Website SEO'], ['news', '📰 Scams going around'], ['video', '🎬 Video: is it true?'], ['company', '🏢 Look up a company'], ['lookup', '⚡ Quick look-up'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
+  ['how', 'How it works'], ['tabs', '🗂️ The tabs'], ['many', '📥 Drag & drop, several at once'], ['voicemail', '🎙️ Voicemails and calls'], ['docs', '📄 Documents'], ['seo', '🌐 Website SEO'], ['news', '📰 Scams going around'], ['video', '🎬 Video: is it true?'], ['company', '🏢 Look up a company'], ['lookup', '⚡ Quick look-up'], ['place', '📍 Your area'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
   ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Which AI'], ['search', '🔎 Search History'], ['recheck', '↻ Re-check'], ['failed', '⚠️ When an AI fails'], ['look', '🌙 Dark mode'], ['feel', '✨ Look and feel'], ['sync', '🔄 Same on phone & computer'], ['myapps', '📊 On your “My apps” page'], ['tidy', '📂 Fold & 🗑 delete'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
   ['share', 'Share from your phone'], ['iphone', '🍏 iPhone'], ['scam', 'If it’s a scam'], ['privacy', 'Privacy and cost'],
 ] as const;
@@ -150,6 +152,19 @@ function MyAppsDemo() {
       <p>🚨 2 likely scams this week</p>
       <p className="hud border-t border-stone-200/80 pt-2">AI today 3 · about $0.15 · week 11 · month 40 (estimate)</p>
     </div>
+  );
+}
+
+/** 🗂️ Tabs example: the row of choices under 🗂️ My checks (it only moves here). */
+function TabsDemo() {
+  const [pick, setPick] = useState<'h' | 's' | 'b'>('h');
+  return (
+    <Slide className="flex gap-1 rounded-2xl border border-stone-200/80 bg-white/50 p-1" role="tablist" aria-label="Example tabs">
+      {([['h', '🕘 History'], ['s', '⭐ Saved'], ['b', '📅 Bills']] as const).map(([id, name]) => (
+        <button key={id} type="button" role="tab" aria-selected={pick === id} onClick={() => setPick(id)}
+          className={`tap min-h-[44px] flex-1 whitespace-nowrap rounded-xl px-2 text-sm font-semibold ${pick === id ? 'text-teal-800' : 'text-stone-500'}`}>{name}</button>
+      ))}
+    </Slide>
   );
 }
 
@@ -274,14 +289,28 @@ export function Guide() {
         <DocCard r={SEO_EXAMPLE} example />
       </Section>
 
+      <Section id="tabs">
+        <p>There are <b>5 tabs</b> at the top. Some have a small row of choices just under them:</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>🛡️ Check:</b> 🛡️ Message (screenshots, bills, emails, QR codes) or 🎬 Video.</li>
+          <li><b>🏢 Look up:</b> a company’s real contact details, or just a link, number or email address.</li>
+          <li><b>📄 Docs:</b> explain or compare documents, or 🌐 check a website’s SEO.</li>
+          <li><b>🗂️ My checks:</b> 🕘 History, ⭐ Saved and 📅 Bills.</li>
+          <li><b>⚙️ Settings:</b> everything you can change.</li>
+        </ul>
+        <p>This Guide is the <b>❓</b> button at the top, next to ☀️/🌙. Each tab opens the choice you used last.</p>
+        <p className="text-xs text-stone-500">Example (made up; it only moves the marker here):</p>
+        <TabsDemo />
+      </Section>
+
       <Section id="news">
-        <p>On <b>🛡️ Check</b>, open <b>📰 Scams going around now</b> to see the newest scams in the news (from the FTC, FBI, AARP, BBB and the news), each with how to spot it. It’s made only when you tap <b>Get this week’s list</b> (1 AI check, with a live web search), then kept for your phone and computer, and offered again after a week.</p>
+        <p>On <b>🛡️ Check</b>, open <b>📰 Scams going around now</b> to see the newest scams in the news (from the FTC, FBI, AARP, BBB, your state and the local news), each with how to spot it. Ones going around in your state or area have a <b>📍 Your area</b> tag. It’s made only when you tap <b>Get this week’s list</b> (1 AI check, with a live web search), then kept for your phone and computer, and offered again after a week.</p>
         <p className="text-xs text-stone-500">Example (made up):</p>
         <div className="card"><NewsList n={NEWS} /></div>
       </Section>
 
       <Section id="video">
-        <p>In the <b>🎬 Video</b> tab, upload a video (from your phone or computer) or paste a <b>YouTube</b> or <b>TikTok</b> link. The AI picked in <b>Settings</b> checks what it claims with a <b>web search</b> and tells you in simple words:</p>
+        <p>In <b>🛡️ Check → 🎬 Video</b>, upload a video (from your phone or computer) or paste a <b>YouTube</b> or <b>TikTok</b> link. The AI picked in <b>Settings</b> checks what it claims with a <b>web search</b> and tells you in simple words:</p>
         <ul className="list-disc space-y-1.5 pl-5">
           <li>✅ True, ⚖️ Partly true, ⚠️ Misleading, ❌ False, ❔ Can’t be checked, or 💬 Opinion or entertainment.</li>
           <li>A short summary, each main claim with what’s really true, signs it’s AI-made or edited, and the <b>sources</b>.</li>
@@ -299,6 +328,19 @@ export function Guide() {
       <Section id="company">
         <p>In the <b>🏢 Look up</b> tab, type a company name (Duke Energy, Chase, Amazon…). You get what they do, their <b>real website</b>, <b>customer service phone and email</b>, contact page and hours, from a live web search with sources, by the AI picked in Settings. The app also checks the website (real one, how old) and the phone numbers.</p>
         <p>It never comes from an AI’s memory, because a wrong number could lead you to a scammer: <b>Gemini</b> uses Google Search, <b>Claude</b> its own web search (about 1 cent more per look-up), <b>Groq</b> its free “Compound” search. OpenRouter’s free models can’t search, so they’re greyed out here. If today’s limit is reached, tap <b>Continue with another model</b>. Still, the safest number is the one on your card, bill or the company’s own app. Uses 1 AI check; the same company is remembered for a week (free).</p>
+        <p className="text-xs text-stone-500">Example (made up, the links do nothing here):</p>
+        <CompanyCard c={COMPANY} example />
+      </Section>
+
+      <Section id="place">
+        <p>In <b>⚙️ Settings → 📍 Your area</b>, type your <b>ZIP code</b> (if you leave it empty, it’s <b>45245</b>). Then the app thinks of where you live:</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>🏢 Look up</b> also finds the company’s <b>branch or office near you</b>, with its address, phone and hours.</li>
+          <li><b>📰 Scams going around</b> adds the ones in <b>your state and area</b> (tagged 📍 Your area).</li>
+          <li><b>Checks</b> know what’s local: a “county court”, sheriff or utility that doesn’t serve your area is a warning sign.</li>
+          <li><b>Phone numbers</b> say if they’re <b>local</b> or from another state. That’s only a note: real companies call from anywhere.</li>
+        </ul>
+        <p>It uses no extra AI checks. After you change it, looking up a company searches again (once) for your new area.</p>
         <p className="text-xs text-stone-500">Example (made up, the links do nothing here):</p>
         <CompanyCard c={COMPANY} example />
       </Section>
@@ -347,13 +389,13 @@ export function Guide() {
       <Section id="saving">
         <p>Below any result, tap <b>⭐ Save this check</b> and add a note if you like ("Called my bank, all fine"). Leave <b>Keep the original</b> ticked to also keep the message and the picture or PDF.</p>
         <p><b>Names:</b> every saved check gets a name that starts with a number, then what it is: <span className="font-mono">1-Duke Energy</span>, <span className="font-mono">2-USPS package text</span>, <span className="font-mono">3-Chase</span>… The number goes up by one with each save. Downloaded pictures get the same name. Tap <b>✏️ Rename / note</b> to change it.</p>
-        <p>In the <b>⭐ Saved</b> tab, tap a check to open it: the key facts, your note, the summary for safe ones, and the original. <b>👁 View</b> shows the picture or PDF, <b>⬇ Download</b> saves it to your phone or computer, and <b>🗑 Delete</b> removes the picture (or the whole check). Search by name, number, website or a word of your note, or show only one kind of answer. Saved checks are the same on your phone and your computer.</p>
+        <p>In <b>🗂️ My checks → ⭐ Saved</b>, tap a check to open it: the key facts, your note, the summary for safe ones, and the original. <b>👁 View</b> shows the picture or PDF, <b>⬇ Download</b> saves it to your phone or computer, and <b>🗑 Delete</b> removes the picture (or the whole check). Search by name, number, website or a word of your note, or show only one kind of answer. Saved checks are the same on your phone and your computer.</p>
         <p className="text-xs text-stone-500">Example (made up):</p>
         <SavedCard s={SAVED} example />
       </Section>
 
       <Section id="billtrack">
-        <p>When the AI reads a <b>bill</b> (photo or PDF) and it looks safe, it goes to <b>⭐ Saved → 📅 Bills</b> by itself, with who it’s from, the amount and the due date. No extra AI check is used.</p>
+        <p>When the AI reads a <b>bill</b> (photo or PDF) and it looks safe, it goes to <b>🗂️ My checks → 📅 Bills</b> by itself, with who it’s from, the amount and the due date. No extra AI check is used.</p>
         <ul className="list-disc space-y-1.5 pl-5">
           <li><b>Due dates:</b> see what’s due soon (“due in 3 days”) and what’s late. Tap <b>✓ Paid</b> when you’ve paid it.</li>
           <li><b>Compared to last time:</b> the next bill from the same company shows the difference, e.g. <b>📈 45% more than last time</b>. A much higher bill gets a gentle note to check your account in the company’s own app before paying: it can be a mistake, or a fake bill.</li>
@@ -395,7 +437,7 @@ export function Guide() {
       </Section>
 
       <Section id="search">
-        <p>At the top of <b>🕘 History</b>, type in the <b>🔎 search</b> box to find a check by a word, a company, a website or a phone number (with or without dashes). Tap <b>🚨 Scam</b>, <b>⚠️ Suspicious</b> or <b>✅ Safe</b> to show only those, or pick a kind (🧾 bills, 🎙️ voicemails…). <b>Show all</b> clears it.</p>
+        <p>At the top of <b>🗂️ My checks → 🕘 History</b>, type in the <b>🔎 search</b> box to find a check by a word, a company, a website or a phone number (with or without dashes). Tap <b>🚨 Scam</b>, <b>⚠️ Suspicious</b> or <b>✅ Safe</b> to show only those, or pick a kind (🧾 bills, 🎙️ voicemails…). <b>Show all</b> clears it.</p>
       </Section>
 
       <Section id="recheck">
@@ -436,7 +478,7 @@ export function Guide() {
       </Section>
 
       <Section id="feel">
-        <p>The app is made to feel smooth on a phone. The <b>tabs at the top</b> slide sideways if they don’t all fit, and a glowing bar slides under the one you’re on. Every button <b>sinks a little and glows</b> when you tap it, then springs back. Choices like <b>📖 Read one / 🔀 Compare</b> have a glass marker that slides to the one you pick, and folds open and close gently.</p>
+        <p>The app is made to feel smooth on a phone. There are <b>5 tabs at the top</b>, and a glowing bar slides under the one you’re on. Every button <b>sinks a little and glows</b> when you tap it, then springs back. Choices like <b>📖 Read one / 🔀 Compare</b> have a glass marker that slides to the one you pick, and folds open and close gently.</p>
         <p>While something is being checked you see <b>shimmering grey lines</b> where the answer will appear. An empty page shows a small glowing circle with what to do next. Each answer always says <b>✅ Looks safe</b>, <b>⚠️ Suspicious</b> or <b>🚨 Likely scam</b> in words, next to its colour and score ring.</p>
         <p>If your phone is set to <b>reduce motion</b>, all of this movement stops; everything still works the same.</p>
         <p className="text-xs text-stone-500">Examples (made up; the choices only move the marker here):</p>
@@ -479,6 +521,7 @@ export function Guide() {
       <Section id="settings">
         <p>Everything is set in the <b>⚙️ Settings</b> tab, and it’s the same on your phone and computer. Each section starts closed: tap its title to open it.</p>
         <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>📍 Your area:</b> your ZIP code (45245 if you leave it empty).</li>
           <li><b>🤖 AI:</b> which AI (Claude or Gemini, free), when to use it (Save credits, Smart, Always, Never), which AI model (Opus = best, Sonnet = cheaper, Haiku = cheapest), how many AI checks a day or <b>Unlimited</b>, how hard it thinks (Low is cheapest), and the summary of safe ones.</li>
           <li><b>🔎 Free checks:</b> Google’s list of dangerous sites, how new a website is, and how many days a result is remembered (checking it again is then free).</li>
           <li><b>📷 Pictures:</b> picture size (Small is cheaper, Sharp reads tiny text better) and how many at once.</li>
@@ -495,7 +538,7 @@ export function Guide() {
 
       <Section id="share">
         <p>Add the app to your home screen (in Chrome: ⋮ → Install app). Then, in Messages or WhatsApp, long-press a message → <b>Share</b> → <b>Scam Check</b>: it opens on Check with the message shown in a card, ready to check.</p>
-        <p>Share a <b>YouTube or TikTok</b> video to the app and it opens the <b>🎬 Video</b> tab and checks it.</p>
+        <p>Share a <b>YouTube or TikTok</b> video to the app and it opens <b>🛡️ Check → 🎬 Video</b> and checks it.</p>
       </Section>
 
       <Section id="iphone">

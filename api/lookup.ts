@@ -33,7 +33,7 @@ export async function POST(req: Request): Promise<Response> {
     let links: Awaited<ReturnType<typeof checkLinks>>['links'] = [];
     let phones: ReturnType<typeof checkPhones>['phones'] = [];
     if (n.kind === 'phone') {
-      const p = checkPhones([value]);
+      const p = checkPhones([value], cfg.place.zip);
       phones = p.phones;
       signals.push(...p.signals);
     } else {

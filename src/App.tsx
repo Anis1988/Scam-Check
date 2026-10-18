@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Slide, Toasts } from './components/ui';
 import { Check } from './pages/Check';
 import { History } from './pages/History';
-import { Saved } from './pages/Saved';
+import { SavedChecks } from './pages/Saved';
+import { Bills } from './pages/Bills';
 import { Guide } from './pages/Guide';
 import { Settings } from './pages/Settings';
 import { Video } from './pages/Video';
@@ -14,10 +15,17 @@ import { syncHistory } from './lib/batch';
 import { getPrefs, setPrefs } from './lib/history';
 import { sharedParams, sharedVideoLink } from './lib/shareIn';
 
-const TABS = ['Check', 'Docs', 'Video', 'Lookup', 'Saved', 'History', 'Guide', 'Settings'] as const;
+/** Every screen; its address is /<name> (Check is /). */
+const PAGES = ['Check', 'Video', 'Lookup', 'Docs', 'History', 'Saved', 'Bills', 'Settings', 'Guide'] as const;
+type Page = (typeof PAGES)[number];
+/** 5 tabs at the top; a tab with more than one screen shows them as a small row under it. 📖 Guide is the ❓ button. */
+const TABS = ['Check', 'Lookup', 'Docs', 'Mine', 'Settings'] as const;
 type Tab = (typeof TABS)[number];
-const TAB_ICON: Record<Tab, string> = { Check: '🛡️', Docs: '📄', Video: '🎬', Lookup: '🏢', Saved: '⭐', History: '🕘', Guide: '📖', Settings: '⚙️' };
-const TAB_LABEL: Partial<Record<Tab, string>> = { Lookup: 'Look up' };
+const TAB_PAGES: Record<Tab, Page[]> = { Check: ['Check', 'Video'], Lookup: ['Lookup'], Docs: ['Docs'], Mine: ['History', 'Saved', 'Bills'], Settings: ['Settings'] };
+const TAB_ICON: Record<Tab, string> = { Check: '🛡️', Lookup: '🏢', Docs: '📄', Mine: '🗂️', Settings: '⚙️' };
+const TAB_LABEL: Partial<Record<Tab, string>> = { Lookup: 'Look up', Mine: 'My checks' };
+const PAGE_LABEL: Partial<Record<Page, string>> = { Check: '🛡️ Message', Video: '🎬 Video', History: '🕘 History', Saved: '⭐ Saved', Bills: '📅 Bills' };
+const tabOf = (p: Page) => TABS.find((t) => TAB_PAGES[t].includes(p)) ?? null;
 
 function Logo() {
   return (
@@ -41,6 +49,16 @@ function ThemeButton() {
     <button type="button" className="tap flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-stone-200/80 bg-white/60 text-lg shadow-[inset_0_1px_0_rgb(var(--c-shine)/var(--shine))]"
       onClick={() => setPrefs({ ...getPrefs(), theme: dark ? 'light' : 'dark' })} aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'} title={dark ? 'Light mode' : 'Dark mode'}>
       <span aria-hidden="true">{dark ? '☀️' : '🌙'}</span>
+    </button>
+  );
+}
+
+/** ❓ The Guide: how everything works, in plain words. */
+function GuideButton({ on, onClick }: { on: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} aria-current={on ? 'page' : undefined} aria-label="Guide: how it works" title="Guide"
+      className={`tap flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-lg shadow-[inset_0_1px_0_rgb(var(--c-shine)/var(--shine))] ${on ? 'border-teal-300 bg-teal-50' : 'border-stone-200/80 bg-white/60'}`}>
+      <span aria-hidden="true">❓</span>
     </button>
   );
 }
@@ -71,9 +89,12 @@ function AccessGate({ onDone }: { onDone: () => void }) {
 }
 
 export default function App() {
-  // A YouTube or TikTok link shared to the app (Share → Scam Check) opens the Video tab with it.
+  // A YouTube or TikTok link shared to the app (Share → Scam Check) opens Check → Video with it.
   const [videoLink] = useState(() => sharedVideoLink(sharedParams('video')));
-  const [tab, setTab] = useState<Tab>(() => videoLink ? 'Video' : (TABS.find((t) => t !== 'Check' && window.location.pathname.toLowerCase().startsWith(`/${t.toLowerCase()}`)) ?? 'Check'));
+  const [page, setPage] = useState<Page>(() => videoLink ? 'Video' : (PAGES.find((t) => t !== 'Check' && window.location.pathname.toLowerCase().startsWith(`/${t.toLowerCase()}`)) ?? 'Check'));
+  const tab = tabOf(page);
+  // Each tab opens the screen you last used in it.
+  const last = useRef<Partial<Record<Tab, Page>>>({});
   useEffect(() => { if (videoLink) window.history.replaceState(null, '', '/video'); }, [videoLink]);
   const [hasCode, setHasCode] = useState(!!getCode());
   // 🔄 History is the same on every device: fetched at start and each time you come back to the app.
@@ -99,10 +120,13 @@ export default function App() {
     if (!row || !on || row.scrollWidth <= row.clientWidth) return;
     row.scrollTo({ left: on.offsetLeft - (row.clientWidth - on.offsetWidth) / 2, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   }, [tab]);
-  const go = (t: Tab) => {
-    setTab(t);
-    window.history.replaceState(null, '', t === 'Check' ? '/' : `/${t.toLowerCase()}`);
+  const go = (p: Page) => {
+    const t = tabOf(p);
+    if (t) last.current[t] = p;
+    setPage(p);
+    window.history.replaceState(null, '', p === 'Check' ? '/' : `/${p.toLowerCase()}`);
   };
+  const subs = tab ? TAB_PAGES[tab] : [];
 
   return (
     <div className="min-h-screen">
@@ -118,12 +142,12 @@ export default function App() {
               <p className="hud truncate !text-[10px]">Check before you click, call or pay</p>
             </div>
           </div>
-          <span className="flex items-center gap-2 md:order-last"><AiMeter /><ThemeButton /></span>
+          <span className="flex items-center gap-2 md:order-last"><AiMeter /><GuideButton on={page === 'Guide'} onClick={() => go('Guide')} /><ThemeButton /></span>
           {/* Tabs with icons, at the top: a row that scrolls sideways on phones, with a glowing bar sliding under the open tab. */}
           <nav className="-mx-4 w-[calc(100%+2rem)] md:mx-auto md:w-auto" aria-label="Main">
             <Slide thumb="tab-thumb" className="no-scrollbar edge-fade flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain px-2 md:snap-none md:gap-1 md:overflow-visible md:rounded-2xl md:border md:border-white/80 md:bg-white/50 md:p-1 md:shadow-[0_0_0_1px_rgb(var(--c-ink)/0.05),inset_0_1px_0_rgb(var(--c-shine)/var(--shine))]">
               {TABS.map((t) => (
-                <button key={t} onClick={() => go(t)} aria-current={tab === t ? 'page' : undefined}
+                <button key={t} onClick={() => go(last.current[t] ?? TAB_PAGES[t][0])} aria-current={tab === t ? 'page' : undefined}
                   className={`tap flex min-h-[54px] min-w-[66px] flex-1 shrink-0 snap-center flex-col items-center justify-center gap-0.5 rounded-xl px-2 pb-2 pt-1.5 text-[11px] font-semibold tracking-tight md:min-h-[38px] md:min-w-0 md:flex-none md:flex-row md:gap-1.5 md:px-3.5 md:py-1.5 md:text-sm ${tab === t ? 'text-teal-800' : 'text-stone-500 hover:text-stone-800'}`}>
                   <span className={`text-[1.2rem] leading-none transition-transform duration-500 md:text-base ${tab === t ? '-translate-y-px scale-110 drop-shadow-[0_0_6px_rgb(var(--c-glow)/0.6)] md:translate-y-0 md:scale-100' : 'opacity-75 grayscale-[35%]'}`} aria-hidden="true">{TAB_ICON[t]}</span>
                   <span className="whitespace-nowrap">{TAB_LABEL[t] ?? t}</span>
@@ -134,8 +158,16 @@ export default function App() {
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-4 pb-16 pt-5" style={{ paddingBottom: 'max(4rem, calc(env(safe-area-inset-bottom) + 2rem))', paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
-        <div key={tab} className="page-in">
-          {tab === 'Guide' ? <Guide /> : !hasCode ? <AccessGate onDone={() => setHasCode(true)} /> : tab === 'Check' ? <Check /> : tab === 'Docs' ? <Docs /> : tab === 'Video' ? <Video sharedLink={videoLink} /> : tab === 'Lookup' ? <Lookup /> : tab === 'Saved' ? <Saved /> : tab === 'History' ? <History /> : <Settings />}
+        {subs.length > 1 && hasCode && (
+          <Slide className="mx-auto mb-4 flex max-w-md gap-1 rounded-2xl border border-stone-200/80 bg-white/50 p-1" role="tablist" aria-label={TAB_LABEL[tab!] ?? tab!}>
+            {subs.map((p) => (
+              <button key={p} role="tab" aria-selected={page === p} onClick={() => go(p)}
+                className={`tap min-h-[44px] flex-1 whitespace-nowrap rounded-xl px-2 text-sm font-semibold ${page === p ? 'text-teal-800' : 'text-stone-500 hover:text-stone-800'}`}>{PAGE_LABEL[p] ?? p}</button>
+            ))}
+          </Slide>
+        )}
+        <div key={page} className="page-in">
+          {page === 'Guide' ? <Guide /> : !hasCode ? <AccessGate onDone={() => setHasCode(true)} /> : page === 'Check' ? <Check /> : page === 'Docs' ? <Docs /> : page === 'Video' ? <Video sharedLink={videoLink} /> : page === 'Lookup' ? <Lookup /> : page === 'Saved' ? <SavedChecks /> : page === 'Bills' ? <Bills /> : page === 'History' ? <History /> : <Settings />}
         </div>
       </main>
     </div>

@@ -177,7 +177,7 @@ export function Check() {
         break;
       }
     }
-    if (n) toast('success', `${n} saved. Find them in ⭐ Saved.`);
+    if (n) toast('success', `${n} saved. Find them in 🗂️ My checks → ⭐ Saved.`);
   };
 
   /** A check from the Recent list: shown again here. */
@@ -261,7 +261,7 @@ export function Check() {
           <ul className="space-y-1.5 text-sm">
             {nextBills.map((b) => <li key={b.key}><span className="flex justify-between gap-2"><span className="truncate font-semibold text-stone-800">{b.company}</span><span className="num">{money(b.amount)}</span></span><span className="hud !text-[10px]">{dueText(b.dueDate)}</span></li>)}
           </ul>
-          <p className="text-xs text-stone-500">All bills: ⭐ Saved → 📅 Bills</p>
+          <p className="text-xs text-stone-500">All bills: 🗂️ My checks → 📅 Bills</p>
         </Rail>
       )}
       <Rail title="How it works">

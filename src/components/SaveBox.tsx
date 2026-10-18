@@ -20,7 +20,7 @@ export function SaveBox({ id, text, file, example = false, savedName, onSaved }:
       const s = await api.save(id, note, keepIt ? { text, file } : undefined);
       setName(s.name ?? 'Saved');
       onSaved?.(s.name ?? 'Saved'); // so "Save all" knows this one is done
-      toast('success', `Saved as “${s.name ?? 'this check'}”. Find it in ⭐ Saved.`);
+      toast('success', `Saved as “${s.name ?? 'this check'}”. Find it in 🗂️ My checks → ⭐ Saved.`);
     } catch (e) {
       toast('error', e instanceof Error ? e.message : String(e));
     } finally {

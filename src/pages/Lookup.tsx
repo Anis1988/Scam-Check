@@ -53,6 +53,15 @@ export function CompanyCard({ c, example = false, onRefresh, onForget }: { c: Co
             <dd><a className="break-all text-teal-700 underline" href={c.contactPage} target="_blank" rel="noopener noreferrer" tabIndex={t}>{c.contactPage.replace(/^https?:\/\/(www\.)?/, '')}</a></dd>
           </div>
         )}
+        {c.nearYou && (
+          <div className="px-3 py-2">
+            <dt className="label">📍 Near you ({c.nearYou.zip})</dt>
+            <dd><span className="font-semibold text-stone-900">{c.nearYou.place}</span><span className="block text-stone-700">{c.nearYou.address}</span>
+              {c.nearYou.phone && <a className="num block font-semibold text-stone-900" href={`tel:${c.nearYou.phone.replace(/[^\d+]/g, '')}`} tabIndex={t}>{c.nearYou.phone}</a>}
+              {c.nearYou.phoneNote && <span className="block text-xs text-stone-500"><span className={DOT[c.nearYou.phoneLevel ?? 'info']} aria-hidden="true">●</span> {c.nearYou.phoneNote}</span>}
+              {c.nearYou.hours && <span className="block text-xs text-stone-500">🕘 {c.nearYou.hours}</span>}</dd>
+          </div>
+        )}
         {c.hours && <div className="px-3 py-2"><dt className="label">🕘 Hours</dt><dd>{c.hours}</dd></div>}
         {c.address && <div className="px-3 py-2"><dt className="label">📮 Address</dt><dd>{c.address}</dd></div>}
       </dl>

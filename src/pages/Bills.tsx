@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
 import { money, type Bill } from '../lib/types';
 import { useStatus } from '../lib/useStatus';
@@ -28,7 +28,7 @@ export function BillRow({ b, onPaid, onDelete, example = false }: { b: Bill; onP
 }
 
 /** 📅 Bills: safe bills the AI read, with due dates, and each company's amounts over time. */
-export function Bills({ tabs }: { tabs: ReactNode }) {
+export function Bills() {
   const st = useStatus();
   const [list, setList] = useState<Bill[] | null>(null);
   const [err, setErr] = useState('');
@@ -96,7 +96,6 @@ export function Bills({ tabs }: { tabs: ReactNode }) {
         {history}
       </>
     }>
-      {tabs}
       <div>
         <p className="label">Your bills</p>
         <h1 className="text-2xl font-bold">📅 Bills</h1>

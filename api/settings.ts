@@ -23,6 +23,7 @@ const Body = z.object({
   saving: z.object({ keepOriginal: z.boolean() }),
   bills: z.object({ track: z.boolean() }),
   cleanup: z.object({ enabled: z.boolean(), days: z.number().int().min(7).max(3650), what: z.enum(['files', 'all']) }),
+  place: z.object({ zip: z.string().trim().regex(/^\d{5}$/, 'must be 5 digits') }).default({ zip: '45245' }),
 });
 
 /** GET /api/settings -> the settings (what you chose, or the starting values from Vercel). */
