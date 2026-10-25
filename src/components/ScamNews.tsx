@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import type { ModelChoice, ScamNews } from '../lib/types';
-import { refreshStatus } from '../lib/useStatus';
+import { refreshStatus, useStatus } from '../lib/useStatus';
 import { ModelMenu, needsSearch } from './ModelMenu';
 import { Fold } from './ui';
 
@@ -14,7 +14,7 @@ export function NewsList({ n }: { n: ScamNews }) {
       <ul className="space-y-2">
         {n.items.map((x, i) => (
           <li key={i} className="rounded-xl border border-stone-200/80 bg-white/60 p-2.5 text-sm">
-            <p className="font-semibold text-stone-900">{x.name}{x.who && <span className="ml-1.5 text-xs font-normal text-stone-500">· {x.who}</span>}</p>
+            <p className="font-semibold text-stone-900">{x.local && <span className="mr-1.5 rounded-full bg-teal-50 px-1.5 py-0.5 text-[11px] font-semibold text-teal-800">📍 Your area</span>}{x.name}{x.who && <span className="ml-1.5 text-xs font-normal text-stone-500">· {x.who}</span>}</p>
             <p className="text-stone-700">{x.how}</p>
             <p className="mt-0.5 text-teal-800">👉 {x.tell}</p>
           </li>
@@ -40,6 +40,9 @@ function NewsBody() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => { void api.news().then((r) => setNews(r.news), () => setNews(null)); }, []);
+  // 📍 A list made for another ZIP code is offered again.
+  const zip = useStatus()?.settings?.place?.zip;
+  const moved = !!(news?.zip && zip && news.zip !== zip);
   const make = async (m?: ModelChoice) => {
     setBusy(true);
     setError('');
@@ -60,7 +63,7 @@ function NewsBody() {
       {busy ? <p className="panel scan text-sm text-teal-800"><span className="spinner" /> Searching this week’s news…</p> : (
         <>
           {error && <p className="break-words text-sm text-amber-800">{error}</p>}
-          {(!news || old >= 7) && <button className="btn-primary w-full" onClick={() => void make()}>📰 {news ? `This list is ${old} days old: get this week’s` : 'Get this week’s list'} (1 AI check)</button>}
+          {(!news || old >= 7 || moved) && <button className="btn-primary w-full" onClick={() => void make()}>📰 {moved ? `Made for ZIP ${news!.zip}: get one for ${zip}` : news ? `This list is ${old} days old: get this week’s` : 'Get this week’s list'} (1 AI check)</button>}
           <ModelMenu label={error ? 'Continue with another model' : news ? '↻ Update now with a model' : 'Pick the model'} primary={!!error} cannot={needsSearch} onPick={(m) => void make(m)} />
         </>
       )}

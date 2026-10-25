@@ -3,6 +3,7 @@ import { api, setCode } from '../lib/api';
 import { getPrefs, setPrefs, type DevicePrefs } from '../lib/history';
 import { deleteAllChecks } from '../lib/batch';
 import { PROVIDERS, modelFor, pickModel, providerOf, type AiMode, type AppSettings, type Effort, type ListEntry } from '../lib/types';
+import { DEFAULT_ZIP, zipState } from '../lib/place';
 import { refreshStatus, setStatusSettings, useStatus, useStatusError } from '../lib/useStatus';
 import { Field, Fold, Rail, Shell, Toggle, openFold, toast, Slide } from '../components/ui';
 import { APP_BUILD, installUpdate, latestApp } from '../components/AppUpdate';
@@ -14,7 +15,21 @@ const MODES: { id: AiMode; name: string; hint: string }[] = [
   { id: 'always', name: 'Always', hint: 'Every check gets the AI’s opinion too (uses more AI checks).' },
   { id: 'never', name: 'Never', hint: 'Free checks only. Pictures and PDFs can’t be read without the AI, and no “Ask the AI” button.' },
 ];
-const SECTIONS = [['ai', '🤖 AI'], ['checks', '🔎 Free checks'], ['pictures', '📷 Pictures'], ['saving', '⭐ Saving, bills & clean-up'], ['lists', '✅ Trusted & 🚫 Blocked'], ['device', '📱 This device']] as const;
+const SECTIONS = [['ai', '🤖 AI'], ['place', '📍 Your area'], ['checks', '🔎 Free checks'], ['pictures', '📷 Pictures'], ['saving', '⭐ Saving, bills & clean-up'], ['lists', '✅ Trusted & 🚫 Blocked'], ['device', '📱 This device']] as const;
+
+/** 📍 Your ZIP code: saved when you leave the box or press Enter (5 digits). */
+function ZipBox({ zip, onSave }: { zip: string; onSave: (z: string) => void }) {
+  const [v, setV] = useState(zip);
+  useEffect(() => setV(zip), [zip]);
+  const commit = () => {
+    const z = v.trim() || DEFAULT_ZIP;
+    if (!/^\d{5}$/.test(z)) return (setV(zip), toast('error', 'A ZIP code is 5 digits, like 45245.'));
+    setV(z);
+    if (z !== zip) onSave(z);
+  };
+  return <input className="input w-28 text-center font-mono" inputMode="numeric" maxLength={5} value={v} aria-label="ZIP code" placeholder={DEFAULT_ZIP}
+    onChange={(e) => setV(e.target.value.replace(/\D/g, ''))} onBlur={commit} onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()} />;
+}
 
 /** A row of choices, one picked (like radio buttons). */
 function Segmented<T extends string | number>({ value, options, onChange, label }: { value: T; options: { id: T; name: string }[]; onChange: (v: T) => void; label: string }) {
@@ -214,6 +229,12 @@ export function Settings() {
             </Field>
           </Section>
 
+          <Section id="place" title="📍 Your area" subtitle={`ZIP code ${cfg.place?.zip ?? DEFAULT_ZIP}${zipState(cfg.place?.zip ?? DEFAULT_ZIP) ? ` · ${zipState(cfg.place?.zip ?? DEFAULT_ZIP)}` : ''}`}>
+            <Field label="ZIP code" hint={`Look-ups find the branch near you, scam news adds ones going around your state, checks know what's local, and phone numbers say if they're from your state. Empty = ${DEFAULT_ZIP}.`}>
+              <ZipBox zip={cfg.place?.zip ?? DEFAULT_ZIP} onSave={(zip) => set('place', { zip })} />
+            </Field>
+          </Section>
+
           <Section id="checks" title="🔎 Free checks" subtitle="Patterns, links, phone numbers and email senders are always checked, for free.">
             <Field label="Google Safe Browsing" hint={st?.safeBrowsing ? 'Checks links against Google’s list of dangerous sites.' : 'Needs a free GOOGLE_SAFE_BROWSING_KEY in Vercel first.'}>
               <Toggle on={cfg.checks.safeBrowsing && !!st?.safeBrowsing} label="Google Safe Browsing" onChange={(v) => st?.safeBrowsing ? set('checks', { safeBrowsing: v }) : toast('info', 'Add GOOGLE_SAFE_BROWSING_KEY in Vercel first.')} />
@@ -244,7 +265,7 @@ export function Settings() {
             <Field label="Keep the original" hint="Ticked by default when you save: the message and the picture or PDF are kept, to see or download later.">
               <Toggle on={cfg.saving.keepOriginal} label="Keep the original by default" onChange={(v) => set('saving', { keepOriginal: v })} />
             </Field>
-            <Field label="📅 Keep track of bills" hint="Safe bills the AI reads go to ⭐ Saved → 📅 Bills, with their due date, and are compared with the same company’s last bill. Free (no extra AI check).">
+            <Field label="📅 Keep track of bills" hint="Safe bills the AI reads go to 🗂️ My checks → 📅 Bills, with their due date, and are compared with the same company’s last bill. Free (no extra AI check).">
               <Toggle on={cfg.bills.track} label="Keep track of bills" onChange={(v) => set('bills', { track: v })} />
             </Field>
             <Field label="🧹 Clean up old saved checks" hint="Runs by itself when you open ⭐ Saved (at most once an hour).">

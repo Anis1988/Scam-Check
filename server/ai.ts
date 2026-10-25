@@ -3,6 +3,7 @@ import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
 import type { AppSettings, FreeProvider, Kind, Provider, Signal } from '../src/lib/types.js';
 import { modelFor, modelName, providerOf } from '../src/lib/types.js';
+import { DEFAULT_ZIP, placeWords } from '../src/lib/place.js';
 import { askGemini } from './gemini.js';
 import { askOpenAI, transcribe } from './openai.js';
 import { takeAi } from './store.js';
@@ -60,7 +61,7 @@ export const Answer = z.object({
 });
 export type AiAnswer = z.infer<typeof Answer>;
 
-export const SYSTEM = `You check messages for scams and phishing for one person in the US (Cincinnati, Ohio). They show you an email, a text message, a bill or invoice, or a screenshot, and want to know if it is safe.
+export const SYSTEM = `You check messages for scams and phishing for one person in the US (their ZIP code is given with each message). They show you an email, a text message, a bill or invoice, or a screenshot, and want to know if it is safe.
 
 How to judge:
 - Look for real scam signs: impersonating a company or agency, pressure or threats, unusual payment (gift cards, crypto, wire, Zelle, Cash App), requests for codes/passwords/account numbers, links whose domain doesn't match the company, mismatched sender, prizes, fake invoices or subscription renewals, toll/package/utility shut-off messages, tech-support pop-ups, remote-access apps, fake jobs, romance or "wrong number" openers, investment promises.
@@ -73,7 +74,7 @@ How to judge:
 
 const KIND_WORDS: Record<Kind, string> = { email: 'an email', text: 'a text message', bill: 'a bill or invoice', screenshot: 'a screenshot', qr: 'the link inside a QR code (from a sign, letter, parking meter or flyer)', voicemail: 'a voicemail or a recorded phone call: listen to who the caller says they are, what they want (money, codes, personal details, a call back) and how they pressure; put what is said in readText' };
 
-export interface AiInput { kind: Kind; text?: string; file?: { mime: string; data: string }; from?: string; signals: Signal[] }
+export interface AiInput { kind: Kind; text?: string; file?: { mime: string; data: string }; from?: string; signals: Signal[]; zip?: string }
 
 /** The words sent with the message (the same for every AI). */
 export function promptText(input: AiInput, cfg: AppSettings['ai']): string {
@@ -82,6 +83,7 @@ export function promptText(input: AiInput, cfg: AppSettings['ai']): string {
     : '- nothing found';
   return [
     `This is ${KIND_WORDS[input.kind]}${input.file ? ' (attached)' : ''}. Today is ${new Date().toISOString().slice(0, 10)}.`,
+    `The person lives near ${placeWords(input.zip ?? DEFAULT_ZIP)}. A "local" utility, sheriff, court, police or town office that does not serve that area is a red flag; for bills, check the company really serves that area.`,
     input.from ? `It came from: ${input.from.slice(0, 80)}` : '',
     input.text ? `<message>\n${input.text.slice(0, 15_000)}\n</message>` : '',
     `Findings of the free automatic checks:\n${found}`,

@@ -6,6 +6,7 @@ import { modelName, providerOf, type DocLevel, type DocResult, type ModelChoice 
 import { refreshStatus, useStatus } from '../lib/useStatus';
 import { CheckedBy } from '../components/ResultCard';
 import { Fold, Rail, Shell, toast, Slide } from '../components/ui';
+import { CameraButton } from '../components/Camera';
 import { SeoView, seoOverall } from '../components/SeoView';
 
 /**
@@ -184,6 +185,7 @@ function DocDrop({ label, hint, picked, onFiles, disabled }: { label: string; hi
         <span className="font-display font-semibold text-teal-900">{picked ? <span className="break-all">{picked}</span> : label}</span>
         <span className="text-xs text-stone-500">{picked ? 'Tap to pick another one' : hint}</span>
       </button>
+      <CameraButton mode="photo" label="📷 Photograph the pages" max={6} disabled={disabled} onFiles={onFiles} className="btn mt-2 w-full" />
     </div>
   );
 }

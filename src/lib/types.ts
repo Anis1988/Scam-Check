@@ -166,6 +166,7 @@ export interface AppSettings {
   saving: { keepOriginal: boolean }; // "Keep the original" ticked by default
   bills: { track: boolean }; // safe bills go to 📅 Bills (due dates, compared to last time)
   cleanup: { enabled: boolean; days: number; what: 'files' | 'all' }; // auto clean-up of ⭐ Saved
+  place: { zip: string }; // 📍 your ZIP code: look-ups, scam news and checks think of your area
 }
 export const DEFAULT_SETTINGS: AppSettings = {
   ai: { mode: 'ask', model: 'claude-opus-5-5', dailyLimit: 5, unlimited: false, effort: 'low', summaries: true, provider: 'claude', geminiModel: 'gemini-flash-latest', geminiDailyLimit: 50, privateToClaude: false, freeModels: { groq: 'meta-llama/llama-4-maverick-17b-128e-instruct', openrouter: 'meta-llama/llama-4-maverick:free' }, freeDailyLimit: 50 },
@@ -174,6 +175,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   saving: { keepOriginal: true },
   bills: { track: true },
   cleanup: { enabled: false, days: 90, what: 'files' },
+  place: { zip: '45245' },
 };
 
 /** "$1,234.50" */
@@ -251,6 +253,7 @@ export interface CompanyInfo {
   hours?: string;
   address?: string;
   scamWarning?: string; // common scams that pretend to be this company
+  nearYou?: { place: string; address: string; phone?: string; phoneNote?: string; phoneLevel?: Signal['level']; hours?: string; zip: string }; // 📍 closest branch to your ZIP code
   sources: { title: string; url: string }[];
   aiBy?: string;
   note?: string;
@@ -283,7 +286,7 @@ export interface DocResult {
 }
 
 /** 📰 Scams going around now (from this week's news, made when asked). */
-export interface ScamNews { items: { name: string; how: string; tell: string; who?: string }[]; sources: { title: string; url: string }[]; aiBy?: string; checkedAt: string }
+export interface ScamNews { items: { name: string; how: string; tell: string; who?: string; local?: boolean }[]; sources: { title: string; url: string }[]; aiBy?: string; zip?: string; checkedAt: string }
 
 /** 🌐 Website SEO: what was read on the page (free) and the AI's view (content, keywords, competitors). */
 export type SeoLevel = 'high' | 'medium' | 'low';

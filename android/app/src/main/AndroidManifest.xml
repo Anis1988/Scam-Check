@@ -63,6 +63,11 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 📷 Camera in the app: photos, video (with sound) and live QR scan. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <!-- ⬆️ Update: the app downloads its new version and opens Android's installer (UpdatePlugin.java). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>
