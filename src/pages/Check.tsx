@@ -11,6 +11,7 @@ import { ResultCard } from '../components/ResultCard';
 import { RecheckBar, needOf, stuck } from '../components/Recheck';
 import { ModelMenu } from '../components/ModelMenu';
 import { ScamNewsFold } from '../components/ScamNews';
+import { CameraButton } from '../components/Camera';
 import { SaveBox } from '../components/SaveBox';
 import { Rail, ScoreRing, Shell, VerdictChip, toast, Slide, Skeleton, Empty } from '../components/ui';
 import { dueText } from '../components/bills';
@@ -330,6 +331,12 @@ export function Check() {
             <span className="font-display font-semibold text-teal-900">{kind === 'bill' ? 'Add photos or PDFs of bills' : kind === 'qr' ? 'Take or choose photos of QR codes' : kind === 'email' ? 'Add the email file (.eml)' : kind === 'voicemail' ? 'Add a voicemail or call recording' : 'Add screenshots'}</span>
             <span className="text-xs text-stone-500">{kind === 'email' ? 'In Gmail: ⋮ → Download message. In Outlook: Save as. Then tap here or drag it in.' : kind === 'voicemail' ? 'From your phone: open the voicemail → Share or Save, then add it here · up to 3 minutes each' : `Tap to choose, or drag & drop here · up to ${maxBatch} at once · each gets its own result`}</span>
           </button>
+          {(kind === 'screenshot' || kind === 'bill' || kind === 'qr') && (
+            <div className="flex gap-2">
+              {kind === 'qr' && <CameraButton mode="qr" label="🔳 Scan live" disabled={busy} onFiles={(f) => void addFiles(f)} className="btn-primary flex-1" />}
+              <CameraButton mode="photo" label={kind === 'qr' ? '📷 Photo' : '📷 Take a photo'} max={Math.max(1, maxBatch - files.length)} disabled={busy || files.length >= maxBatch} onFiles={(f) => void addFiles(f)} />
+            </div>
+          )}
           {files.length > 0 && (
             <div>
               <p className="hud mb-1.5">{files.length} file{files.length > 1 ? 's' : ''}{files.length > 1 ? ' · each checked on its own' : ''}</p>

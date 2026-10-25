@@ -124,7 +124,7 @@ const COMPANY: CompanyInfo = {
 };
 
 const SECTIONS = [
-  ['how', 'How it works'], ['tabs', '🗂️ The tabs'], ['many', '📥 Drag & drop, several at once'], ['voicemail', '🎙️ Voicemails and calls'], ['docs', '📄 Documents'], ['seo', '🌐 Website SEO'], ['news', '📰 Scams going around'], ['video', '🎬 Video: is it true?'], ['company', '🏢 Look up a company'], ['lookup', '⚡ Quick look-up'], ['place', '📍 Your area'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
+  ['how', 'How it works'], ['tabs', '🗂️ The tabs'], ['camera', '📷 Camera & live QR scan'], ['many', '📥 Drag & drop, several at once'], ['voicemail', '🎙️ Voicemails and calls'], ['docs', '📄 Documents'], ['seo', '🌐 Website SEO'], ['news', '📰 Scams going around'], ['video', '🎬 Video: is it true?'], ['company', '🏢 Look up a company'], ['lookup', '⚡ Quick look-up'], ['place', '📍 Your area'], ['qr', '🔳 QR codes'], ['checks', 'What it checks'], ['summary', '📋 Summary of safe ones'],
   ['saving', '⭐ Saving and names'], ['billtrack', '📅 Bills'], ['lists', '✅ Trusted & 🚫 Blocked'], ['cleanup', '🧹 Automatic clean-up'], ['whichai', '🤖 Which AI'], ['search', '🔎 Search History'], ['recheck', '↻ Re-check'], ['failed', '⚠️ When an AI fails'], ['look', '🌙 Dark mode'], ['feel', '✨ Look and feel'], ['sync', '🔄 Same on phone & computer'], ['myapps', '📊 On your “My apps” page'], ['tidy', '📂 Fold & 🗑 delete'], ['settings', '⚙️ Settings'], ['bills', 'Bills and screenshots'],
   ['share', 'Share from your phone'], ['iphone', '🍏 iPhone'], ['scam', 'If it’s a scam'], ['privacy', 'Privacy and cost'],
 ] as const;
@@ -301,6 +301,19 @@ export function Guide() {
         <p>This Guide is the <b>❓</b> button at the top, next to ☀️/🌙. Each tab opens the choice you used last.</p>
         <p className="text-xs text-stone-500">Example (made up; it only moves the marker here):</p>
         <TabsDemo />
+      </Section>
+
+      <Section id="camera">
+        <p>You can use the <b>camera</b> right in the app, no need to save a photo first:</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>🛡️ Check → Screenshot or Bill:</b> tap <b>📷 Take a photo</b>. Take several in a row, then tap <b>Done</b>. Each photo is its own check (1 AI check each).</li>
+          <li><b>🛡️ Check → QR code:</b> tap <b>🔳 Scan live</b> and point the camera at the code. It’s read by itself on your phone, for free, and its link is checked without opening it.</li>
+          <li><b>🛡️ Check → 🎬 Video:</b> tap <b>🎥 Record a video</b> (up to 2 minutes), then stop: it’s checked like an uploaded video.</li>
+          <li><b>📄 Docs:</b> tap <b>📷 Photograph the pages</b> (up to 6) to have a paper explained.</li>
+        </ul>
+        <p>The first time, your phone asks if the app may use the camera: tap <b>Allow</b>. If the camera can’t open, the app offers your phone’s own camera instead.</p>
+        <p className="text-xs text-stone-500">Example (made up, the buttons do nothing here):</p>
+        <div className="card flex gap-2"><button type="button" className="btn-primary flex-1" tabIndex={-1}>🔳 Scan live</button><button type="button" className="btn flex-1" tabIndex={-1}>📷 Photo</button></div>
       </Section>
 
       <Section id="news">

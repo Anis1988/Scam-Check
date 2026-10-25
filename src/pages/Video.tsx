@@ -5,6 +5,7 @@ import { ModelMenu } from '../components/ModelMenu';
 import { FACT_LABEL, modelName, providerOf, type FactVerdict, type ModelChoice, type Provider, type VideoResult } from '../lib/types';
 import { refreshStatus, useStatus } from '../lib/useStatus';
 import { CheckedBy } from '../components/ResultCard';
+import { CameraButton } from '../components/Camera';
 import { Rail, Shell, toast } from '../components/ui';
 
 /**
@@ -240,6 +241,7 @@ export function Video({ sharedLink = '' }: { sharedLink?: string }) {
           <span className="font-display font-semibold text-teal-900">Upload a video</span>
           <span className="text-xs text-stone-500">Tap to choose, or drag & drop here · up to 500 MB (about 20 minutes with Gemini)</span>
         </button>
+        <CameraButton mode="video" label="🎥 Record a video" disabled={!ready || left === 0} onFiles={(f) => addFile(f[0])} className="btn w-full" />
         <form className="flex gap-2" onSubmit={(e) => (e.preventDefault(), addLink())}>
           <input className="input min-w-0 flex-1" value={link} onChange={(e) => setLink(e.target.value)} placeholder="Or paste a YouTube / TikTok link" inputMode="url" autoCapitalize="off" spellCheck={false} aria-label="Video link" />
           <button className="btn" disabled={!ready || left === 0 || !link.trim()}>Check</button>
