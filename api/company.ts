@@ -9,6 +9,7 @@ import { jsonIn } from '../server/gemini.js';
 import { checkPhones } from '../server/phones.js';
 import { COMPANIES, db, getSettings, syncedDel, syncedList, syncedPut, takeAi } from '../server/store.js';
 import { placeWords } from '../src/lib/place.js';
+import { MASTER_AI_TEXT, masterSwitch } from '../server/masterSwitch.js';
 
 /**
  * 🏢 Look up a company: what they do, their real website, customer service phone and email, contact page. Always
@@ -73,6 +74,7 @@ async function makeNews(b: z.infer<typeof NewsBody>): Promise<Response> {
   const tried = modelName(p, modelFor(cfg.ai, p));
   if (!ready(p)) return json({ error: `${providerOf(p).name} isn’t set up (${providerOf(p).env} in Vercel): pick another model.`, tried }, 503);
   if (p === 'openrouter') return json({ error: 'OpenRouter’s free models can’t search the web: pick Gemini, Claude or Groq.', tried }, 400);
+  if ((await masterSwitch()).ai) return json({ error: MASTER_AI_TEXT, tried }, 423); // 🎛️ paused from Master
   if (!(await takeAi(p))) return json({ error: `Today’s ${providerOf(p).name} checks are used up (daily limit in Settings): pick another model to continue.`, tried }, 429);
   try {
     const g = await askWithSearch(p, cfg.ai, { instructions: NEWS_RULES, text: `Today is ${new Date().toISOString().slice(0, 10)}. The person lives near ${placeWords(cfg.place.zip)}. What scams are going around now?`, search: true });
@@ -148,6 +150,7 @@ export async function POST(req: Request): Promise<Response> {
     const p = cfg.ai.provider;
     if (!ready(p)) return json({ error: `${providerOf(p).name} isn’t set up (${providerOf(p).env} in Vercel): pick another model.` }, 503);
     if (p === 'openrouter') return json({ error: 'OpenRouter’s free models can’t search the web, and contact details must come from a live search: pick Gemini, Claude or Groq.' }, 400);
+    if ((await masterSwitch()).ai) return json({ error: MASTER_AI_TEXT }, 423); // 🎛️ paused from Master
     if (!(await takeAi(p))) return json({ error: `Today’s ${providerOf(p).name} checks are used up (daily limit in Settings): pick another model to continue.` }, 429);
     const g = await askWithSearch(p, cfg.ai, { instructions: INSTRUCTIONS, text: `Company: ${b.name}\nThe person lives near ${placeWords(zip)}.`, search: true });
     const o = jsonIn(g.text);

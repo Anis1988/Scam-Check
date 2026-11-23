@@ -9,6 +9,7 @@ import { buildResult, freeChecks } from '../server/analyze.js';
 import { mergeAi } from '../server/merge.js';
 import { getResult, getSettings, recordBill, saveResult, takeAi } from '../server/store.js';
 import { Body, idOf, out } from './check.js';
+import { MASTER_AI_TEXT, masterSwitch } from '../server/masterSwitch.js';
 
 const AiBody = Body.extend({
   file: z.object({ mime: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf', 'audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/webm', 'audio/flac']), data: z.string().max(4_300_000).regex(/^[A-Za-z0-9+/=]+$/) }).optional(),
@@ -61,6 +62,7 @@ async function work(b: z.infer<typeof AiBody>, id: string, text: string, cached:
     if (!prov) return keep(noAiNote(cfg.ai, priv), { ...base, ai: 'off', aiNote: noAiNote(cfg.ai, priv) });
     const tried = aiName(prov, cfg.ai);
     const over = `Today’s ${providerOf(prov).name} checks are used up (daily limit in Settings). The result below is from the free checks: pick another model to continue.`;
+    if ((await masterSwitch()).ai) return keep(MASTER_AI_TEXT, { ...base, ai: 'off', aiNote: MASTER_AI_TEXT }); // 🎛️ paused from Master: the free checks still count
     if (!(await takeAi(prov))) return keep(over, { ...base, ai: 'limit', aiNote: over, aiTried: tried, unchecked: !text || undefined });
     let result: CheckResult;
     try {

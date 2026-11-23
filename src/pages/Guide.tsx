@@ -509,6 +509,7 @@ export function Guide() {
         <p>It asks with your <b>same access code</b>, and only that page may ask; it can only read, never change anything. The cost is an <b>estimate</b> (a few cents per Claude check, depending on the model picked in Settings); the free AIs count as $0. The week and month numbers count from Oct 16, 2026, when the app started keeping each day’s AI count.</p>
         <p className="text-xs text-stone-500">Example (made up):</p>
         <MyAppsDemo />
+        <p><b>🎛️ Master</b> (your dashboard of all your apps) can pause Scam Check or switch its AI off, together with your other apps. While the AI is off there, checks still run all the free checks and say <b>“The AI is paused from Master”</b>; Look up, Video and Docs tell you so. Turn it back on in Master: it counts here within a minute.</p>
       </Section>
 
       <Section id="tidy">
