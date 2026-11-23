@@ -2,6 +2,7 @@ import { Redis } from '@upstash/redis';
 import type { AppSettings, Bill, BillCompare, CheckResult, ListEntry, Provider, SavedItem } from '../src/lib/types.js';
 import { DEFAULT_SETTINGS, PROVIDERS } from '../src/lib/types.js';
 import { LocalStore } from './localStore.js';
+import { stopIfPaused } from './masterSwitch.js';
 
 /**
  * Upstash Redis (Vercel → Storage → Upstash for Redis, free): check results (7 days by default: the same message is
@@ -96,8 +97,12 @@ export async function aiUsed(p: Provider = 'claude'): Promise<number> {
   return Number((await db()?.get<number>(dayKey(p))) ?? 0);
 }
 
-/** Takes one AI check from today's budget of that AI (atomic); false when the limit is reached. */
+/**
+ * Takes one AI check from today's budget of that AI (atomic); false when the limit is reached.
+ * Throws (423) while the AI is switched off from Master, the owner's apps dashboard (`server/masterSwitch.ts`).
+ */
 export async function takeAi(p: Provider = 'claude'): Promise<boolean> {
+  await stopIfPaused('ai');
   const r = db();
   if (!r) return false;
   const limit = await aiLimit(p);
